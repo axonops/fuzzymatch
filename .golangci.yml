@@ -1,0 +1,67 @@
+# golangci-lint configuration for fuzzymatch.
+#
+# Schema: v2 (https://golangci-lint.run/docs/configuration/file/).
+# Run locally via `make lint`; CI runs the same target in .github/workflows/ci.yml.
+#
+# Curated linter set per .planning/research/STACK.md and CLAUDE.md "Workflow —
+# Agent Gates". The misspell locale is UK per
+# .claude/skills/documentation-standards. Formatters are split out into their
+# own block — that is the v2-mandated layout (run `golangci-lint migrate` to
+# convert a v1 config). gosec runs informationally here; the definitive gosec
+# pass happens in .github/workflows/security.yml with SARIF upload.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - gocyclo
+    - ineffassign
+    - unused
+    - unparam
+    - misspell
+    - gocritic
+    - bodyclose
+    - errorlint
+    - exhaustive
+    - gosec
+  settings:
+    gocyclo:
+      min-complexity: 10
+    revive:
+      confidence: 0.8
+    misspell:
+      locale: UK
+    gosec:
+      severity: low
+      confidence: low
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - exhaustive
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/axonops/fuzzymatch
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
