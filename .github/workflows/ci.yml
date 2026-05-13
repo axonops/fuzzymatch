@@ -1,7 +1,12 @@
-# CI — runs `make check` (the canonical pre-PR aggregate gate) on every PR
-# and every push to main, plus a markdownlint pass. The matrix is expanded
-# to the full cross-platform set in plan 01-04 (determinism infra); this
-# workflow currently runs on ubuntu-latest only.
+# CI — runs `make check` (the canonical pre-PR aggregate gate) plus
+# `make verify-determinism` on every PR and every push to main, across
+# the full 5-platform matrix (linux/amd64, linux/arm64, darwin/amd64,
+# darwin/arm64, windows/amd64). Plus a markdownlint pass and a
+# benchstat-comparison job (informational only per D-09 — see comment
+# block on the `bench-compare-informational` job below).
+#
+# Plan 01-04 (determinism infra) expanded the matrix from the single
+# ubuntu-latest baseline that plan 01-02 (quality gates) landed.
 name: CI
 
 on:
@@ -13,10 +18,39 @@ on:
 permissions:
   contents: read
 
+env:
+  # Workflow-level enforcement of the no-cgo guarantee on every matrix
+  # entry. fuzzymatch is pure Go; cgo would invalidate the cross-platform
+  # determinism + supply-chain story.
+  CGO_ENABLED: "0"
+
 jobs:
   quality:
-    name: make check
-    runs-on: ubuntu-latest
+    name: "make check (${{ matrix.label }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            label: linux-amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            label: linux-arm64
+          # `macos-13` (the plan's nominal Intel target) has been retired
+          # from the GitHub-hosted runner pool; `macos-15-intel` is the
+          # current latest Intel macOS image. Recorded in
+          # .planning/phases/01-foundation-infrastructure/01-04-determinism-infra-SUMMARY.md.
+          - os: macos-15-intel
+            arch: amd64
+            label: darwin-amd64
+          - os: macos-latest
+            arch: arm64
+            label: darwin-arm64
+          - os: windows-latest
+            arch: amd64
+            label: windows-amd64
     permissions:
       contents: read
     steps:
@@ -36,8 +70,51 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           go install golang.org/x/tools/cmd/goimports@latest
 
+      # `make verify-determinism` runs `go test -run TestGolden_ ./...`
+      # which marshals the current code output via canonicalMarshal and
+      # diffs byte-for-byte against the committed testdata/golden/*.json
+      # files. Any divergence on ANY platform fails that platform's job
+      # (D-14). It runs BEFORE `make check` so a determinism break is
+      # surfaced immediately, not buried inside the aggregate output.
+      - name: verify determinism
+        run: make verify-determinism
+
       - name: make check
         run: make check
+
+  bench-compare-informational:
+    # Per D-09 (`.planning/phases/01-foundation-infrastructure/01-CONTEXT.md`):
+    # benchstat regression checking is INFORMATIONAL only on
+    # GitHub-hosted runners. Hardware noise on shared GHR runners is too
+    # high to use as a CI-blocking gate. The job runs `make bench` then
+    # `make bench-compare` and prints the diff to the PR check summary
+    # but does NOT block merge. PERF-04's blocking-regression gate
+    # (`>10%` at `p<0.05`) is re-enabled when a self-hosted bench runner
+    # becomes available (tracked as a Deferred Item in CONTEXT.md).
+    name: bench-compare (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: make bench
+        run: make bench
+
+      - name: make bench-compare
+        run: make bench-compare
 
   markdownlint:
     name: markdownlint

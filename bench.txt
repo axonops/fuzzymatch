@@ -1,0 +1,10 @@
+# benchstat baseline for github.com/axonops/fuzzymatch
+#
+# Populated by `make bench` from a local workstation per CONTRIBUTING (D-09).
+# Empty until the first algorithm benchmark lands in Phase 2.
+#
+# Format: standard `go test -bench=. -benchmem -count=10` output. benchstat
+# reads it as the A side of an A/B comparison against bench.txt.new (the
+# fresh output of `make bench`). CI runs `make bench-compare`
+# informationally (continue-on-error: true) per D-09 — no PR-blocking
+# regression gate until a self-hosted bench runner is available.
