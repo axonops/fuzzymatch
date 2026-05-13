@@ -1,0 +1,85 @@
+name: Algorithm proposal
+description: Propose adding a new similarity algorithm to the catalogue
+title: "algo: "
+labels:
+  - algorithm-proposal
+  - needs-licence-screen
+  - needs-triage
+body:
+  - type: input
+    id: algorithm-name
+    attributes:
+      label: Algorithm name
+      placeholder: e.g. Needleman-Wunsch global alignment
+    validations:
+      required: true
+  - type: textarea
+    id: primary-source
+    attributes:
+      label: Primary academic source citation
+      description: |
+        Full citation: author(s), year, title, journal or conference,
+        page range, DOI if available. We implement against the primary
+        source — surveys and textbook summaries are insufficient.
+      placeholder: |
+        Needleman, S. B. and Wunsch, C. D. (1970). "A general method
+        applicable to the search for similarities in the amino acid
+        sequence of two proteins." Journal of Molecular Biology
+        48 (3): 443-453. doi:10.1016/0022-2836(70)90057-4.
+    validations:
+      required: true
+  - type: dropdown
+    id: patent-screen
+    attributes:
+      label: Patent screen status
+      description: |
+        "unknown" triggers algorithm-licensing-reviewer screening
+        BEFORE any implementation work begins.
+      options:
+        - "yes (patent-encumbered — likely rejected)"
+        - "no (patent-clear)"
+        - "unknown (please screen)"
+    validations:
+      required: true
+  - type: textarea
+    id: existing-impls
+    attributes:
+      label: Existing Go implementations studied
+      description: |
+        List any open-source implementations you consulted, with
+        licences. These are used for reference-vector cross-validation
+        only — no code is copied. GPL/LGPL implementations MUST NOT
+        be consulted at all.
+    validations:
+      required: false
+  - type: textarea
+    id: reference-vectors
+    attributes:
+      label: Expected reference vectors
+      description: |
+        At least 3 input → expected-output pairs drawn from the
+        primary source. These become the unit tests' canonical
+        reference vectors.
+      placeholder: |
+        "abc", "abc"      => 1.0   (identity, from Author Year p. N)
+        "abc", "xyz"      => 0.0   (no overlap, Author Year p. N)
+        "kitten", "sitting" => 0.61538... (Author Year Table 2)
+    validations:
+      required: true
+  - type: input
+    id: related-algos
+    attributes:
+      label: Related algorithms in our catalogue
+      description: Which existing algorithms in docs/algorithms.md does this resemble or complement?
+    validations:
+      required: false
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale for inclusion
+      description: |
+        Why is this algorithm worth adding given our curated-catalogue
+        discipline? What use case does it serve that the existing 23
+        algorithms don't?
+    validations:
+      required: true

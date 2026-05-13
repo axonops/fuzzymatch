@@ -148,6 +148,7 @@ coverage:
 # contains no profiled statements (no test files yet), it exits 0 with
 # a "pending Phase 2" note. From Phase 2 onwards the floors are
 # enforced unconditionally.
+## suppress: internal helper invoked by `make check`; not user-facing.
 coverage-check:
 	bash scripts/verify-coverage-floors.sh $(COVERAGE_FILE)
 

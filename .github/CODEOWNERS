@@ -1,0 +1,8 @@
+# CODEOWNERS routes review. Expand to per-area routing as the project
+# grows (e.g. /scan/* @reviewer-A, /algorithms/* @reviewer-B). The
+# initial state is single-team routing.
+#
+# Per-line precedence: the last matching pattern wins, per GitHub's
+# CODEOWNERS documentation.
+
+* @axonops/fuzzymatch-maintainers
