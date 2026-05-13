@@ -1,0 +1,103 @@
+# Release workflow — TAG PUSH ONLY.
+#
+# This workflow exists to make local releases structurally impossible.
+# It triggers exclusively on `refs/tags/v*` (push.tags). No other trigger
+# is permitted — neither manual dispatch, nor repository dispatch, nor
+# schedule, nor pull-request. CLAUDE.md "Releases — CI Only" forbids any
+# local tagging path; the devops agent flags any drift here as BLOCKING.
+#
+# Pipeline:
+#   1. goreleaser/goreleaser-action@v7  →  source tarball + checksums.txt + Syft SBOM + GitHub Release
+#   2. cosign sign-blob --bundle        →  keyless OIDC signing of checksums.txt
+#   3. gh release upload                →  attach the bundle to the GitHub Release
+#   4. actions/attest-build-provenance  →  OIDC build-provenance attestation over dist/*.tar.gz
+#   5. cosign verify-blob               →  proves the signature verifies before workflow exit
+#
+# Spec: docs/requirements.md §17.1 (release.yml); STACK.md Release Stack.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Workflow-level: least-privilege baseline. Job-level escalation only.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: goreleaser + cosign + attest
+    runs-on: ubuntu-latest
+    # Per-job least-privilege escalation. Each scope is justified:
+    #   contents: write       — create the GitHub Release and upload assets
+    #   id-token: write       — OIDC for cosign keyless and attest-build-provenance
+    #   attestations: write   — actions/attest-build-provenance@v2 writes attestations
+    #   packages: read        — fetch container images if cosign installer needs them
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      packages: read
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: "v3.0.1"
+
+      - name: Install Syft (for GoReleaser sboms hook)
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: GoReleaser
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cosign keyless-sign checksums.txt
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cosign sign-blob --yes \
+            --bundle dist/checksums.txt.bundle \
+            --oidc-issuer https://token.actions.githubusercontent.com \
+            dist/checksums.txt
+
+      - name: Upload cosign bundle to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" dist/checksums.txt.bundle --clobber
+
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/*.tar.gz"
+
+      - name: Verify cosign bundle (post-release sanity check)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cosign verify-blob \
+            --bundle dist/checksums.txt.bundle \
+            --certificate-identity-regexp 'https://github.com/axonops/fuzzymatch/.+' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            dist/checksums.txt
