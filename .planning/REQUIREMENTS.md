@@ -193,110 +193,128 @@ Deferred to post-v1.0. Tracked but not in current roadmap.
 
 ## Traceability
 
-Empty initially. Populated by `gsd-roadmapper` during roadmap creation. Each requirement maps to exactly one phase.
+Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for phase details and success criteria.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | TBD | Pending |
-| FOUND-02 | TBD | Pending |
-| FOUND-03 | TBD | Pending |
-| FOUND-04 | TBD | Pending |
-| FOUND-05 | TBD | Pending |
-| CHAR-01 | TBD | Pending |
-| CHAR-02 | TBD | Pending |
-| CHAR-03 | TBD | Pending |
-| CHAR-04 | TBD | Pending |
-| CHAR-05 | TBD | Pending |
-| CHAR-06 | TBD | Pending |
-| CHAR-07 | TBD | Pending |
-| CHAR-08 | TBD | Pending |
-| CHAR-09 | TBD | Pending |
-| QGRAM-01 | TBD | Pending |
-| QGRAM-02 | TBD | Pending |
-| QGRAM-03 | TBD | Pending |
-| QGRAM-04 | TBD | Pending |
-| QGRAM-05 | TBD | Pending |
-| TOKEN-01 | TBD | Pending |
-| TOKEN-02 | TBD | Pending |
-| TOKEN-03 | TBD | Pending |
-| TOKEN-04 | TBD | Pending |
-| TOKEN-05 | TBD | Pending |
-| PHON-01 | TBD | Pending |
-| PHON-02 | TBD | Pending |
-| PHON-03 | TBD | Pending |
-| PHON-04 | TBD | Pending |
-| GESTALT-01 | TBD | Pending |
-| SCORER-01 | TBD | Pending |
-| SCORER-02 | TBD | Pending |
-| SCORER-03 | TBD | Pending |
-| SCORER-04 | TBD | Pending |
-| SCORER-05 | TBD | Pending |
-| SCORER-06 | TBD | Pending |
-| SCORER-07 | TBD | Pending |
-| SCORER-08 | TBD | Pending |
-| SCAN-01 | TBD | Pending |
-| SCAN-02 | TBD | Pending |
-| SCAN-03 | TBD | Pending |
-| SCAN-04 | TBD | Pending |
-| SCAN-05 | TBD | Pending |
-| SCAN-06 | TBD | Pending |
-| EXTRACT-01 | TBD | Pending |
-| EXTRACT-02 | TBD | Pending |
-| EXTRACT-03 | TBD | Pending |
-| EXTRACT-04 | TBD | Pending |
-| EXTRACT-05 | TBD | Pending |
-| DET-01 | TBD | Pending |
-| DET-02 | TBD | Pending |
-| DET-03 | TBD | Pending |
-| DET-04 | TBD | Pending |
-| DET-05 | TBD | Pending |
-| DET-06 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| PERF-05 | TBD | Pending |
-| PERF-06 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| TEST-05 | TBD | Pending |
-| TEST-06 | TBD | Pending |
-| TEST-07 | TBD | Pending |
-| TEST-08 | TBD | Pending |
-| CI-01 | TBD | Pending |
-| CI-02 | TBD | Pending |
-| CI-03 | TBD | Pending |
-| CI-04 | TBD | Pending |
-| CI-05 | TBD | Pending |
-| CI-06 | TBD | Pending |
-| CI-07 | TBD | Pending |
-| CI-08 | TBD | Pending |
-| CI-09 | TBD | Pending |
-| CI-10 | TBD | Pending |
-| CI-11 | TBD | Pending |
-| REL-01 | TBD | Pending |
-| REL-02 | TBD | Pending |
-| REL-03 | TBD | Pending |
-| REL-04 | TBD | Pending |
-| REL-05 | TBD | Pending |
-| REL-06 | TBD | Pending |
-| REL-07 | TBD | Pending |
-| DX-01 | TBD | Pending |
-| DX-02 | TBD | Pending |
-| DX-03 | TBD | Pending |
-| DX-04 | TBD | Pending |
-| DX-05 | TBD | Pending |
-| DX-06 | TBD | Pending |
-| DX-07 | TBD | Pending |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Pending |
+| FOUND-05 | Phase 1 | Pending |
+| CHAR-01 | Phase 2 | Pending |
+| CHAR-02 | Phase 2 | Pending |
+| CHAR-03 | Phase 2 | Pending |
+| CHAR-04 | Phase 2 | Pending |
+| CHAR-05 | Phase 2 | Pending |
+| CHAR-06 | Phase 2 | Pending |
+| CHAR-07 | Phase 4 | Pending |
+| CHAR-08 | Phase 3 | Pending |
+| CHAR-09 | Phase 4 | Pending |
+| QGRAM-01 | Phase 5 | Pending |
+| QGRAM-02 | Phase 5 | Pending |
+| QGRAM-03 | Phase 5 | Pending |
+| QGRAM-04 | Phase 5 | Pending |
+| QGRAM-05 | Phase 5 | Pending |
+| TOKEN-01 | Phase 6 | Pending |
+| TOKEN-02 | Phase 6 | Pending |
+| TOKEN-03 | Phase 6 | Pending |
+| TOKEN-04 | Phase 6 | Pending |
+| TOKEN-05 | Phase 6 | Pending |
+| PHON-01 | Phase 7 | Pending |
+| PHON-02 | Phase 7 | Pending |
+| PHON-03 | Phase 7 | Pending |
+| PHON-04 | Phase 7 | Pending |
+| GESTALT-01 | Phase 4 | Pending |
+| SCORER-01 | Phase 8 | Pending |
+| SCORER-02 | Phase 8 | Pending |
+| SCORER-03 | Phase 8 | Pending |
+| SCORER-04 | Phase 8 | Pending |
+| SCORER-05 | Phase 8 | Pending |
+| SCORER-06 | Phase 8 | Pending |
+| SCORER-07 | Phase 8 | Pending |
+| SCORER-08 | Phase 8 | Pending |
+| SCAN-01 | Phase 9 | Pending |
+| SCAN-02 | Phase 9 | Pending |
+| SCAN-03 | Phase 9 | Pending |
+| SCAN-04 | Phase 9 | Pending |
+| SCAN-05 | Phase 9 | Pending |
+| SCAN-06 | Phase 9 | Pending |
+| EXTRACT-01 | Phase 10 | Pending |
+| EXTRACT-02 | Phase 10 | Pending |
+| EXTRACT-03 | Phase 10 | Pending |
+| EXTRACT-04 | Phase 10 | Pending |
+| EXTRACT-05 | Phase 10 | Pending |
+| DET-01 | Phase 1 | Pending |
+| DET-02 | Phase 2 | Pending |
+| DET-03 | Phase 1 | Pending |
+| DET-04 | Phase 2 | Pending |
+| DET-05 | Phase 1 | Pending |
+| DET-06 | Phase 1 | Pending |
+| PERF-01 | Phase 2 | Pending |
+| PERF-02 | Phase 2 | Pending |
+| PERF-03 | Phase 2 | Pending |
+| PERF-04 | Phase 1 | Pending |
+| PERF-05 | Phase 9 | Pending |
+| PERF-06 | Phase 1 | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 1 | Pending |
+| TEST-04 | Phase 2 | Pending |
+| TEST-05 | Phase 2 | Pending |
+| TEST-06 | Phase 1 | Pending |
+| TEST-07 | Phase 1 | Pending |
+| TEST-08 | Phase 1 | Pending |
+| CI-01 | Phase 1 | Pending |
+| CI-02 | Phase 1 | Pending |
+| CI-03 | Phase 1 | Pending |
+| CI-04 | Phase 1 | Pending |
+| CI-05 | Phase 1 | Pending |
+| CI-06 | Phase 1 | Pending |
+| CI-07 | Phase 1 | Pending |
+| CI-08 | Phase 1 | Pending |
+| CI-09 | Phase 1 | Pending |
+| CI-10 | Phase 1 | Pending |
+| CI-11 | Phase 1 | Pending |
+| REL-01 | Phase 1 | Pending |
+| REL-02 | Phase 1 | Pending |
+| REL-03 | Phase 1 | Pending |
+| REL-04 | Phase 1 | Pending |
+| REL-05 | Phase 1 | Pending |
+| REL-06 | Phase 1 | Pending |
+| REL-07 | Phase 1 | Pending |
+| DX-01 | Phase 1 | Pending |
+| DX-02 | Phase 2 | Pending |
+| DX-03 | Phase 1 | Pending |
+| DX-04 | Phase 1 | Pending |
+| DX-05 | Phase 2 | Pending |
+| DX-06 | Phase 1 | Pending |
+| DX-07 | Phase 1 | Pending |
+
+**Per-phase requirement counts:**
+
+| Phase | Name | Requirements | Count |
+|-------|------|--------------|-------|
+| 1 | Foundation & Infrastructure | FOUND-01..05, DET-01, DET-03, DET-05, DET-06, PERF-04, PERF-06, TEST-03, TEST-06, TEST-07, TEST-08, CI-01..11, REL-01..07, DX-01, DX-03, DX-04, DX-06, DX-07 | 38 |
+| 2 | Core Character Algorithms (six) | CHAR-01..06, DET-02, DET-04, PERF-01, PERF-02, PERF-03, TEST-01, TEST-02, TEST-04, TEST-05, DX-02, DX-05 | 17 |
+| 3 | Smith-Waterman-Gotoh | CHAR-08 | 1 |
+| 4 | Remaining Character & Gestalt | CHAR-07, CHAR-09, GESTALT-01 | 3 |
+| 5 | Q-gram Algorithms | QGRAM-01..05 | 5 |
+| 6 | Token-based Algorithms | TOKEN-01..05 | 5 |
+| 7 | Phonetic Algorithms | PHON-01..04 | 4 |
+| 8 | Composite Scorer | SCORER-01..08 | 8 |
+| 9 | Collection Scan Sub-package | SCAN-01..06, PERF-05 | 7 |
+| 10 | Extract API | EXTRACT-01..05 | 5 |
+| 11 | Integration Shakedown & v1.0.0 | (validation phase — no unique requirements; ships the work of Phases 1-10) | 0 |
 
 **Coverage:**
-- v1 requirements: 86 total
-- Mapped to phases: 0 (roadmapper pending)
-- Unmapped: 86 ⚠️ (expected — roadmapper populates this section)
+- v1 requirements: 93 total (note: earlier summary cited 86; actual count of v1 requirement IDs across all sections is 93)
+- Mapped to phases: 93 (100% coverage)
+- Unmapped: 0
+- Orphans: none
+- Duplicates: none (each requirement maps to exactly one phase)
 
 ---
 
 *Requirements defined: 2026-05-13*
-*Last updated: 2026-05-13 after initial definition (post-research, with Unicode-in-v1.0 and Extract-API-in-v1.0 scope decisions)*
+*Last updated: 2026-05-13 after roadmap creation — 93 v1 requirements mapped across 11 phases*
