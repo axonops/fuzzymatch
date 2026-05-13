@@ -1,0 +1,33 @@
+# Commit Lint — enforces Conventional Commits on every PR title and
+# every commit in the PR. Rules live in .commitlintrc.yml at the repo
+# root.
+#
+# Spec: CLAUDE.md "Branching & Commits"; STACK.md (wagoid/commitlint-github-action v6).
+name: Commit Lint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run commitlint
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.yml
+          helpURL: https://www.conventionalcommits.org/
+          failOnWarnings: false

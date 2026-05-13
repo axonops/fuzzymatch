@@ -1,0 +1,43 @@
+# Conventional Commits ruleset for fuzzymatch.
+#
+# Enforced by .github/workflows/commitlint.yml on every PR title and
+# commit. Severity levels: 0 = disabled, 1 = warning, 2 = error.
+#
+# Spec: CLAUDE.md "Branching & Commits"; .claude/skills/commit-standards.
+extends:
+  - "@commitlint/config-conventional"
+
+rules:
+  type-enum:
+    - 2
+    - always
+    - - feat
+      - fix
+      - test
+      - docs
+      - chore
+      - refactor
+      - perf
+      - build
+      - ci
+      - style
+      - revert
+  subject-case:
+    - 2
+    - always
+    - lower-case
+  subject-empty:
+    - 2
+    - never
+  subject-full-stop:
+    - 2
+    - never
+    - "."
+  header-max-length:
+    - 2
+    - always
+    - 72
+  scope-case:
+    - 2
+    - always
+    - lower-case
