@@ -1,0 +1,3 @@
+go test fuzz v1
+string("userПриветBaz123XMLHTTPRequest")
+byte(7)
