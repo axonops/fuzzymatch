@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a new feature, API addition, or ergonomic improvement
+title: "feat: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What problem does this solve? Concrete scenarios are more useful than abstract requirements.
+    validations:
+      required: true
+  - type: textarea
+    id: api-shape
+    attributes:
+      label: Proposed API shape (optional)
+      description: |
+        Sketch the proposed function signature, option struct, or configuration field.
+        API-shape proposals are routed to api-ergonomics-reviewer for evaluation.
+      render: go
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you weigh? What did you reject and why?
+    validations:
+      required: false
+  - type: input
+    id: related
+    attributes:
+      label: Related issues or discussions
+      description: Issue numbers, PR numbers, or discussion links.
+    validations:
+      required: false
