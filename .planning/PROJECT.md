@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A standalone Go library for fuzzy string matching — a pluggable catalogue of 23 string-similarity algorithms, a weighted composite `Scorer`, and an optional collection-scan sub-package. Zero runtime dependencies, no cgo, Apache 2.0. Built for Go developers who need a correctness-first, deterministic, production-grade fuzzy-matching toolkit they can drop into any project.
+A standalone Go library for fuzzy string matching — a pluggable catalogue of 23 string-similarity algorithms, a weighted composite `Scorer`, an optional collection-scan sub-package, and a one-to-many `Extract` search API. Stdlib-only with a single curated exception (`golang.org/x/text` for Unicode normalisation), no cgo, Apache 2.0. Built for Go developers who need a correctness-first, deterministic, production-grade fuzzy-matching toolkit they can drop into any project.
 
 ## Core Value
 
@@ -25,6 +25,8 @@ If everything else fails, this must work: a single algorithm function call retur
 - [ ] 23-algorithm catalogue, each implemented from primary academic source with literature-reference unit tests, mathematical-invariant property tests, and BDD scenarios (see `docs/requirements.md` §7)
 - [ ] Weighted composite `Scorer` — immutable, concurrent-safe, configurable threshold and normalisation (see `docs/requirements.md` §8)
 - [ ] Optional `scan` sub-package — turnkey collection-scan layer over the Scorer with suppression semantics (see `docs/requirements.md` §9)
+- [ ] One-to-many `Extract` / `ExtractOne` search API — `process.extract`-equivalent (RapidFuzz-inspired) for "find best matches in a candidate list" workflows (added to v1.0 scope 2026-05-13)
+- [ ] Unicode normalisation in `Normalise` — NFC/NFD + diacritic stripping via `golang.org/x/text/unicode/norm` (the single permitted runtime dep)
 - [ ] Cross-platform determinism — byte-identical output on linux/amd64, linux/arm64, darwin/arm64, windows/amd64 (see `docs/requirements.md` §11)
 - [ ] OSS-first developer experience from v0.1.0 — README, CONTRIBUTING, CHANGELOG, godoc with examples, llms.txt, CI badges (mirrors mask)
 - [ ] Apache-2.0 release plumbing — goreleaser, CLA, DCO, NOTICE, conventional-commit linting in CI (mirrors mask)
@@ -54,7 +56,7 @@ If everything else fails, this must work: a single algorithm function call retur
 
 ## Constraints
 
-- **Tech stack:** Go 1.26+, stdlib only at the root module. No cgo. Test-only dependencies (godog, goleak, testify) isolated in `tests/bdd/go.mod` — never in root `go.mod`. Root tests use stdlib `testing` only.
+- **Tech stack:** Go 1.26+, stdlib + **a single curated runtime dep: `golang.org/x/text`** (Unicode normalisation only). No other runtime deps. No cgo. Test-only dependencies (godog, goleak, testify) isolated in `tests/bdd/go.mod` — never in root `go.mod`. Root tests use stdlib `testing` only. The runtime-dep allowlist is enforced by `make verify-deps-allowlist` in CI; any PR proposing to extend the allowlist requires explicit user approval and `algorithm-licensing-reviewer` sign-off.
 - **Licence:** Apache 2.0. No GPL/LGPL-derived code anywhere. No patent-encumbered algorithms.
 - **Performance:** per-algorithm allocation budgets, ASCII fast paths where applicable, two-row DP for `O(mn)` algorithms, benchstat-tracked regression detection (see `docs/requirements.md` §12).
 - **Determinism:** cross-platform byte-identical output verified by golden-file test in CI matrix (linux amd64+arm64, darwin arm64, windows amd64). No map iteration on output paths. NaN/Inf/-0 handled explicitly. (see `docs/requirements.md` §11)
@@ -72,7 +74,9 @@ If everything else fails, this must work: a single algorithm function call retur
 | Mirror `mask` DX patterns broadly — goreleaser, CLA, DCO, NOTICE, llms.txt, godoc examples — divergences need rationale | `mask` is a working reference; consistency across AxonOps Go libraries lowers cognitive load for contributors | — Pending |
 | Spec-first phasing; do NOT distort v0.1.0 around the audit-event taxonomy use case | Taxonomy work is a downstream consumer, not a v0.1.0 driver; building spec-first keeps the library general | — Pending |
 | §19 phasing is the default but the roadmapper may restructure if it sees a better shape | §19 reflects considered design but isn't load-bearing; user will review and approve the final shape | — Pending |
-| Zero runtime dependencies, no cgo, no testify in root tests | Maximises portability and supply-chain safety; stricter than mask | — Pending |
+| Zero runtime dependencies, no cgo, no testify in root tests | Maximises portability and supply-chain safety; stricter than mask | ⚠️ Revised 2026-05-13 |
+| Narrow runtime-dep allowlist: stdlib + `golang.org/x/text` only (added 2026-05-13) | Unicode NFC/NFD + diacritic stripping is table-stakes for the audit-event taxonomy consumer; inlining a maintained NFC implementation is too much surface area; `x/text` is Go-team curated and supply-chain auditable. All other non-stdlib runtime deps remain forbidden. | — Pending |
+| `Extract` / `ExtractOne` one-to-many search API in v1.0 scope (added 2026-05-13) | Most-requested feature in comparable libraries (RapidFuzz `process.extract`); shipping it in v1.0 differentiates fuzzymatch and removes the most common reason consumers reach for other libraries. May add a phase. | — Pending |
 | Releases happen via CI only; no local tagging | Reproducibility, supply-chain integrity, prevents accidental releases | — Pending |
 | Patent screen before every algorithm implementation (algorithm-licensing-reviewer is a gating agent) | Apache-2.0 hygiene; AxonOps declines patent-encumbered algorithms even where unenforced | — Pending |
 
@@ -94,4 +98,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-13 after initialization*
+*Last updated: 2026-05-13 after initialization and post-research scope adjustments (Unicode normalisation in v1.0, runtime-dep allowlist of `golang.org/x/text`, `Extract` API in v1.0)*
