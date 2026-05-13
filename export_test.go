@@ -30,3 +30,28 @@ package fuzzymatch
 // _test.go compilation. Use WriteGoldenFile (the public test-maintenance
 // wrapper) instead.
 var CanonicalMarshalForTest = canonicalMarshal
+
+// NumAlgorithmsForTest re-exports the unexported numAlgorithms constant
+// to the external test package. Test code asserts the dispatch array
+// is sized for exactly 23 entries; consumers never see this symbol.
+const NumAlgorithmsForTest = numAlgorithms
+
+// DispatchLenForTest returns the length of the unexported dispatch
+// array. Test code uses this to assert (a) the array is sized for
+// numAlgorithms entries, and (b) every entry is nil at the Phase 1
+// state (algorithms register themselves from Phase 2 onwards). The
+// function rather than a direct re-export is used to avoid copying
+// the array (which contains function pointers).
+func DispatchLenForTest() int { return len(dispatch) }
+
+// DispatchEntryNilForTest reports whether the dispatch entry at the
+// given index is currently nil. Phase 1 expects every entry to be
+// nil; future phases populate entries as they implement algorithms.
+//
+// Out-of-range indices return false (the entry doesn't exist).
+func DispatchEntryNilForTest(i int) bool {
+	if i < 0 || i >= len(dispatch) {
+		return false
+	}
+	return dispatch[i] == nil
+}
