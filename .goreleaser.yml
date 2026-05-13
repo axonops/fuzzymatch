@@ -1,0 +1,130 @@
+# GoReleaser configuration — fuzzymatch is a library (no binaries to compile).
+#
+# This file is invoked by .github/workflows/release.yml on tag push only.
+# It produces:
+#   - a source tarball (LICENSE, NOTICE, README, CHANGELOG, docs, Go sources)
+#   - checksums.txt (sha256) covering all release artefacts
+#   - a Syft SPDX-JSON SBOM for the source tarball
+#   - a GitHub Release populated from the CHANGELOG section for this version
+#
+# Cosign keyless signing of checksums.txt happens in release.yml after
+# `goreleaser release` exits. The signed bundle is uploaded as a release
+# asset via `gh release upload`.
+#
+# Spec: docs/requirements.md §17.1 + STACK.md "Release Stack".
+# Pin: GoReleaser v2 (`version: "~> v2"` in release.yml). v2.15.4+ supported.
+
+version: 2
+
+project_name: fuzzymatch
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  # Library: no Go binaries are produced. The `skip: true` entry tells
+  # GoReleaser there is nothing to compile. The archives, checksum, SBOM
+  # and release blocks below still operate on the source tarball.
+  - id: library-no-binaries
+    skip: true
+
+archives:
+  - id: source
+    formats: [tar.gz]
+    name_template: "fuzzymatch_{{ .Version }}_source"
+    wrap_in_directory: "fuzzymatch_{{ .Version }}"
+    files:
+      # Whitelist — only these paths land in the source tarball.
+      - LICENSE
+      - NOTICE
+      - README.md
+      - CHANGELOG.md
+      - go.mod
+      - go.sum
+      - Makefile
+      - .golangci.yml
+      - src: docs
+        dst: docs
+      - src: "**/*.go"
+        dst: .
+    # Explicitly omit the following from the source archive (these are
+    # dev / CI / planning artefacts that do not belong in a release tarball):
+    #   - .planning/   (GSD planning state)
+    #   - .claude/     (Claude Code workspace state)
+    #   - .github/     (CI workflows — not source)
+    #   - dist/        (GoReleaser output)
+    #   - vendor/      (no vendored deps)
+    #   - tests/bdd/   (BDD test harness in its own module)
+    # GoReleaser whitelists files; the omissions above are enforced by
+    # the absence of those globs from the `files:` block.
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - id: default
+    artifacts: archive
+    cmd: syft
+    args:
+      - "$artifact"
+      - "--output"
+      - "spdx-json=$document"
+      - "--source-name"
+      - "fuzzymatch"
+      - "--source-version"
+      - "{{ .Version }}"
+    documents:
+      - "{{ .ArtifactName }}.sbom.spdx.json"
+
+changelog:
+  use: git
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([^)]*\))?:.*$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\([^)]*\))?:.*$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\([^)]*\))?:.*$'
+      order: 2
+    - title: Refactor
+      regexp: '^.*?refactor(\([^)]*\))?:.*$'
+      order: 3
+    - title: Tests
+      regexp: '^.*?test(\([^)]*\))?:.*$'
+      order: 4
+    - title: Docs
+      regexp: '^.*?docs(\([^)]*\))?:.*$'
+      order: 5
+    - title: Chore
+      regexp: '^.*?chore(\([^)]*\))?:.*$'
+      order: 6
+  filters:
+    exclude:
+      - '^Merge '
+      - '^test:'
+      - '^chore: bump version'
+
+release:
+  github:
+    owner: axonops
+    name: fuzzymatch
+  draft: false
+  # Pre-release marked automatically for v0.x.y; flips to false at v1.0.0.
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+  mode: keep-existing
+  # release.yml's cosign step writes dist/checksums.txt.bundle. Listed here
+  # so the release asset set is consistent if `goreleaser release` is the
+  # only step that ever uploads (defence-in-depth — release.yml ALSO calls
+  # `gh release upload` for the bundle).
+  extra_files:
+    - glob: dist/checksums.txt.bundle
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
