@@ -32,8 +32,9 @@ package bdd
 // concretely; until then these blank imports keep the require lines pinned
 // and make `go mod tidy` idempotent.
 import (
-	_ "github.com/axonops/fuzzymatch"
 	_ "github.com/cucumber/godog"
 	_ "github.com/stretchr/testify/assert"
 	_ "go.uber.org/goleak"
+
+	_ "github.com/axonops/fuzzymatch"
 )
