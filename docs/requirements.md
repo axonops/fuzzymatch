@@ -1,0 +1,1812 @@
+# fuzzymatch — Requirements
+
+**Module:** `github.com/axonops/fuzzymatch`
+**License:** Apache-2.0
+**Go version:** 1.26+ minimum
+**Status target:** Pre-release `v0.x` until first downstream consumer integration is exercised end-to-end; then `v1.0.0`.
+**Document status:** Authoritative. This document is the single source of truth for the library's scope, public API, algorithm catalogue, testing requirements, performance budgets, and release acceptance criteria. Where any prior specification document, research note, or chat history disagrees with this document, this document wins.
+
+---
+
+> **Note on API examples.** Code blocks in this document — function signatures, struct definitions, option function names, sentinel error names, method names — are **illustrative**. They express intended shape, semantics, and feature set, not the final API. The `api-ergonomics-reviewer` and `user-guide-reviewer` agents (defined in `.claude/agents/`) hold final authority over actual API naming, signatures, option shapes, error handling patterns, and developer-experience details. Where this document and an agent's review disagree on API ergonomics, the agents win. This document is about **what** the library does and which algorithms it implements; the agents are about **how** the API surfaces that functionality to consumers. See Design Principle 13 in section 5.
+
+---
+
+## Table of Contents
+
+1. Project Identity
+2. Motivation
+3. Goals
+4. Out of Scope
+5. Design Principles
+6. Public API Overview
+7. Layer 1 — Algorithm Catalogue
+   - 7.1 Character-based
+   - 7.2 Q-gram / N-gram
+   - 7.3 Token-based
+   - 7.4 Phonetic
+   - 7.5 Gestalt
+8. Layer 2 — Scorer
+9. Normalisation Pipeline
+10. Tokenisation
+11. Phonetic Algorithm Integration
+12. Layer 3 — Scan sub-package
+13. Determinism Guarantees
+14. Performance Budgets
+15. Testing Strategy
+16. Documentation Requirements
+17. CI/CD Requirements
+18. Repository Layout
+19. Release Phasing
+20. Acceptance Criteria
+21. References
+
+---
+
+## 1. Project Identity
+
+`fuzzymatch` is a pure-Go, zero-dependency library for string similarity scoring. It exposes a comprehensive catalogue of similarity algorithms (Levenshtein, Damerau-Levenshtein, Jaro, Jaro-Winkler, Strcmp95, Smith-Waterman-Gotoh, LCSStr, Q-gram Jaccard, Sørensen-Dice, Cosine, Tversky, Monge-Elkan, Token Sort/Set/Partial Ratio, Token Jaccard, Soundex, Double Metaphone, NYSIIS, MRA, Ratcliff-Obershelp, Hamming) as independently-usable public functions, and provides a higher-level `Scorer` type that composes any subset of those algorithms into a weighted similarity score.
+
+The library deliberately does NOT implement a collection-scan layer (e.g. "find all pairs in this slice that are similar"). That responsibility belongs to consumers, who can build it on top of the public algorithm functions and `Scorer` in a few lines.
+
+- Module path: `github.com/axonops/fuzzymatch`
+- Package name: `fuzzymatch` (matches the last path segment; no import alias required)
+- License: Apache-2.0 with the standard AxonOps Apache-2.0 file header on every `.go` file
+- Go version: 1.26+ (matches `axonops/audit` and `axonops/mask` toolchains)
+- Runtime dependencies: stdlib only. Zero external `require` lines in `go.mod`
+- No cgo. Anywhere. Ever.
+- Test-only dependencies (`cucumber/godog`, `go.uber.org/goleak`, `testify`) live in `tests/bdd/go.mod` so consumers do not transitively depend on them
+- Apache-2.0 NOTICE file attributes algorithm sources academically (no copied code)
+
+The project look-and-feel mirrors [`axonops/mask`](https://github.com/axonops/mask): the same `.github/`, `docs/`, `scripts/`, `tests/bdd/` directory style, the same Makefile orchestration, the same README structure with logo / badges / emoji section headers / table of contents / status framing, the same `llms.txt` / `llms-full.txt` LLM-friendly documentation files, the same meta-test pattern (`documentation_test.go`, `ai_friendly_test.go`, `readme_shop_front_test.go`, `makefile_targets_test.go`, `internal_coverage_test.go`), the same CI/CD workflows, the same release engineering with goreleaser + sigstore keyless signing + OIDC build provenance. Mask is referenced as the structural and process template only. None of mask's API surface, masking concepts, or rule catalogue carry over.
+
+---
+
+## 2. Motivation
+
+String similarity matching is a recurring need across AxonOps and Digitalis projects:
+
+- Audit field/event taxonomy similarity warnings ("`user_id` vs `userid` vs `UserID` — pick one")
+- Database schema column similarity
+- API field-name consistency checks
+- Kafka topic naming consistency
+- Configuration vocabulary (YAML keys, environment variables, CLI flags)
+- Code symbol naming (for linters)
+- Glossaries and controlled vocabularies
+
+Each project that needs this currently either rolls its own implementation or pulls a stale, unmaintained external dependency. The existing Go ecosystem for string similarity is fragmented: `agnivade/levenshtein` covers one algorithm well; `xrash/smetrics` covers a few; `adrg/strutil` exposes a clean interface but only seven algorithms; `hbollon/go-edlib` is the most comprehensive but its dependency surface, license model, and maintenance velocity vary.
+
+The intent of `fuzzymatch` is to deliver one well-maintained, comprehensive, zero-dependency, Apache-2.0 Go library implementing the full set of practically-useful string similarity algorithms, with a clean Scorer composition layer so consumers can weight algorithms appropriately for their domain without re-implementing the underlying maths.
+
+Comprehensiveness is the deliberate design choice. Different domains favour different algorithms (Damerau-Levenshtein for identifier typos, Jaro-Winkler for prefix-aligned name records, token-based metrics for snake_case-vs-camelCase, phonetic encoding for internationalised identifiers, n-gram for partial matches). Rather than picking three algorithms and forcing consumers to live with that choice, `fuzzymatch` ships all of them and lets the consumer compose.
+
+---
+
+## 3. Goals
+
+1. **Implement the complete practical catalogue.** Twenty-three algorithms covering edit-distance, q-gram, token-based, phonetic, and gestalt pattern matching families. Every algorithm derived from a primary academic source (cited inline at the top of its implementation file). No GPL/LGPL-derived code. No copied implementations beyond what attribution explicitly permits.
+
+2. **Expose each algorithm as an independently-callable public function.** A consumer that wants just Levenshtein calls `fuzzymatch.LevenshteinScore(a, b)` and never touches the Scorer machinery.
+
+3. **Provide a composable Scorer layer.** Consumers select any subset of algorithms, weight them, set a match threshold, and receive a weighted composite score plus an optional per-algorithm breakdown for tuning and debugging.
+
+4. **Normalisation as a first-class concern.** Pre-comparison normalisation (lowercase, separator stripping, camelCase splitting) is exposed both as standalone functions and as configuration on the Scorer.
+
+5. **Determinism is a documented guarantee.** Algorithm scores are stable across patch versions. Scorer output for the same input and configuration is byte-identical across runs and platforms (linux/darwin/windows × amd64/arm64). No map iteration in output paths. Verified by property tests and a dedicated cross-platform CI matrix.
+
+6. **Performance budgets locked in benchmarks.** Per-algorithm and per-Scorer-call budgets specified in section 14. Regressions over 10% versus the last tagged release fail CI via `benchstat`.
+
+7. **Zero runtime dependencies, stdlib only, no cgo.** Verified structurally in CI via `scripts/verify-no-runtime-deps.sh`.
+
+8. **Apache-2.0 throughout.** Every `.go` file carries the standard AxonOps Apache-2.0 file header. The NOTICE file attributes algorithm sources academically.
+
+9. **Production-grade testing.** Unit tests per algorithm with literature reference vectors. Internal tests for unexported correctness invariants. Property-based tests via `testing/quick` for symmetry, range bounds, and triangle inequality (where applicable). Native Go fuzz tests for every public function. Allocation-budget benchmarks. BDD scenarios via `cucumber/godog` for the consumer-facing API. Meta-tests verifying README examples compile, `llms.txt` is in sync with the public API, and every documented `make` target exists.
+
+10. **Pre-release `v0.x` framing.** Mirroring `axonops/mask`. The public API may break between minor versions until `v1.0.0`. `v1.0.0` is tagged only after the first downstream consumer (`axonops/audit` issue #853, scoped to build a collection-scan layer on top of `fuzzymatch`) has integrated end-to-end and exercised the public API in production-equivalent conditions.
+
+---
+
+## 4. Out of Scope
+
+The following are explicit non-goals for v1. Any may be reconsidered for v1.x or v2 only after concrete demand and use cases surface.
+
+- **Fuzzy-search-style "find similar to one query against a corpus".** Different problem class from collection-pairwise scanning. The provided `scan` sub-package (section 12) scans all pairs in a collection; a query-vs-corpus search optimised for one-to-many lookups (with indexing, prefix trees, BK-trees, or similar) is out of scope for v1. May become a future `fuzzymatch/search` sub-package if demand surfaces.
+- **Needleman-Wunsch (global alignment).** Functionally redundant for short identifier-style strings given that Smith-Waterman-Gotoh (local alignment) handles the same use cases better with appropriate gap penalty settings.
+- **Soft-TFIDF.** Requires a consumer-supplied corpus frequency table, which conflicts with the library's stateless pure-function design. Out of scope for v1.
+- **Metaphone 3.** Covered by U.S. Patent 7440941. Even though the patent does not appear to be actively enforced and several MIT-licensed implementations exist, AxonOps declines to ship patent-encumbered algorithms regardless of enforcement posture. Consumers needing Metaphone 3 specifically should evaluate the existing third-party implementations on their own terms; Double Metaphone and NYSIIS in this library cover the majority of practical phonetic-encoding use cases without the patent overhang.
+- **Embedding-based / semantic similarity.** Requires an external ML model, contradicting zero runtime dependencies.
+- **Persistent state or caching across calls.** Every public function and Scorer method is pure: same input plus same configuration yields the same output, no globals, no I/O, no init-time state.
+- **Configuration file parsing.** Consumers parse their own config and translate it into `Scorer` options.
+- **I/O on the hot path.** No file reads, no network calls, no environment variable reads inside any algorithm or Scorer method.
+- **A CLI tool.** The library can be wrapped in a CLI by consumers; not shipped here.
+- **A web UI, an API server, or any non-library deliverable.**
+- **Algorithm output stability across major versions.** Within a major version, algorithm scores are stable to the bit. A major version bump (e.g. v1 → v2) may change scoring, with the change documented in CHANGELOG and migration guide.
+
+---
+
+## 5. Design Principles
+
+1. **Stdlib only on the runtime path.** No third-party runtime dependencies. The runtime `go.mod` has zero `require` lines beyond what the Go toolchain auto-inserts. Test-only dependencies live in `tests/bdd/go.mod`, structurally isolated.
+
+2. **No cgo.** Anywhere.
+
+3. **Pure-function core.** Every public function is pure: same input yields the same output, no globals, no I/O, no init-time state. The `Scorer` type is an immutable value: `NewScorer(opts...)` constructs a Scorer; once constructed it is read-only and safe for concurrent use by any number of goroutines.
+
+4. **Deterministic output.** Algorithm scores are stable across patch versions and platforms. Scorer composite scores are stable across runs for the same input and configuration. Map iteration is never exposed to output paths. Property tests verify byte-identical output across repeated runs. A cross-platform CI matrix verifies the same byte-identical output on linux/darwin/windows × amd64/arm64.
+
+5. **Composable.** Every algorithm is independently usable as a standalone public function. The Scorer composes algorithms into a weighted composite but does not gate access to the underlying algorithms. Consumers who want just one algorithm never instantiate a Scorer.
+
+6. **Rune-aware UTF-8 where it matters.** Lowercasing and case-boundary detection use Unicode tables. Byte-level fast paths kick in for ASCII inputs. Public functions document whether they operate on bytes or runes; where both are meaningful (e.g. Levenshtein), both variants are exposed (e.g. `LevenshteinScore` byte-level, `LevenshteinScoreRunes` rune-level).
+
+7. **Performance budgets locked in benchmarks.** Specified in section 14. `benchstat` regression detection over 10% versus the last tagged release fails CI.
+
+8. **Algorithm output is stable across patch versions.** A documented promise. Score from any public `*Score` function in v1.0.0 must equal the same call in v1.5.0 to the last bit. Stability is verified by a golden-file test pinned in `testdata/golden/`. Any score change requires a minor version bump and a CHANGELOG entry.
+
+9. **Apache-2.0 throughout.** Every `.go` file has the standard AxonOps Apache-2.0 file header. NOTICE attributes algorithm sources academically. No GPL/LGPL-derived code. No source-level copies from existing implementations (algorithms are reimplemented from primary academic sources, with the source cited in the implementation file).
+
+10. **Minimal allocations on the hot path.** Per-algorithm allocation budgets in section 14. Stack-allocated buffers for short ASCII inputs. Heap-allocated slices only when input length exceeds the stack buffer size.
+
+11. **Errors only where genuinely necessary.** Algorithm score functions never return errors — they handle every edge case (empty inputs, identical inputs, length mismatches for fixed-length-requiring algorithms like Hamming) by returning a defined score per the algorithm's documented edge-case behaviour. `Scorer` construction returns an error when the configuration is invalid (no algorithms, weights summing to zero, conflicting options); `Scorer` score methods are error-free.
+
+12. **No init() functions with non-trivial work.** No package-level mutable state. No global registries.
+
+13. **API ergonomics are determined by agent review, not by this document.** Code blocks throughout this document — type signatures, function names, option function shapes, sentinel error names, struct field layouts — illustrate intent. The `api-ergonomics-reviewer`, `user-guide-reviewer`, and `code-reviewer` agents in `.claude/agents/` hold final authority over the actual API surface. This document specifies *what* the library does (which algorithms, what semantics, what guarantees); the agents specify *how* it exposes that to consumers (naming conventions, signature shape, error handling style, idiomatic Go patterns, progressive disclosure). When implementation diverges from the illustrative code in this document but matches the agents' guidance, the agents win.
+
+---
+
+## 6. Public API Overview
+
+> *Reminder: the code in this section is illustrative. The `api-ergonomics-reviewer` and `user-guide-reviewer` agents define the final naming, signature, and ergonomic shape. See Design Principle 13.*
+
+The library exposes two layers, each independently usable.
+
+### Layer 1 — Algorithm Functions
+
+Each of the 23 algorithms is exposed as one or more public functions. Functions follow these naming conventions:
+
+- `XxxScore(a, b string) float64` returns the algorithm's score in [0.0, 1.0]. Identical inputs return 1.0; both-empty returns 1.0 (documented by-convention except where mathematically undefined, in which case 0.0 is returned and documented).
+- `XxxDistance(a, b string) int` returns the raw distance metric (for algorithms where a distance is meaningful, e.g. Levenshtein, Hamming).
+- `XxxScoreRunes(a, b string) float64` is the rune-level variant where a byte-level fast path exists for ASCII.
+- Phonetic algorithms expose `XxxCode(s string) string` (or `XxxKeys(s string) [2]string` for Double Metaphone), plus `XxxScore(a, b string) float64` returning 1.0 if codes match exactly and 0.0 otherwise.
+
+All algorithm functions accept raw input. Applying the normalisation pipeline is the consumer's responsibility (or use the Scorer, which can apply normalisation automatically). The public function `Normalise(s string, opts NormalisationOptions) string` and `Tokenise(s string, opts NormalisationOptions) []string` are exposed for consumers building custom preprocessing pipelines.
+
+### Layer 2 — Scorer
+
+`Scorer` composes any subset of the 23 algorithms into a weighted similarity score.
+
+```go
+scorer, err := fuzzymatch.NewScorer(
+    fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 0.30),
+    fuzzymatch.WithAlgorithm(fuzzymatch.AlgoJaroWinkler, 0.25),
+    fuzzymatch.WithAlgorithm(fuzzymatch.AlgoTokenJaccard, 0.20),
+    fuzzymatch.WithAlgorithm(fuzzymatch.AlgoDamerauLevenshteinOSA, 0.15),
+    fuzzymatch.WithAlgorithm(fuzzymatch.AlgoDoubleMetaphone, 0.10),
+    fuzzymatch.WithNormalisation(fuzzymatch.DefaultNormalisationOptions()),
+    fuzzymatch.WithThreshold(0.85),
+)
+if err != nil {
+    return err
+}
+
+score := scorer.Score("user_id", "userId")            // 0.96 (example)
+scores := scorer.ScoreAll("user_id", "userId")        // map per-algorithm
+match := scorer.Match("user_id", "userId")            // true if score >= threshold
+```
+
+The Scorer is constructed via functional options. Options:
+
+- `WithAlgorithm(algo AlgoID, weight float64)` adds an algorithm to the composite at the given raw weight. Algorithms with parameters (Q-Gram Jaccard, Tversky, Monge-Elkan, Cosine n-gram) have dedicated options (see section 8).
+- `WithNormalisation(opts NormalisationOptions)` configures pre-comparison normalisation applied to both inputs before any algorithm is invoked.
+- `WithThreshold(t float64)` sets the threshold used by `Match`. Default 0.85.
+- `WithNormaliseWeights(false)` disables automatic weight normalisation. Default is `true` (weights are normalised to sum to 1.0 internally at Scorer construction).
+- `WithQGramJaccardAlgorithm(weight float64, n int)` adds Q-Gram Jaccard with the given n. Default n = 3.
+- `WithCosineAlgorithm(weight float64, n int)` adds Cosine n-gram with the given n.
+- `WithTverskyAlgorithm(weight, alpha, beta float64)` adds Tversky with the given α, β. Symmetric variant (α = β = 0.5) reduces to Sørensen-Dice; (α = β = 1.0) reduces to Jaccard.
+- `WithMongeElkanAlgorithm(weight float64, inner AlgoID)` adds Monge-Elkan using the given inner metric. Default inner is Jaro-Winkler per the original paper.
+
+After construction, the Scorer is immutable. `Score`, `ScoreAll`, and `Match` are safe for concurrent use by any number of goroutines.
+
+The Scorer applies normalisation (if configured) to both inputs once per `Score` call, then invokes each enabled algorithm on the normalised inputs, multiplies each algorithm's score by its (normalised) weight, sums, and returns the composite. `ScoreAll` returns the per-algorithm breakdown using the algorithm's snake_case name as the map key (`"levenshtein"`, `"jaro_winkler"`, `"q_gram_jaccard"`, etc.).
+
+### Sentinel errors
+
+```go
+var (
+    ErrEmptyScorer        = errors.New("fuzzymatch: scorer has no algorithms configured")
+    ErrInvalidWeight      = errors.New("fuzzymatch: invalid weight")
+    ErrInvalidThreshold   = errors.New("fuzzymatch: invalid threshold")
+    ErrInvalidAlgoID      = errors.New("fuzzymatch: invalid algorithm identifier")
+    ErrInvalidQGramSize   = errors.New("fuzzymatch: invalid q-gram size")
+    ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
+)
+```
+
+All sentinel errors are exported from the root package, defined in `errors.go`. Error wrapping uses `fmt.Errorf("...: %w", err)` with `%w` as the final verb. Error discrimination uses `errors.Is` / `errors.As`.
+
+### Algorithm identifiers
+
+```go
+type AlgoID int
+
+const (
+    AlgoLevenshtein AlgoID = iota + 1
+    AlgoDamerauLevenshteinOSA
+    AlgoDamerauLevenshteinFull
+    AlgoHamming
+    AlgoJaro
+    AlgoJaroWinkler
+    AlgoStrcmp95
+    AlgoSmithWatermanGotoh
+    AlgoLCSStr
+    AlgoQGramJaccard
+    AlgoSorensenDice
+    AlgoCosine
+    AlgoTversky
+    AlgoMongeElkan
+    AlgoTokenSortRatio
+    AlgoTokenSetRatio
+    AlgoPartialRatio
+    AlgoTokenJaccard
+    AlgoSoundex
+    AlgoDoubleMetaphone
+    AlgoNYSIIS
+    AlgoMRA
+    AlgoRatcliffObershelp
+)
+
+// String returns the snake_case identifier ("levenshtein", "jaro_winkler", etc.).
+func (a AlgoID) String() string
+
+// AlgoIDs returns every defined algorithm identifier in stable order.
+func AlgoIDs() []AlgoID
+```
+
+The `AlgoID.String()` mapping is exported and stable across patch versions. The `AlgoIDs()` function returns the full list in stable order for use in tests, documentation generation, and consumer discovery.
+
+### Version
+
+```go
+// Version returns the library's semantic version string.
+func Version() string
+```
+
+### Layer 3 — Scan sub-package (optional)
+
+`github.com/axonops/fuzzymatch/scan` provides a turnkey collection-scan layer for the common "iterate over a slice of names and emit a list of similar-name pairs" use case. It is a separate package and a separate import; consumers of just the algorithms or just the Scorer never depend on it. See section 12 for the full specification.
+
+---
+
+## 7. Layer 1 — Algorithm Catalogue
+
+> *Reminder: per-algorithm function signatures below are illustrative. The `api-ergonomics-reviewer` agent has final say on names, parameter ordering, byte-vs-rune variant exposure, and overall surface shape. Algorithm semantics, score normalisation rules, edge-case behaviour, and primary-source citations are NOT illustrative — those are requirements.*
+
+This section specifies each algorithm in detail: primary source citation, formal description, complexity, score normalisation, mathematical invariants, edge cases, public function signatures, and intended use.
+
+Every implementation must derive from the primary source cited. No copying from existing Go ports. No GPL/LGPL-derived code. Implementation may study existing MIT-licensed ports (e.g. `adrg/strutil`, `hbollon/go-edlib`, `xrash/smetrics`) for cross-validation of reference vectors, but the code itself must be written fresh.
+
+Every algorithm implementation file (e.g. `levenshtein.go`) MUST begin (after the Apache-2.0 file header) with a block comment citing the primary source, naming the formula, and noting any deliberate deviation from the canonical formulation. Constants used in the algorithm (e.g. `winklerPrefixScale = 0.1`) are declared as unexported package consts and documented with a reference back to the originating paper.
+
+### 7.1 Character-based algorithms
+
+#### 7.1.1 Levenshtein
+
+- **Category:** character-based, edit distance
+- **Primary source:** Levenshtein, V. I. (1965). "Binary codes capable of correcting deletions, insertions, and reversals." *Soviet Physics Doklady*, 10(8):707–710.
+- **AlgoID:** `AlgoLevenshtein`
+- **Public functions:**
+  - `LevenshteinDistance(a, b string) int` — raw edit distance (byte-level)
+  - `LevenshteinDistanceRunes(a, b string) int` — raw edit distance (rune-level)
+  - `LevenshteinScore(a, b string) float64` — normalised score in [0.0, 1.0] (byte-level)
+  - `LevenshteinScoreRunes(a, b string) float64` — normalised score (rune-level)
+- **Description:** the minimum number of single-character insertions, deletions, or substitutions required to transform `a` into `b`. Each edit costs 1.
+- **Recurrence:** `D[i,j] = min(D[i-1,j]+1, D[i,j-1]+1, D[i-1,j-1] + (a[i-1] ≠ b[j-1]))` with `D[i,0] = i`, `D[0,j] = j`.
+- **Complexity:** O(m·n) time, O(min(m,n)) space using the two-row optimisation.
+- **Score normalisation:** `score = 1.0 - distance / max(len(a), len(b))`. Identical inputs (including both empty) return 1.0; one-empty returns 0.0.
+- **Mathematical invariants:**
+  - Identity: `Score(x, x) = 1.0`
+  - Symmetry: `Score(a, b) = Score(b, a)`
+  - Range: `Score(a, b) ∈ [0.0, 1.0]`
+  - Triangle inequality (on the underlying distance): `Distance(a, c) ≤ Distance(a, b) + Distance(b, c)`
+- **Edge cases:**
+  - Both empty: distance 0, score 1.0
+  - One empty: distance = `len(other)`, score 0.0
+  - Identical: distance 0, score 1.0
+- **Implementation notes:** ASCII fast path with stack-allocated `[64]byte` arrays for inputs under 64 bytes (zero allocations). Heap-allocated slices for longer inputs. The rune variant operates on Unicode code points and is slower; the byte variant is the default.
+- **Reference vectors:** "kitten"/"sitting" → distance 3, score `1 - 3/7 ≈ 0.5714`. "saturday"/"sunday" → distance 3, score `1 - 3/8 = 0.625`. "" / "abc" → distance 3, score 0.0. "abc" / "abc" → distance 0, score 1.0.
+- **Intended use:** primary edit-distance metric. Best general-purpose single algorithm for short identifier-style strings with single-character typos.
+
+#### 7.1.2 Damerau-Levenshtein (OSA — Optimal String Alignment)
+
+- **Category:** character-based, edit distance with transposition
+- **Primary source:** Damerau, F. J. (1964). "A technique for computer detection and correction of spelling errors." *Communications of the ACM*, 7(3):171–176. The OSA variant (restricted edit distance with transpositions) is the formulation in common use; canonical reference: Boytsov, L. (2011). "Indexing methods for approximate dictionary searching: comparative analysis." *ACM Journal of Experimental Algorithmics*, 16, Article 1.
+- **AlgoID:** `AlgoDamerauLevenshteinOSA`
+- **Public functions:**
+  - `DamerauLevenshteinOSADistance(a, b string) int`
+  - `DamerauLevenshteinOSADistanceRunes(a, b string) int`
+  - `DamerauLevenshteinOSAScore(a, b string) float64`
+  - `DamerauLevenshteinOSAScoreRunes(a, b string) float64`
+- **Description:** Levenshtein extended with adjacent character transposition as a single edit. The "Optimal String Alignment" restriction means each substring may participate in at most one transposition; substrings cannot be re-edited after a transposition. Faster than the full Damerau-Levenshtein; produces slightly different (sometimes larger) distances on inputs where a substring's already-transposed characters would otherwise be edited again.
+- **Recurrence:** Levenshtein recurrence plus, when `i ≥ 2`, `j ≥ 2`, `a[i-1] = b[j-2]`, and `a[i-2] = b[j-1]`: `D[i,j] = min(D[i,j], D[i-2,j-2] + 1)`.
+- **Complexity:** O(m·n) time, O(min(m,n) · 2) space.
+- **Score normalisation:** identical to Levenshtein.
+- **Mathematical invariants:** identity, symmetry, range bounds. Triangle inequality holds for the underlying distance.
+- **Edge cases:** identical to Levenshtein.
+- **Intended use:** primary choice for identifier typo detection — handles keyboard-adjacent character swaps (`creatd_at` vs `created_at`) at one edit instead of two.
+- **Reference vectors:** "ab"/"ba" → distance 1 (one transposition), score `1 - 1/2 = 0.5`. "ca"/"abc" → OSA distance 3 (full DL would give 2; the OSA restriction shows here).
+
+#### 7.1.3 Damerau-Levenshtein (Full — Adjacent Transpositions, unrestricted)
+
+- **Category:** character-based, edit distance with transposition
+- **Primary source:** Lowrance, R., Wagner, R. A. (1975). "An extension of the string-to-string correction problem." *Journal of the ACM*, 22(2):177–183. The full Damerau-Levenshtein with unrestricted transpositions (no OSA restriction).
+- **AlgoID:** `AlgoDamerauLevenshteinFull`
+- **Public functions:**
+  - `DamerauLevenshteinFullDistance(a, b string) int`
+  - `DamerauLevenshteinFullDistanceRunes(a, b string) int`
+  - `DamerauLevenshteinFullScore(a, b string) float64`
+  - `DamerauLevenshteinFullScoreRunes(a, b string) float64`
+- **Description:** Damerau-Levenshtein without the OSA restriction. Substrings may be re-edited after a transposition. Mathematically the "correct" Damerau-Levenshtein. Slightly higher constant-factor cost than OSA due to the position-lookup tables required.
+- **Algorithm:** the Lowrance-Wagner formulation maintains a `last seen` table per alphabet character; transposition cost is computed using these positions.
+- **Complexity:** O(m·n · |Σ|) time worst case where Σ is the alphabet (effectively O(m·n) for fixed alphabet), O(m·n) space.
+- **Score normalisation:** identical to Levenshtein.
+- **Edge cases:** identical to Levenshtein.
+- **Intended use:** when correctness across pathological transposition cases matters more than constant-factor speed.
+- **Reference vectors:** "ca"/"abc" → full DL distance 2 (one transposition + one insertion).
+
+#### 7.1.4 Hamming
+
+- **Category:** character-based, equal-length
+- **Primary source:** Hamming, R. W. (1950). "Error detecting and error correcting codes." *Bell System Technical Journal*, 29(2):147–160.
+- **AlgoID:** `AlgoHamming`
+- **Public functions:**
+  - `HammingDistance(a, b string) (int, error)` — returns `ErrHammingLengthMismatch` if `len(a) != len(b)` (byte-level)
+  - `HammingDistanceRunes(a, b string) (int, error)`
+  - `HammingScore(a, b string) float64` — returns 0.0 (rather than an error) when lengths differ; documented behaviour
+  - `HammingScoreRunes(a, b string) float64`
+- **Description:** number of positions at which corresponding characters differ. Defined only for equal-length strings.
+- **Complexity:** O(n) time, O(1) space.
+- **Score normalisation:** `score = 1.0 - distance / len(a)`. Length mismatch yields 0.0 for the Score variants; the Distance variants return an explicit error.
+- **Mathematical invariants:** identity, symmetry, range bounds. Triangle inequality holds on equal-length inputs.
+- **Edge cases:** unequal lengths (handled differently by Score and Distance variants — documented), both empty (distance 0, score 1.0).
+- **Intended use:** fixed-width codes (8-character audit IDs, hex hashes, equal-length fingerprints). Not useful for general identifier comparison.
+- **Reference vectors:** "karolin"/"kathrin" → distance 3, score `1 - 3/7 ≈ 0.5714`. "1011101"/"1001001" → distance 2, score `1 - 2/7 ≈ 0.7143`.
+
+#### 7.1.5 Jaro
+
+- **Category:** character-based, name-matching
+- **Primary source:** Jaro, M. A. (1989). "Advances in record-linkage methodology as applied to matching the 1985 census of Tampa, Florida." *Journal of the American Statistical Association*, 84(406):414–420.
+- **AlgoID:** `AlgoJaro`
+- **Public functions:**
+  - `JaroScore(a, b string) float64`
+  - `JaroScoreRunes(a, b string) float64`
+- **Description:** counts matching characters within a positional window of `max(len(a), len(b))/2 - 1`, then penalises for transpositions among matched characters. Designed for short string matching with positional tolerance.
+- **Formula:** if `m = 0`, return 0.0. Otherwise `J = (m/|a| + m/|b| + (m - t/2)/m) / 3`, where `m` is the count of matching characters and `t` is the count of transpositions among matched pairs.
+- **Complexity:** O(m·n) time, O(m + n) space.
+- **Score normalisation:** the formula itself produces a value in [0.0, 1.0]. Identical strings return 1.0; both empty return 1.0 (by convention, documented).
+- **Mathematical invariants:** identity, symmetry, range bounds. Triangle inequality does NOT hold (Jaro is not a metric).
+- **Edge cases:** both empty → 1.0; one empty → 0.0; identical → 1.0.
+- **Implementation notes:** stack-allocated `[256]bool` match-flag arrays for inputs under 256 characters (zero heap allocation). The rune variant uses heap-allocated slices.
+- **Intended use:** record-linkage and name matching where positional tolerance and transposition matter more than substitution.
+- **Reference vectors:** "MARTHA"/"MARHTA" → Jaro = 0.9444. "DIXON"/"DICKSONX" → Jaro = 0.7667. "JELLYFISH"/"SMELLYFISH" → Jaro = 0.8963.
+
+#### 7.1.6 Jaro-Winkler
+
+- **Category:** character-based, name-matching with prefix bonus
+- **Primary source:** Winkler, W. E. (1990). "String comparator metrics and enhanced decision rules in the Fellegi-Sunter model of record linkage." *Proceedings of the Section on Survey Research Methods*, American Statistical Association: 354–359.
+- **AlgoID:** `AlgoJaroWinkler`
+- **Public functions:**
+  - `JaroWinklerScore(a, b string) float64`
+  - `JaroWinklerScoreRunes(a, b string) float64`
+- **Description:** Jaro with a prefix bonus: strings sharing a common prefix score higher. Designed specifically for cases where prefix agreement is more meaningful than later-position agreement (typical for personal names and identifier families like `request_id`/`request_uuid`).
+- **Formula:** `JW = J + L · p · (1 - J)` where `J` is the Jaro score, `L` is the length of the common prefix capped at 4 characters, and `p` is the prefix scale (canonical value 0.1, with `p · L_max ≤ 0.25` to keep `JW` bounded). The bonus is applied only when `J ≥ 0.7` (Winkler's canonical boost threshold).
+- **Constants:** `winklerPrefixScale = 0.1`, `winklerMaxPrefix = 4`, `winklerBoostThreshold = 0.7`. Exposed as unexported package constants with godoc comments citing the originating Winkler 1990 paper.
+- **Complexity:** identical to Jaro.
+- **Score normalisation:** the formula produces a value in [0.0, 1.0].
+- **Mathematical invariants:** identity, symmetry, range bounds. Triangle inequality does NOT hold.
+- **Edge cases:** identical to Jaro.
+- **Implementation notes:** computes the Jaro score first, then applies the prefix bonus.
+- **Intended use:** prefix-aligned identifier families, personal names.
+- **Reference vectors:** "MARTHA"/"MARHTA" → Jaro 0.9444, JW = 0.9611. "DWAYNE"/"DUANE" → JW ≈ 0.8400. "DIXON"/"DICKSONX" → JW ≈ 0.8133.
+
+#### 7.1.7 Strcmp95
+
+- **Category:** character-based, refined Jaro-Winkler
+- **Primary source:** Winkler, W. E. (1994). "Advanced methods for record linkage." *Proceedings of the Section on Survey Research Methods*, American Statistical Association: 467–472. Reference SAS/C implementation: U.S. Census Bureau (1995), `strcmp95.c`.
+- **AlgoID:** `AlgoStrcmp95`
+- **Public functions:**
+  - `Strcmp95Score(a, b string) float64`
+  - `Strcmp95ScoreRunes(a, b string) float64`
+- **Description:** Jaro-Winkler with two additional refinements: (a) similar-character matching (letters considered partially-matching when they are commonly confused, e.g. `A`/`E`, `O`/`0`), and (b) a long-string bonus that further boosts scores for long strings that share substantial common characters. Implemented per the U.S. Census Bureau's `strcmp95.c` reference (which is in the public domain) and the Winkler 1994 paper.
+- **Score normalisation:** [0.0, 1.0]; identical to Jaro-Winkler shape.
+- **Mathematical invariants:** identity (Score(x, x) = 1.0), symmetry, range bounds. No triangle inequality.
+- **Edge cases:** identical to Jaro-Winkler.
+- **Implementation notes:** the similar-character table is an unexported package-level `[][]byte` documented as derived from the Winkler 1994 paper's similarity matrix. The table is initialised once at package load via a `var` declaration (no `init()` function), and is read-only after declaration.
+- **Intended use:** record linkage where Jaro-Winkler's basic prefix bonus is insufficient — typically census-style name matching and survey data deduplication.
+- **Reference vectors:** to be cross-validated against `xrash/smetrics` `Strcmp95` implementation (MIT-licensed, useful for reference vector cross-validation only — code is reimplemented from the Winkler paper and Census Bureau reference C code).
+
+#### 7.1.8 Smith-Waterman-Gotoh
+
+- **Category:** character-based, local sequence alignment
+- **Primary sources:**
+  - Smith, T. F., Waterman, M. S. (1981). "Identification of common molecular subsequences." *Journal of Molecular Biology*, 147(1):195–197.
+  - Gotoh, O. (1982). "An improved algorithm for matching biological sequences." *Journal of Molecular Biology*, 162(3):705–708.
+- **AlgoID:** `AlgoSmithWatermanGotoh`
+- **Public functions:**
+  - `SmithWatermanGotohScore(a, b string) float64`
+  - `SmithWatermanGotohScoreRunes(a, b string) float64`
+  - `SmithWatermanGotohScoreWithParams(a, b string, params SWGParams) float64`
+- **Description:** local sequence alignment with affine gap penalty. Unlike global-alignment algorithms (Needleman-Wunsch), Smith-Waterman finds the best-matching subsequence anywhere in the two strings without insisting on end-to-end alignment. Gotoh's improvement makes the affine gap penalty model (gap-open cost separate from gap-extend cost) efficient.
+- **Default parameters:** match reward = 1.0, mismatch penalty = -1.0, gap-open penalty = -1.5, gap-extend penalty = -0.5. Documented as `SWGDefaultParams`. Customisable via `SmithWatermanGotohScoreWithParams`.
+- **SWGParams struct:** `{Match, Mismatch, GapOpen, GapExtend float64}`.
+- **Complexity:** O(m·n) time, O(m·n) space.
+- **Score normalisation:** `score = best local alignment score / min(len(a), len(b))` clamped to [0.0, 1.0]. Identical inputs return 1.0; both empty return 1.0; one empty returns 0.0.
+- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality.
+- **Edge cases:** as above.
+- **Implementation notes:** the affine gap penalty requires three DP matrices in the Gotoh formulation (or a clever single-matrix variant). Implementation follows Gotoh 1982 directly.
+- **Intended use:** detecting that one name is a substring or near-substring of another (`http_request` vs `http_request_header_fields`), or that two names share a long common middle section despite different prefixes/suffixes.
+
+#### 7.1.9 LCSStr (Longest Common Substring)
+
+- **Category:** character-based, common-substring length
+- **Primary source:** Wagner, R. A., Fischer, M. J. (1974). "The string-to-string correction problem." *Journal of the ACM*, 21(1):168–173. Standard dynamic-programming formulation.
+- **AlgoID:** `AlgoLCSStr`
+- **Public functions:**
+  - `LongestCommonSubstring(a, b string) string`
+  - `LongestCommonSubstringRunes(a, b string) string`
+  - `LCSStrScore(a, b string) float64`
+  - `LCSStrScoreRunes(a, b string) float64`
+- **Description:** the longest contiguous substring shared by two strings.
+- **Recurrence:** `D[i,j] = D[i-1,j-1] + 1 if a[i-1] = b[j-1], else 0`. Track max value and ending position.
+- **Complexity:** O(m·n) time, O(min(m,n)) space using a rolling 1-D buffer plus max tracking.
+- **Score normalisation:** `score = 2 · len(lcs) / (len(a) + len(b))`. Identical → 1.0; both empty → 1.0 (by convention); one empty → 0.0; no shared characters → 0.0.
+- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality.
+- **Edge cases:** as above.
+- **Intended use:** detecting names with a long common middle (`my_request_id` vs `your_request_handle` shares `_request_`).
+
+### 7.2 Q-gram / N-gram algorithms
+
+For all q-gram / n-gram algorithms, q-grams are extracted as overlapping substrings of length `n`. Default `n = 3` (trigrams) per the recommendation in the cited primary sources. Q-grams are extracted byte-wise by default (with a rune-wise variant exposed for Unicode-heavy domains). Padding is NOT applied — q-grams are extracted from the raw string without start/end markers.
+
+#### 7.2.1 Q-Gram Jaccard
+
+- **Category:** q-gram, set similarity
+- **Primary sources:**
+  - Ukkonen, E. (1992). "Approximate string-matching with q-grams and maximal matches." *Theoretical Computer Science*, 92(1):191–211.
+  - Jaccard, P. (1912). "The distribution of the flora in the alpine zone." *New Phytologist*, 11(2):37–50.
+- **AlgoID:** `AlgoQGramJaccard`
+- **Public functions:**
+  - `QGramJaccardScore(a, b string, n int) float64`
+  - `QGramJaccardScoreRunes(a, b string, n int) float64`
+- **Description:** extract overlapping character n-grams from both strings into sets, compute the Jaccard index `|A ∩ B| / |A ∪ B|`.
+- **Complexity:** O(|a| + |b|) time (after q-gram extraction), O(|a| + |b|) space.
+- **Score normalisation:** the Jaccard index is naturally in [0.0, 1.0]. Both-empty sets return 1.0 by convention; one-empty returns 0.0; identical strings return 1.0.
+- **Mathematical invariants:** identity, symmetry, range bounds. Triangle inequality does NOT hold.
+- **Edge cases:**
+  - `n > min(len(a), len(b))`: at least one of the q-gram sets is empty; returns 0.0 (or 1.0 if both empty)
+  - `n < 1`: documented panic or returned as `ErrInvalidQGramSize` depending on whether called via direct function (panics on invalid `n`) or via Scorer (returns error at construction time)
+- **Implementation notes:** q-gram extraction uses a `map[string]int` for multiset counts (Jaccard on multisets gives the standard set-theoretic Jaccard when treating duplicates as distinct elements). Implementation must NOT expose map iteration order to the output path. For deterministic output, extract q-grams in input order and accumulate into sorted slices before any output.
+- **Intended use:** trigram-level partial-match detection, abbreviation handling.
+
+#### 7.2.2 Sørensen-Dice
+
+- **Category:** q-gram, set similarity
+- **Primary sources:**
+  - Dice, L. R. (1945). "Measures of the amount of ecologic association between species." *Ecology*, 26(3):297–302.
+  - Sørensen, T. (1948). "A method of establishing groups of equal amplitude in plant sociology based on similarity of species and its application to analyses of the vegetation on Danish commons." *Kongelige Danske Videnskabernes Selskab*, 5(4):1–34.
+- **AlgoID:** `AlgoSorensenDice`
+- **Public functions:**
+  - `SorensenDiceScore(a, b string, n int) float64` — defaults `n = 2` (bigrams) when called via Scorer with no explicit n
+  - `SorensenDiceScoreRunes(a, b string, n int) float64`
+- **Description:** Dice coefficient on character n-grams. `DSC = 2|A ∩ B| / (|A| + |B|)`.
+- **Complexity:** identical to Q-Gram Jaccard.
+- **Score normalisation:** naturally in [0.0, 1.0].
+- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality.
+- **Edge cases:** identical to Q-Gram Jaccard.
+- **Intended use:** slightly more permissive than Jaccard for partially-overlapping sets. The bigram form is widely used in fuzzy-search applications and DNA sequence similarity.
+
+#### 7.2.3 Cosine (n-gram)
+
+- **Category:** q-gram, vector similarity
+- **Primary source:** Salton, G., McGill, M. J. (1983). *Introduction to Modern Information Retrieval*. McGraw-Hill. (The vector-space model and cosine similarity for IR are textbook standard.)
+- **AlgoID:** `AlgoCosine`
+- **Public functions:**
+  - `CosineScore(a, b string, n int) float64`
+  - `CosineScoreRunes(a, b string, n int) float64`
+- **Description:** treat each string's n-gram frequencies as a vector in n-gram space; compute the cosine of the angle between the two vectors.
+- **Formula:** `cos(A, B) = (A · B) / (‖A‖ · ‖B‖)`.
+- **Complexity:** O(|a| + |b|) time for extraction; O(|A ∪ B|) for the dot product.
+- **Score normalisation:** the cosine of an angle between non-negative vectors is naturally in [0.0, 1.0].
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** both empty → 1.0; one empty → 0.0.
+- **Intended use:** complements Jaccard and Dice by being length-asymmetry tolerant (a short string matching a long string with proportional q-gram frequency scores well).
+
+#### 7.2.4 Tversky Index
+
+- **Category:** q-gram, asymmetric set similarity
+- **Primary source:** Tversky, A. (1977). "Features of similarity." *Psychological Review*, 84(4):327–352.
+- **AlgoID:** `AlgoTversky`
+- **Public functions:**
+  - `TverskyScore(a, b string, n int, alpha, beta float64) float64`
+  - `TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64`
+- **Description:** asymmetric generalisation of Jaccard and Dice. `T(A, B) = |A ∩ B| / (|A ∩ B| + α·|A − B| + β·|B − A|)`. With `α = β = 1` reduces to Jaccard; with `α = β = 0.5` reduces to Sørensen-Dice. Asymmetric when `α ≠ β`.
+- **Complexity:** identical to Q-Gram Jaccard.
+- **Score normalisation:** [0.0, 1.0].
+- **Mathematical invariants:** identity. Symmetry holds when `α = β`. Range bounds always.
+- **Edge cases:** both-empty handled as 1.0; one-empty as 0.0; identical as 1.0.
+- **Intended use:** when one string is intentionally treated as a "prototype" and the other as a "variant" (e.g. a canonical schema name vs. a candidate match). For symmetric use, `α = β` is required to keep the Scorer composite well-defined.
+
+### 7.3 Token-based algorithms
+
+Token-based algorithms operate on the result of `Tokenise(s, opts)` rather than on raw strings or character n-grams. Tokenisation rules are specified in section 10. Defaults: lowercase, split on the SeparatorChars set, split camelCase / PascalCase / acronym boundaries.
+
+#### 7.3.1 Monge-Elkan
+
+- **Category:** token-based, hybrid (uses an inner character-based metric)
+- **Primary source:** Monge, A. E., Elkan, C. P. (1996). "The field matching problem: algorithms and applications." *Proceedings of the Second International Conference on Knowledge Discovery and Data Mining*: 267–270.
+- **AlgoID:** `AlgoMongeElkan`
+- **Public functions:**
+  - `MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64`
+  - `MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64` — returns the average of the two directional Monge-Elkan scores, ensuring symmetry
+- **Description:** for each token in `A`, find the maximum-similarity token in `B` using the inner metric, then average. Inherently asymmetric.
+- **Formula:** `ME(A, B) = (1/|A|) · Σ_{a ∈ A} max_{b ∈ B} sim_inner(a, b)`.
+- **Default inner metric:** Jaro-Winkler (per the original paper).
+- **Permitted inner metrics:** any AlgoID that produces a [0.0, 1.0] similarity score. Phonetic algorithms are permitted (yielding 0/1 inner scores). Q-gram algorithms are permitted (Monge-Elkan over Q-Gram-Jaccard is a known sensible composite).
+- **Complexity:** O(|A| · |B| · cost(inner)) where cost(inner) is the inner metric's per-comparison cost.
+- **Score normalisation:** the formula naturally produces a value in [0.0, 1.0] assuming the inner metric is bounded in [0.0, 1.0].
+- **Symmetry:** the asymmetric variant violates symmetry. `MongeElkanScoreSymmetric` returns `(ME(A,B) + ME(B,A)) / 2` and is used by the Scorer by default. The Scorer documents that `AlgoMongeElkan` uses the symmetric variant.
+- **Edge cases:** empty token set on one or both sides handled per the inner metric's edge cases.
+- **Intended use:** identifier families where token-level matching matters more than character-level matching, with the inner metric handling intra-token similarity (e.g. `user_create_event` vs `usr_creating_evt` — tokens align but each pair has its own similarity).
+
+#### 7.3.2 Token Sort Ratio
+
+- **Category:** token-based, sort-and-compare
+- **Primary source:** SeatGeek (2014). *fuzzywuzzy* Python library, `fuzz.token_sort_ratio` implementation. Canonical modern reference: RapidFuzz documentation (Bachmann, M., 2020–present), https://rapidfuzz.github.io/RapidFuzz/. (No formal academic source exists; this is a practical engineering pattern.)
+- **AlgoID:** `AlgoTokenSortRatio`
+- **Public functions:**
+  - `TokenSortRatioScore(a, b string, opts NormalisationOptions) float64`
+- **Description:** tokenise both strings, sort the tokens, rejoin with a single space, then compute an Indel-based ratio (essentially `1 - levenshtein_distance / total_length` but using a Longest Common Subsequence formulation rather than Levenshtein — the Indel ratio is `2·LCS / (|a| + |b|)`).
+- **Complexity:** O((|a| + |b|) · log(|a| + |b|)) for the sort, plus O(|a| · |b|) for the LCS.
+- **Score normalisation:** [0.0, 1.0].
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** empty tokens lists on both sides → 1.0; one empty → 0.0; identical post-sort strings → 1.0.
+- **Intended use:** comparing strings that should be equal up to token reordering (`UserCreateEvent` vs `CreateUserEvent`).
+
+#### 7.3.3 Token Set Ratio
+
+- **Category:** token-based, set-and-compare
+- **Primary source:** as Token Sort Ratio (SeatGeek `fuzzywuzzy`; modern reference RapidFuzz).
+- **AlgoID:** `AlgoTokenSetRatio`
+- **Public functions:**
+  - `TokenSetRatioScore(a, b string, opts NormalisationOptions) float64`
+- **Description:** tokenise both strings, compute three sub-strings — the intersection sorted-and-joined; intersection + difference-from-a sorted-and-joined; intersection + difference-from-b sorted-and-joined — then compute the maximum Indel ratio among the three pairwise comparisons.
+- **Complexity:** O((|a| + |b|) · log(|a| + |b|)) for sorting, O(|a| · |b|) for the three LCS comparisons.
+- **Score normalisation:** [0.0, 1.0].
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** as Token Sort Ratio.
+- **Intended use:** comparing strings with substantially different token counts but a meaningful shared core (`http_request` vs `http_request_body_payload`).
+
+#### 7.3.4 Partial Ratio
+
+- **Category:** token-based, sliding-window
+- **Primary source:** as Token Sort Ratio (SeatGeek `fuzzywuzzy`; modern reference RapidFuzz `fuzz.partial_ratio`).
+- **AlgoID:** `AlgoPartialRatio`
+- **Public functions:**
+  - `PartialRatioScore(a, b string) float64`
+  - `PartialRatioScoreRunes(a, b string) float64`
+- **Description:** slide the shorter string across the longer string, compute the Indel ratio at each window position, return the maximum.
+- **Complexity:** O(m·n) per window position, O(n·m·(n-m)) overall. Optimisation: use a sliding-window technique with the Indel DP to amortise. v1 implementation may use the straightforward O(n·m·(n-m)); v1.x optimisation as a separate issue.
+- **Score normalisation:** [0.0, 1.0].
+- **Mathematical invariants:** identity (Score(x, x) = 1.0), symmetry (by construction — based on shorter-of-the-two), range bounds.
+- **Edge cases:** both empty → 1.0; one empty → 0.0.
+- **Intended use:** detecting that one string contains a near-perfect match of the other as a substring (e.g. `request_id` matching anywhere inside `http_request_id_v2`).
+
+#### 7.3.5 Token Jaccard
+
+- **Category:** token-based, set similarity
+- **Primary source:** Jaccard, P. (1912). (As Q-Gram Jaccard, applied to word tokens rather than character n-grams.)
+- **AlgoID:** `AlgoTokenJaccard`
+- **Public functions:**
+  - `TokenJaccardScore(a, b string, opts NormalisationOptions) float64`
+- **Description:** tokenise both strings, compute Jaccard index on the token sets.
+- **Complexity:** O(|a| + |b|) after tokenisation.
+- **Score normalisation:** [0.0, 1.0]. Both-empty → 1.0; one-empty → 0.0; identical → 1.0.
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** as above.
+- **Intended use:** camelCase / snake_case equivalence at the word level. Particularly useful for identifier-style names where word order varies but the word set is the same or near-same.
+
+### 7.4 Phonetic algorithms
+
+Phonetic algorithms encode input strings into pronunciation-equivalent keys. They are inherently boolean — two strings either share an encoded key or they don't. Within the Scorer, phonetic algorithms contribute 1.0 to their weighted slot if the keys match exactly and 0.0 otherwise. The underlying encoded keys are exposed via separate public functions for consumers that want richer behaviour (e.g. computing a Levenshtein score on the codes themselves).
+
+The phonetic encoding rules are language-specific. All implementations in this library are tuned for English-language pronunciation; cross-language usage may produce poor results. This is documented in each algorithm's godoc.
+
+#### 7.4.1 Soundex
+
+- **Category:** phonetic, English
+- **Primary source:** Russell, R. C., Odell, M. K. (1918, 1922). U.S. Patents 1261167 and 1435663. Canonical algorithm description: Knuth, D. E. (1973). *The Art of Computer Programming, Volume 3: Sorting and Searching*, Section 6.4.
+- **AlgoID:** `AlgoSoundex`
+- **Public functions:**
+  - `SoundexCode(s string) string` — returns the 4-character code (one uppercase letter + three digits)
+  - `SoundexScore(a, b string) float64` — returns 1.0 if `SoundexCode(a) == SoundexCode(b)`, else 0.0
+- **Description:** retain first letter; map remaining letters to digit groups (B/F/P/V→1, C/G/J/K/Q/S/X/Z→2, D/T→3, L→4, M/N→5, R→6, vowels and H/W dropped after the first letter, consecutive same-group letters collapsed); truncate or zero-pad to 4 characters.
+- **Score normalisation:** binary 0.0 / 1.0.
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** empty input → empty code → `SoundexScore("", "") = 1.0`; non-ASCII input handled by encoding only the ASCII letters (documented limitation).
+- **Intended use:** rough pronunciation-equivalent matching for English names. Pre-filter, not primary metric.
+- **Reference vectors:** "Robert" → "R163"; "Rupert" → "R163"; "Rubin" → "R150"; "Ashcraft" → "A261"; "Ashcroft" → "A261".
+
+#### 7.4.2 Double Metaphone
+
+- **Category:** phonetic, multi-language tolerant
+- **Primary source:** Philips, L. (2000). "The double-metaphone search algorithm." *C/C++ Users Journal*, 18(6):38–43. Reference implementation: original C code by Lawrence Philips, public-domain.
+- **AlgoID:** `AlgoDoubleMetaphone`
+- **Public functions:**
+  - `DoubleMetaphoneKeys(s string) (primary, secondary string)` — returns the primary and secondary keys (4 characters each in the canonical formulation, though longer in some extended variants; this library uses the canonical 4-character truncation)
+  - `DoubleMetaphoneScore(a, b string) float64` — returns 1.0 if either of `a`'s keys matches either of `b`'s keys (i.e. primary-primary, primary-secondary, secondary-primary, or secondary-secondary), else 0.0
+- **Description:** improvement over Soundex that handles non-English-origin English-language names (Germanic, Slavic, Romance, Greek-origin). Encodes each input into two possible keys reflecting alternate pronunciations.
+- **Score normalisation:** binary 0.0 / 1.0.
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** empty input → empty keys → `DoubleMetaphoneScore("", "") = 1.0`.
+- **Implementation notes:** the encoding rule table is large (200+ rules in the canonical algorithm). Implementation derived from the Philips 2000 paper and the public-domain C reference. Implementation must NOT copy from MIT-licensed Go ports (e.g. `CalypsoSys/godoublemetaphone`) — algorithm rules are encoded fresh from the primary source. Cross-validation against existing implementations is permitted for reference vectors only.
+- **Intended use:** robust pronunciation-equivalent matching for English-language names of various ethnic origins.
+- **Reference vectors:** "Smith" → ("SM0", "XMT"); "Schmidt" → ("XMT", "SMT"); these share `XMT`, so they match. "Catherine" → ("K0RN", "KTRN"); "Katherine" → ("K0RN", "KTRN") — exact match.
+
+#### 7.4.3 NYSIIS (New York State Identification and Intelligence System)
+
+- **Category:** phonetic, English
+- **Primary source:** Taft, R. L. (1970). *Name search techniques*. New York State Identification and Intelligence System, Special Report No. 1. Albany, NY.
+- **AlgoID:** `AlgoNYSIIS`
+- **Public functions:**
+  - `NYSIISCode(s string) string` — returns the 6-character code (truncated)
+  - `NYSIISScore(a, b string) float64` — returns 1.0 if codes match exactly, else 0.0
+- **Description:** an improvement over Soundex for English-language names, developed by the New York State criminal-justice authorities in the late 1960s. Produces a 6-character code via a specific letter-substitution and reduction ruleset.
+- **Score normalisation:** binary 0.0 / 1.0.
+- **Mathematical invariants:** identity, symmetry, range bounds.
+- **Edge cases:** empty input → empty code → score 1.0.
+- **Intended use:** higher-accuracy alternative to Soundex for English names, particularly useful for surname matching.
+- **Reference vectors:** "Robert" → "RABAD" (variants exist; the library uses the canonical 1970 algorithm); "Brown" → "BRAN"; "Browne" → "BRAN".
+
+#### 7.4.4 MRA (Match Rating Approach)
+
+- **Category:** phonetic, English
+- **Primary source:** Moore, G. B., Kuhns, J. L., Trefftzs, J. L., Montgomery, C. A. (1977). *Accessing individual records from personal data files using non-unique identifiers*. National Bureau of Standards (later NIST), Technical Note 943.
+- **AlgoID:** `AlgoMRA`
+- **Public functions:**
+  - `MRACode(s string) string` — returns the encoded form (canonical form: consonant-only after the first letter)
+  - `MRACompare(a, b string) (bool, int)` — returns whether the strings match per the MRA threshold rule, plus the raw similarity score
+  - `MRAScore(a, b string) float64` — returns 1.0 if MRA-comparison passes, else 0.0
+- **Description:** encode each name by removing vowels (except leading), removing duplicate consonants, and truncating; then compare via a position-aware similarity counting that requires the similarity score to exceed a length-dependent threshold.
+- **Score normalisation:** binary 0.0 / 1.0 (the underlying score is 0–6 integer; binary at the threshold).
+- **Mathematical invariants:** identity, symmetry (the comparison is symmetric by the MRA rules), range bounds.
+- **Edge cases:** strings whose encoded lengths differ by more than 3 are documented as automatic mismatch (score 0.0) per the canonical MRA algorithm.
+- **Intended use:** highly-tuned phonetic match for English-language surnames in record-linkage contexts.
+
+### 7.5 Gestalt pattern matching
+
+#### 7.5.1 Ratcliff-Obershelp
+
+- **Category:** gestalt, recursive longest-common-substring
+- **Primary source:** Ratcliff, J. W., Metzener, D. E. (1988). "Pattern matching: the gestalt approach." *Dr. Dobb's Journal*, 13(7):46–51.
+- **AlgoID:** `AlgoRatcliffObershelp`
+- **Public functions:**
+  - `RatcliffObershelpScore(a, b string) float64`
+  - `RatcliffObershelpScoreRunes(a, b string) float64`
+- **Description:** find the longest common substring; recursively apply the same to the unmatched prefix and suffix sub-pairs; the score is twice the total matched length divided by the sum of input lengths. This is the algorithm Python's `difflib.SequenceMatcher.ratio()` implements.
+- **Formula:** `score = 2·M / (|a| + |b|)` where `M` is the sum of lengths of all matched substrings found by recursive longest-common-substring decomposition.
+- **Complexity:** average O(n·m); worst case O(n²·m) or O(n·m²). Documented as such; not used in tight loops without consideration.
+- **Score normalisation:** [0.0, 1.0]. Both-empty → 1.0; one-empty → 0.0.
+- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality.
+- **Edge cases:** as above.
+- **Intended use:** general-purpose human-perceived-similarity scoring. Often considered the closest mechanical metric to human similarity judgement for arbitrary strings.
+
+---
+
+## 8. Layer 2 — Scorer
+
+> *Reminder: the Scorer construction, options, and method shapes below are illustrative. The `api-ergonomics-reviewer` and `user-guide-reviewer` agents determine the final API. Scorer behaviour and semantics (weighted composite, configurable threshold, normalisation, default composition, concurrent-use safety, deterministic output) are requirements.*
+
+The `Scorer` composes any subset of the 23 algorithms into a weighted similarity score. Scorer is the recommended API for most consumers; the standalone algorithm functions are exposed for consumers who need just one algorithm with no overhead.
+
+### 8.1 Construction
+
+```go
+type Scorer struct {
+    // unexported fields
+}
+
+func NewScorer(opts ...ScorerOption) (*Scorer, error)
+```
+
+Construction validates the configuration and returns an error for invalid configurations:
+
+- No algorithms configured → `ErrEmptyScorer`
+- Any weight ≤ 0 → `ErrInvalidWeight`
+- Sum of weights ≤ 0 → `ErrInvalidWeight`
+- Threshold outside [0.0, 1.0] → `ErrInvalidThreshold`
+- Invalid algorithm ID → `ErrInvalidAlgoID`
+- Q-gram size < 1 → `ErrInvalidQGramSize`
+- Tversky α or β < 0 → `ErrInvalidTverskyParam`
+- Monge-Elkan inner = `AlgoMongeElkan` (self-reference) → `ErrInvalidAlgoID`
+
+After successful construction, the Scorer is immutable. All Scorer methods are safe for concurrent use.
+
+### 8.2 Options
+
+```go
+type ScorerOption func(*scorerConfig) error
+
+// Simple algorithms with one float weight.
+func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
+
+// Algorithms with additional parameters.
+func WithQGramJaccardAlgorithm(weight float64, n int) ScorerOption
+func WithCosineAlgorithm(weight float64, n int) ScorerOption
+func WithSorensenDiceAlgorithm(weight float64, n int) ScorerOption
+func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption
+func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption
+func WithSmithWatermanGotohAlgorithm(weight float64, params SWGParams) ScorerOption
+
+// Normalisation configuration.
+func WithNormalisation(opts NormalisationOptions) ScorerOption
+func WithoutNormalisation() ScorerOption
+
+// Threshold for Match.
+func WithThreshold(t float64) ScorerOption
+
+// Weight normalisation control.
+func WithNormaliseWeights(normalise bool) ScorerOption  // default true
+```
+
+`WithAlgorithm(algo, weight)` accepts any AlgoID. For algorithms with parameters (Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky, Monge-Elkan, Smith-Waterman-Gotoh), calling `WithAlgorithm` uses the algorithm's default parameters (e.g. `n = 3` for Q-Gram Jaccard, `α = β = 1` for Tversky-reduces-to-Jaccard, Jaro-Winkler inner for Monge-Elkan, default params for SWG). For non-default parameters, use the dedicated `With...Algorithm` options.
+
+If the same algorithm is added multiple times via different option calls, the last one wins. This is documented behaviour.
+
+### 8.3 Methods
+
+```go
+// Score returns the weighted composite similarity score in [0.0, 1.0].
+func (s *Scorer) Score(a, b string) float64
+
+// ScoreAll returns the per-algorithm scores keyed by algorithm name
+// (snake_case form of AlgoID.String()). Map iteration order is NOT
+// stable; consumers requiring stable ordering should sort the keys.
+// The returned map is a fresh allocation per call (safe to modify).
+func (s *Scorer) ScoreAll(a, b string) map[string]float64
+
+// Match returns true if Score(a, b) >= threshold.
+func (s *Scorer) Match(a, b string) bool
+
+// Threshold returns the configured threshold.
+func (s *Scorer) Threshold() float64
+
+// Algorithms returns the list of configured algorithms with their
+// normalised weights, sorted by AlgoID ascending. Returned slice is
+// a fresh allocation per call.
+func (s *Scorer) Algorithms() []ScorerAlgorithm
+
+// ScorerAlgorithm describes one algorithm configured on a Scorer.
+type ScorerAlgorithm struct {
+    ID     AlgoID
+    Weight float64  // post-normalisation weight in [0.0, 1.0]
+}
+```
+
+### 8.4 Weight semantics
+
+If `WithNormaliseWeights(true)` (the default), the configured raw weights are normalised at construction time to sum to 1.0. The `Score` method then computes `Σ wᵢ · simᵢ` over the configured algorithms. The composite score is guaranteed to be in [0.0, 1.0] when all individual scores are in [0.0, 1.0].
+
+If `WithNormaliseWeights(false)`, weights are used as-is. The `Score` method computes `Σ wᵢ · simᵢ`. The composite is NOT guaranteed to be in [0.0, 1.0] — it is the consumer's responsibility to choose weights that keep the composite within bounds. The library does not clamp.
+
+The default is `true` because in practice consumers think of weights as proportions and expect a normalised composite. The opt-out is provided for advanced consumers who want raw weighted sums (e.g. for monotonic threshold comparison without normalisation overhead).
+
+### 8.5 Defaults
+
+`DefaultScorer()` returns a Scorer pre-configured with a sensible mixed-algorithm composite suitable for identifier-style string comparison:
+
+```go
+func DefaultScorer() *Scorer  // returns a pre-configured Scorer; cannot fail
+```
+
+Default composition:
+
+- Damerau-Levenshtein (OSA): weight 0.30
+- Jaro-Winkler: weight 0.20
+- Token Jaccard: weight 0.20
+- Q-Gram Jaccard (n=3): weight 0.15
+- Sørensen-Dice (n=2): weight 0.10
+- Double Metaphone: weight 0.05
+- Threshold: 0.85
+- Normalisation: `DefaultNormalisationOptions()`
+
+These defaults are calibrated for the originating audit-field-similarity use case. They are documented as a reasonable starting point, not a one-size-fits-all configuration. Consumers tuning for their domain are expected to construct their own Scorer.
+
+### 8.6 ScoreAll behaviour
+
+`ScoreAll` returns a freshly-allocated `map[string]float64` per call. Keys are the snake_case algorithm names (`"damerau_levenshtein_osa"`, `"jaro_winkler"`, etc.). Map iteration order in Go is non-deterministic — this is INTENTIONAL: consumers reading the map for human display can sort keys themselves; consumers using the map programmatically don't care about order. The Scorer's internal computation does NOT depend on map iteration order (algorithms are iterated in AlgoID-sorted order internally).
+
+---
+
+## 9. Normalisation Pipeline
+
+Pre-comparison normalisation is exposed both as a standalone function (`Normalise`) and as Scorer configuration (`WithNormalisation`).
+
+```go
+type NormalisationOptions struct {
+    Lowercase       bool
+    StripSeparators bool
+    SeparatorChars  string  // default "_-.:/"
+    SplitCamelCase  bool    // affects Tokenise only
+}
+
+func DefaultNormalisationOptions() NormalisationOptions {
+    return NormalisationOptions{
+        Lowercase:       true,
+        StripSeparators: true,
+        SeparatorChars:  "_-.:/",
+        SplitCamelCase:  true,
+    }
+}
+
+func Normalise(s string, opts NormalisationOptions) string
+```
+
+### 9.1 Operations
+
+Applied in order:
+
+1. **Lowercase** (if `Lowercase`): `unicode.ToLower` over runes. ASCII fast path: bitwise OR with `0x20` when `'A' ≤ c ≤ 'Z'`.
+2. **Strip separators** (if `StripSeparators`): bytes (or runes) in `SeparatorChars` removed from the string.
+3. **Tokenisation** (CamelCase split, see section 10): applied only when the result is used by a token-based algorithm or when `Tokenise` is called directly.
+
+`Normalise` returns the post-step-2 string. Token-based algorithms call `Tokenise` (which applies all three steps within each token) instead of `Normalise` directly.
+
+### 9.2 ASCII fast path
+
+For ASCII-only inputs (verified by a single pass scanning for any byte ≥ 0x80), the implementation uses a stack-allocated `[64]byte` buffer for inputs ≤ 64 bytes (zero heap allocation) and a single-pass byte-level transformation. Non-ASCII inputs fall through to the rune-aware path with heap allocation.
+
+### 9.3 Default behaviour
+
+The `DefaultNormalisationOptions` configuration treats the following as equivalent for similarity purposes:
+
+- `user_id`, `userId`, `user-id`, `User.Id`, `USER_ID` → all normalise (after lowercase + separator strip) to `userid`
+- `XMLParser`, `xml_parser`, `xml-parser` → all tokenise (with CamelCase split) to `["xml", "parser"]`
+
+### 9.4 Disabling normalisation
+
+Pass `NormalisationOptions{}` (zero value) to disable all normalisation, or call `Scorer.WithoutNormalisation()`. Algorithms then operate on raw input.
+
+---
+
+## 10. Tokenisation
+
+```go
+func Tokenise(s string, opts NormalisationOptions) []string
+```
+
+Tokenisation rules (applied in order):
+
+1. **Lowercase** (if `opts.Lowercase`) — applied to each character before tokenisation
+2. **Split on separator characters** (if `opts.StripSeparators`) — characters in `SeparatorChars` are token boundaries
+3. **Split on camelCase / PascalCase / acronym boundaries** (if `opts.SplitCamelCase`):
+   - Insert a boundary at every uppercase letter that follows a lowercase letter (`userID` → `user`, `ID`)
+   - Insert a boundary at every lowercase letter that follows two or more uppercase letters (`XMLParser` → `XML`, `Parser`)
+4. **Filter empty tokens** — consecutive separators do not produce empty tokens
+5. **Lowercase post-split** (if `opts.Lowercase`) — applied after tokenisation so that uppercase-letter-driven boundaries are preserved
+
+Tokenisation examples:
+
+- `UserCreateEvent` → `["user", "create", "event"]`
+- `user_create_event` → `["user", "create", "event"]`
+- `HTTP_REQUEST_V2` → `["http", "request", "v2"]`
+- `httpRequestBody` → `["http", "request", "body"]`
+- `XMLParser` → `["xml", "parser"]`
+- `User_ID` → `["user", "id"]`
+
+The returned slice is a fresh allocation per call.
+
+---
+
+## 11. Phonetic Algorithm Integration
+
+Phonetic algorithms (Soundex, Double Metaphone, NYSIIS, MRA) are inherently boolean: two strings either share an encoded key or they don't. Their Scorer behaviour is:
+
+- Apply normalisation to both inputs (the same way other algorithms do)
+- Compute each input's phonetic code(s)
+- Return 1.0 if the codes match per the algorithm's matching rule (exact match for Soundex and NYSIIS; either-of-two-keys match for Double Metaphone; MRA's length-dependent threshold rule for MRA), else 0.0
+
+For consumers wanting richer behaviour, the public functions expose the keys directly:
+
+```go
+code := fuzzymatch.SoundexCode("Smith")
+primary, secondary := fuzzymatch.DoubleMetaphoneKeys("Schmidt")
+nysiis := fuzzymatch.NYSIISCode("Robert")
+mra := fuzzymatch.MRACode("Brown")
+```
+
+Consumers wanting partial-match scoring on phonetic codes (e.g. Levenshtein distance on Soundex codes for near-match) compose this themselves:
+
+```go
+distance := fuzzymatch.LevenshteinDistance(
+    fuzzymatch.SoundexCode(a),
+    fuzzymatch.SoundexCode(b),
+)
+```
+
+This is documented in `docs/algorithms.md` under "Composing phonetic algorithms with edit distance."
+
+---
+
+## 12. Layer 3 — Scan sub-package
+
+> *Reminder: the `Item`, `Config`, `Warning`, and `Check` shapes below are illustrative. The `api-ergonomics-reviewer` and `user-guide-reviewer` agents determine the final API. Scan semantics (within-vs-cross-group passes, suppression composition, deterministic output, token-bucket optimisation equivalent to naive) are requirements.*
+
+The `github.com/axonops/fuzzymatch/scan` sub-package provides a turnkey collection-scan layer on top of the root algorithms and Scorer. It detects pairs of similar names in a collection, with optional grouping semantics, suppression mechanisms, and a token-bucket optimisation for large collections.
+
+The scan sub-package is **optional**. Consumers wanting only algorithm functions or only the Scorer never import `scan` and incur no cost from its existence — the root package has no dependency on the scan sub-package. The scan sub-package depends on the root package (it consumes `*fuzzymatch.Scorer`).
+
+### 12.1 Public API
+
+```go
+package scan
+
+import "github.com/axonops/fuzzymatch"
+
+// Item is one named thing the scanner compares. Consumers construct
+// items from whatever schema or vocabulary they care about.
+type Item struct {
+    // Name is the value being compared. Required, non-empty.
+    Name string
+
+    // Group scopes the comparison. Items with the same Group are
+    // compared against each other in the within-group pass. Items
+    // with different Group values are compared in the cross-group
+    // pass when Config.CompareAcrossGroups is true. The empty
+    // string is a valid Group (one global group).
+    Group string
+
+    // SilenceLint, when true, suppresses any warning involving this
+    // Item (one-side suppression: flag on either side of a pair
+    // silences the pair).
+    SilenceLint bool
+
+    // Tag is opaque consumer data. The library does not interpret
+    // it; it appears unchanged in the Warning.TagA / Warning.TagB
+    // fields. Use it to carry source-file line numbers, schema
+    // paths, or any other context useful in error messages.
+    Tag any
+}
+
+// WarningKind classifies a similarity warning.
+type WarningKind int
+
+const (
+    // KindWithinGroup signals a similar-name pair where both items
+    // have the same Group.
+    KindWithinGroup WarningKind = iota + 1
+
+    // KindAcrossGroups signals a similar-name pair where the items
+    // have different Group values.
+    KindAcrossGroups
+)
+
+// String returns the snake_case name ("within_group", "across_groups").
+func (k WarningKind) String() string
+
+// Warning is one detected similar-name pair. NameA is the
+// lexicographically smaller (after normalisation) for deterministic
+// output ordering.
+type Warning struct {
+    Kind           WarningKind
+    NameA, NameB   string
+    GroupA, GroupB string
+    TagA, TagB     any
+
+    // Score is the composite score returned by the configured Scorer.
+    Score float64
+
+    // Scores carries the per-algorithm breakdown from Scorer.ScoreAll.
+    Scores map[string]float64
+}
+
+// Config controls Check behaviour. Construct directly; the zero
+// value is invalid (Scorer is required) and Check returns
+// ErrNilScorer.
+type Config struct {
+    // Scorer is required. It governs both the similarity computation
+    // and the emission threshold (warnings are emitted when
+    // Scorer.Match returns true, with the cross-group boost applied
+    // where relevant).
+    Scorer *fuzzymatch.Scorer
+
+    // CompareAcrossGroups enables the cross-group pass: items with
+    // different Group values are compared against each other. When
+    // false (default), only same-group pairs are compared.
+    CompareAcrossGroups bool
+
+    // CrossGroupThresholdBoost is added to the Scorer's threshold
+    // when evaluating cross-group pairs. The cross-group pass is
+    // inherently noisier than the within-group pass; a small
+    // positive value (0.02–0.05) reduces false positives without
+    // disabling the pass. Default: 0.05. Range [0.0, 1.0].
+    CrossGroupThresholdBoost float64
+
+    // CompareIdenticalAcrossGroups, when false (default), suppresses
+    // cross-group warnings for pairs whose names are byte-identical
+    // after normalisation. Operators legitimately reuse the same
+    // name (e.g. user_id) across groups; surfacing every such pair
+    // would drown real similar-but-not-equal signals.
+    CompareIdenticalAcrossGroups bool
+
+    // SuppressedPairs is a list of name pairs that should not
+    // produce a warning, in addition to per-Item SilenceLint flags.
+    // Pairs are order-independent and normalised (using the
+    // Scorer's normalisation options) before matching.
+    SuppressedPairs [][2]string
+}
+
+// Check compares every pair of items per the Config and returns
+// warnings for pairs where the Scorer's Match returns true (with
+// the cross-group threshold boost applied where relevant).
+//
+// Output is sorted deterministically by (Kind, NameA, NameB,
+// GroupA, GroupB) and is byte-identical across runs for the same
+// input and Scorer configuration.
+//
+// Check is a pure function: it never reads files, environment
+// variables, or any package-global state. The function is safe for
+// concurrent use with itself and with any Scorer method.
+//
+// Returns ErrNilScorer if cfg.Scorer is nil. Returns ErrInvalidItem
+// wrapped with the offending item's index if any item has an empty
+// Name. Returns ErrInvalidConfig wrapped with the specific problem
+// if cfg is otherwise malformed (e.g. CrossGroupThresholdBoost
+// outside [0.0, 1.0]). Empty items slice returns an empty Warning
+// slice and no error.
+func Check(items []Item, cfg Config) ([]Warning, error)
+```
+
+Sentinel errors:
+
+```go
+var (
+    ErrNilScorer     = errors.New("scan: Config.Scorer is required")
+    ErrInvalidItem   = errors.New("scan: invalid item")
+    ErrInvalidConfig = errors.New("scan: invalid config")
+)
+```
+
+### 12.2 Within-group vs cross-group passes
+
+The default pass is **within-group only**: items are compared only against other items sharing the same Group value. The within-group pass uses the Scorer's configured threshold directly.
+
+When `CompareAcrossGroups` is true, an additional **cross-group pass** runs: items in different Groups are compared. The effective threshold for the cross-group pass is `scorer.Threshold() + cfg.CrossGroupThresholdBoost`. This reflects that cross-group similarities are inherently noisier — operators often legitimately reuse names like `user_id` across event groups — and need a tighter threshold to be informative.
+
+If `cfg.CrossGroupThresholdBoost` would push the effective threshold above 1.0, the threshold is clamped to 1.0 (meaning only byte-identical matches pass; combined with `CompareIdenticalAcrossGroups: false` this disables cross-group emission, which is documented).
+
+### 12.3 Suppression composition
+
+Two mechanisms compose. A warning is suppressed if ANY of the following applies:
+
+- Either item in the pair has `SilenceLint = true` (one-side suppression: setting the flag on either side silences the pair)
+- The pair, normalised and sorted, appears in `cfg.SuppressedPairs`
+- The pair is `KindAcrossGroups` AND both names are byte-identical after normalisation AND `cfg.CompareIdenticalAcrossGroups` is false
+
+`SuppressedPairs` entries are normalised at the start of `Check` using the Scorer's normalisation options. Lookup is O(1) per candidate pair via an internal sorted-pair set built once at the top of `Check`.
+
+The library treats `SilenceLint` as opaque. Consumers attach their own meaning (for example, the `axonops/audit` consumer populates it from a `silence_lint: true` YAML key on field declarations).
+
+### 12.4 Determinism
+
+Scan output is deterministic. Two `Check` calls on the same input and same Scorer configuration produce byte-identical output. Output is sorted by `(Kind, NameA, NameB, GroupA, GroupB)`. Map iteration is never exposed on the output path. The internal token-bucket map is iterated only to construct candidate sets, which are sorted before the scoring loop.
+
+Property test `PropCheck_DeterministicAcrossRuns` (in `scan/props_test.go`) verifies byte-identical output across runs on randomised input. The cross-platform determinism CI matrix (section 13.3) exercises the scan sub-package on every supported platform.
+
+### 12.5 Token-bucket optimisation
+
+Naive cross-group comparison is O(N²). For 10,000 items this is 100 million pair comparisons. The scan sub-package uses a token-bucket index to reduce this:
+
+1. Tokenise every name once at the start of `Check`, using the Scorer's normalisation options
+2. Build `map[string][]int` from token → item indices
+3. For each item, candidate partners are the union of `bucket[t]` for each token `t` in that item. Items sharing no token are skipped entirely (they cannot exceed any reasonable similarity threshold)
+4. Within the candidate set, invoke the Scorer's `Match` (or `Score` followed by threshold comparison)
+
+Correctness: property test `PropCheck_BucketEquivalentToNaive` verifies the bucket-optimised result equals the naive all-pairs result on randomised input. The optimisation never causes a real warning to be dropped because any pair with similarity above ~0.5 shares at least one token after normalisation.
+
+Within-group pass uses the same bucket when group size exceeds 50 items (default); below this threshold, naive nested loops are faster due to constant factors.
+
+### 12.6 Performance
+
+Targets (with the default Scorer of section 8.5):
+
+- 200 items / 10 groups: < 10 ms
+- 1000 items / 50 groups: < 100 ms
+- 10000 items / 500 groups: < 2 s
+- Cross-group pass enabled: at most 2× the within-group-only cost on the same input
+
+Benchmarks in `scan/scan_bench_test.go` cover within-group only, within-plus-cross-group, and the bucket-vs-naive comparison. CI regression detection via `benchstat` against the last tagged release.
+
+### 12.7 Repository layout
+
+```
+github.com/axonops/fuzzymatch/scan/
+├── scan.go                       # Item, Config, Warning, Check
+├── scan_test.go                  # external/black-box unit tests
+├── scan_internal_test.go         # bucket optimisation correctness
+├── scan_bench_test.go            # benchmarks
+├── bucket.go                     # token-bucket implementation
+├── errors.go                     # sentinel errors
+├── doc.go                        # package documentation
+├── example_test.go               # godoc runnable examples
+├── props_test.go                 # property tests
+└── fuzz_test.go                  # native fuzz harness for Check
+```
+
+The scan sub-package has its own `doc.go` and `example_test.go`. It does NOT have its own `go.mod` — it is a sub-package of `github.com/axonops/fuzzymatch` under the same module.
+
+---
+
+## 13. Determinism Guarantees
+
+The library guarantees the following determinism properties. Verified by tests and CI.
+
+### 13.1 Algorithm score stability
+
+Algorithm scores are stable to the last bit across patch versions within a major version. Score from any public `*Score` function in v1.0.0 must equal the same call in v1.5.0 to the last bit. A golden-file test in `testdata/golden/` pins reference vectors per algorithm; any change to the algorithm output requires updating the golden file with an accompanying CHANGELOG entry and a minor version bump.
+
+### 13.2 Scorer composite stability
+
+`Scorer.Score(a, b)` is deterministic for the same Scorer configuration and the same input. Two calls return byte-identical (to the last bit) results.
+
+### 13.3 Cross-platform determinism
+
+Verified by CI matrix: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64. The cross-platform test runs every algorithm and every default-configured Scorer on a fixed input corpus and asserts byte-identical output across platforms.
+
+This is achievable because: (a) all float operations are simple enough (addition, multiplication, division) that IEEE-754 reproducibility holds across the supported platforms; (b) no platform-specific intrinsics are used; (c) no goroutine scheduling affects output; (d) no map iteration affects output; (e) no time-dependent or environment-dependent values participate.
+
+### 13.4 Map iteration
+
+Map iteration order in Go is non-deterministic by design. The library uses `map` internally (e.g. for q-gram counting, token-set intersection) but NEVER exposes map iteration order to public output. Internal algorithms that need to iterate a map in a stable order extract keys, sort them, and iterate the sorted slice.
+
+`Scorer.ScoreAll` returns a `map[string]float64` — the map itself is returned, and iteration order is non-deterministic. This is documented; consumers requiring stable order should sort the keys.
+
+### 13.5 No init() side effects
+
+The library has no `init()` functions doing non-trivial work. The Strcmp95 similarity-character table is initialised via a `var` declaration, not in `init()`.
+
+### 13.6 Property tests
+
+The following properties are verified by property-based tests via `testing/quick`:
+
+- `PropAlgorithmScore_RangeBounds` — every algorithm's score is in [0.0, 1.0] for arbitrary inputs
+- `PropAlgorithmScore_Identity` — `Score(x, x) = 1.0` for non-empty `x`
+- `PropAlgorithmScore_Symmetric` — `Score(a, b) = Score(b, a)` for all symmetric algorithms (Monge-Elkan and asymmetric Tversky excluded)
+- `PropEditDistance_TriangleInequality` — for distance-based algorithms: `D(a, c) ≤ D(a, b) + D(b, c)`
+- `PropScorer_DeterministicAcrossRuns` — Scorer.Score is byte-identical across runs for the same input
+- `PropNormalise_Idempotent` — `Normalise(Normalise(x)) == Normalise(x)`
+- `PropTokenise_NoEmptyTokens` — `Tokenise` never returns empty tokens
+- `PropAllPublic_NeverPanic` — arbitrary inputs (including invalid UTF-8) never panic any public function
+
+---
+
+## 14. Performance Budgets
+
+Targets (single-core, modern x86_64, Go 1.26+):
+
+### 14.1 Per-algorithm budgets
+
+For ASCII inputs ≤ 50 characters:
+
+- Levenshtein, Damerau-Levenshtein OSA, Hamming: < 1 µs per call, 0 allocations
+- Damerau-Levenshtein Full: < 3 µs per call, 0 allocations
+- Jaro, Jaro-Winkler, Strcmp95: < 1 µs per call, 0 allocations
+- Smith-Waterman-Gotoh: < 5 µs per call, 0 allocations (stack buffer for ≤ 50 char inputs)
+- LCSStr: < 2 µs per call, 0 allocations
+- Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky: < 5 µs per call, ≤ 4 allocations (q-gram map + count map; can be reduced via small-input fast path in v1.x)
+- Monge-Elkan: < 10 µs per call (cost dominated by inner metric × token-count squared)
+- Token Sort Ratio, Token Set Ratio, Token Jaccard: < 5 µs per call, ≤ 4 allocations
+- Partial Ratio: < 10 µs per call for short inputs (cost grows with the length difference)
+- Soundex, NYSIIS, MRA: < 500 ns per call, 0 allocations (stack-allocated code buffer)
+- Double Metaphone: < 2 µs per call, ≤ 2 allocations
+- Ratcliff-Obershelp: < 5 µs per call for short inputs
+
+For longer inputs (50–500 characters): each algorithm's cost scales per its complexity. Benchmarks at 50/200/500 chars.
+
+### 14.2 Scorer budgets
+
+- Default-configured Scorer (6 algorithms): `Score(a, b)` < 30 µs for ASCII inputs ≤ 50 chars, ≤ 8 allocations
+- Default-configured Scorer: `ScoreAll(a, b)` adds one allocation (the result map)
+- `Match` matches `Score` cost
+
+### 14.3 Normalisation budgets
+
+- `Normalise` ASCII input ≤ 50 chars: < 200 ns, 0 allocations (stack buffer)
+- `Tokenise` ASCII input ≤ 50 chars: < 500 ns, ≤ 2 allocations (token slice + storage)
+
+### 14.4 Benchmark suite
+
+Every algorithm has a benchmark file (`xxx_bench_test.go`) covering short / medium / long inputs. Benchmark output is committed to `bench.txt` per release. CI runs `benchstat` against the last tagged release; > 10% regression on any benchmark fails the build.
+
+The benchmark CI job uses a labelled self-hosted runner shared with `axonops/mask` and `axonops/audit` for hardware consistency. If the runner is unavailable, benchmarks run informationally on `ubuntu-latest` and regression detection is skipped with a CI annotation.
+
+---
+
+## 15. Testing Strategy
+
+### 15.1 Unit tests
+
+External / black-box: `package fuzzymatch_test` in `xxx_test.go` files.
+
+Every algorithm has a `xxx_test.go` file covering:
+
+- Identity: `Score(x, x) = 1.0` for non-empty `x`
+- Both-empty edge case
+- One-empty edge case
+- Literature reference vectors (canonical examples from the cited primary source)
+- Algorithm-specific invariants (symmetry where applicable, range bounds, triangle inequality for distance-based)
+- Unicode behaviour documented and tested where the algorithm has rune/byte variants
+
+The Scorer has `scorer_test.go` covering:
+
+- Construction success and every documented failure mode
+- Score is in [0.0, 1.0] (when weights normalised)
+- ScoreAll returns per-algorithm scores keyed by algorithm name
+- Match returns true / false consistently with Score and Threshold
+- Concurrent Score / ScoreAll / Match is safe
+- DefaultScorer matches documented composition
+- Re-adding the same algorithm overrides the prior weight (last-wins)
+
+### 15.2 Internal tests
+
+`package fuzzymatch` (not `fuzzymatch_test`) in `xxx_internal_test.go` files. Used for testing unexported correctness invariants — primarily the q-gram extraction, token-set construction, and Strcmp95 similar-character table.
+
+### 15.3 Property tests
+
+In `props_test.go`, using `testing/quick` (stdlib only):
+
+- See section 13.6 for the property list.
+
+### 15.4 Fuzz tests
+
+Native Go fuzzing in `fuzz_test.go`:
+
+- `FuzzLevenshtein`, `FuzzDamerauLevenshteinOSA`, `FuzzDamerauLevenshteinFull`, `FuzzHamming`, `FuzzJaro`, `FuzzJaroWinkler`, `FuzzStrcmp95`, `FuzzSmithWatermanGotoh`, `FuzzLCSStr`, `FuzzQGramJaccard`, `FuzzSorensenDice`, `FuzzCosine`, `FuzzTversky`, `FuzzMongeElkan`, `FuzzTokenSortRatio`, `FuzzTokenSetRatio`, `FuzzPartialRatio`, `FuzzTokenJaccard`, `FuzzSoundex`, `FuzzDoubleMetaphone`, `FuzzNYSIIS`, `FuzzMRA`, `FuzzRatcliffObershelp`
+- `FuzzNormalise`, `FuzzTokenise`
+- `FuzzScorer` — constructs Scorer with arbitrary algorithm subsets, asserts score in [0,1] for arbitrary inputs
+
+Corpus checked into `testdata/fuzz/`. CI runs 60s per fuzzer per build.
+
+### 15.5 Benchmark tests
+
+See section 14. Every algorithm and the Scorer have benchmark files. CI runs benchmarks against the last tagged release via `benchstat`.
+
+### 15.6 BDD scenarios
+
+`tests/bdd/` is a separate Go module with its own `go.mod` so consumers do not transitively depend on `cucumber/godog`. Feature files in `tests/bdd/features/`:
+
+- `features/algorithms.feature` — per-algorithm scenarios with canonical input / score pairs, one Scenario Outline per algorithm
+- `features/scorer.feature` — Scorer composition, weight normalisation, threshold matching, ScoreAll output structure
+- `features/normalisation.feature` — lowercase / separator-strip / camelCase-split combinations
+- `features/determinism.feature` — Scorer.Score byte-identical across repeated calls; cross-platform determinism via golden file
+- `features/scan.feature` — scan sub-package: Item / Warning / Check, within-vs-cross-group, deterministic output ordering
+- `features/suppression.feature` — scan sub-package suppression: per-item SilenceLint flag, SuppressedPairs list, composition between the two
+
+Sample (algorithms.feature, abridged):
+
+```gherkin
+Feature: Similarity algorithm scores
+
+  Scenario Outline: Levenshtein canonical reference vectors
+    When I compute the Levenshtein score between "<a>" and "<b>"
+    Then the score should be approximately <score>
+
+    Examples:
+      | a       | b       | score   |
+      | kitten  | sitting | 0.5714  |
+      | abc     | abc     | 1.0000  |
+      |         |         | 1.0000  |
+      | abc     |         | 0.0000  |
+
+  Scenario Outline: Jaro-Winkler canonical reference vectors
+    When I compute the Jaro-Winkler score between "<a>" and "<b>"
+    Then the score should be approximately <score>
+
+    Examples:
+      | a      | b      | score   |
+      | MARTHA | MARHTA | 0.9611  |
+      | DWAYNE | DUANE  | 0.8400  |
+```
+
+Sample (scorer.feature, abridged):
+
+```gherkin
+Feature: Scorer composition and matching
+
+  Scenario: Default Scorer matches similar identifiers
+    Given the default Scorer
+    When I compute the score between "user_id" and "userId"
+    Then the score should be at least 0.85
+    And Match should return true
+
+  Scenario: Custom Scorer with single algorithm
+    Given a Scorer configured with Levenshtein at weight 1.0 and threshold 0.5
+    When I compute the score between "kitten" and "sitting"
+    Then the score should be approximately 0.5714
+    And Match should return true
+```
+
+### 15.7 Meta-tests
+
+Root-level test files verifying project-level invariants:
+
+- `documentation_test.go` — verifies every code block in `docs/*.md` parses as valid Go; verifies README quick-start compiles; verifies `docs/algorithms.md` reference vectors match the implementation's documented constants and unit-test reference vectors.
+- `ai_friendly_test.go` — verifies `llms.txt` and `llms-full.txt` exist at repo root; verifies their "Public API" sections list every exported symbol (parsed via `go/ast`); verifies documented Scorer defaults match `DefaultScorer()` actuals.
+- `readme_shop_front_test.go` — compiles and runs the README's headline example; verifies output exactly matches the documented expected output.
+- `makefile_targets_test.go` — parses Makefile and verifies every target documented in `CONTRIBUTING.md` exists; conversely every target in Makefile is mentioned in `CONTRIBUTING.md`, `README.md`, or has a `## suppress: <reason>` comment.
+- `internal_coverage_test.go` — mirroring `axonops/mask`. Enforces a coverage floor: any drop below the configured threshold (95% overall, 90% per file, 100% on public API) fails the test. Run as part of normal `go test`, not behind a build tag.
+
+### 15.8 Coverage targets
+
+- Overall: ≥ 95% line coverage
+- Per file: ≥ 90% line coverage
+- Public API: 100% — every exported function exercised by at least one test
+- CI fails if any threshold is missed
+- Codecov upload for trend visibility
+
+### 15.9 Goroutine leak detection
+
+`go.uber.org/goleak` in `TestMain`:
+
+```go
+func TestMain(m *testing.M) {
+    goleak.VerifyTestMain(m)
+}
+```
+
+The library is pure-function and uses no goroutines. The test catches regressions if anyone introduces background work.
+
+### 15.10 Race detector
+
+CI runs all tests with `go test -race -count=1 ./...`. Required to pass.
+
+### 15.11 Test dependencies
+
+`testify`, `cucumber/godog`, `go.uber.org/goleak`. All in `tests/bdd/go.mod` (BDD) or as `_test.go`-only imports via Go's `testdata`-style isolation. The root `go.mod` retains zero non-stdlib `require` lines.
+
+Specifically: property tests use `testing/quick` (stdlib). Fuzz tests use native `go test -fuzz`. Unit tests use `testify` — and this introduces a non-stdlib test-only dependency in the root module. **Resolution:** unit tests use stdlib `testing` package without `testify`. `testify` is permitted ONLY in `tests/bdd/`. This is stricter than the original mask reference (which uses `testify` in root tests) and is the deliberate choice for `fuzzymatch` to keep the root `go.mod` clean even for `_test.go` files.
+
+Trade-off: tests are more verbose without `testify/assert`. Acceptable for the cleanliness benefit. To be revisited at v1.x if the verbosity becomes a maintenance problem.
+
+---
+
+## 16. Documentation Requirements
+
+### 16.1 README
+
+Structure mirroring `axonops/mask`:
+
+1. Logo image (`.github/images/logo-readme.png`)
+2. Title and tagline ("Fuzzy name matching for Go services — string similarity, weighted composite scoring, zero runtime dependencies")
+3. Badges: CI, Go Reference, Go Report Card, License, Status (pre-release orange)
+4. Quick links (Quick Start, Features, Algorithms, Docs, API Reference)
+5. Table of contents
+6. ⚠ Status section (pre-release framing)
+7. 🔍 Overview — one paragraph plus quote-block tagline
+8. ✨ Key Features bullet list
+9. ❓ Why fuzzymatch?
+10. 🚀 Quick Start with runnable example (DefaultScorer + custom Scorer)
+11. 📚 Algorithm catalogue (table linking to `docs/algorithms.md`)
+12. 🛠 Scorer composition
+13. 🧵 Thread Safety (yes, after construction)
+14. 🔧 Configuration with `DefaultScorer()` and custom examples
+15. 🎯 Tuning Guidance linking to `docs/tuning.md`
+16. 📖 API Reference link to pkg.go.dev
+17. 🤖 For AI Assistants — pointer to `llms.txt` / `llms-full.txt`
+18. 🤝 Contributing
+19. 🔐 Security
+20. 📄 Licence
+
+### 16.2 docs/
+
+- `docs/algorithms.md` — per-algorithm detail: formula, complexity, complexity citations, intended use, comparable references, reference vectors
+- `docs/scorer.md` — Scorer composition, weight semantics, threshold tuning, parametric algorithms
+- `docs/scan.md` — collection-scan layer: Item / Warning / Config, within-vs-cross-group passes, suppression composition, token-bucket optimisation, integration recipes
+- `docs/tuning.md` — calibrating thresholds against a domain corpus; choosing the right algorithm subset for the domain
+- `docs/extending.md` — composing algorithms manually; building a domain-specific Scorer; phonetic-keys with custom inner metrics
+- `docs/performance.md` — benchmark numbers, optimisation notes, profiling tips
+- `docs/faq.md` — common questions, "why not Needleman-Wunsch", "why not Soft-TFIDF", "why not ML embeddings", "why was Metaphone 3 excluded", etc.
+
+### 16.3 llms.txt / llms-full.txt
+
+Following the emerging convention. `llms.txt` is a concise reference; `llms-full.txt` includes full API signatures and examples. Verified in sync with code via `ai_friendly_test.go`.
+
+### 16.4 Inline godoc
+
+Every exported symbol has a godoc comment starting with the symbol name. Every algorithm file has the academic source citation at the top of the file. Constants used in algorithms (e.g. `winklerPrefixScale`) are unexported but documented with reference to the originating paper.
+
+### 16.5 example_test.go
+
+Runnable godoc examples (visible on pkg.go.dev). One example per major use case:
+
+- `ExampleScorer` — DefaultScorer with a typical pair
+- `ExampleNewScorer` — custom Scorer composition
+- `ExampleScorer_ScoreAll` — per-algorithm breakdown
+- `ExampleScorer_Match` — threshold matching
+- `ExampleLevenshteinScore`, `ExampleJaroWinklerScore`, `ExampleDamerauLevenshteinOSAScore`, `ExampleTokenJaccardScore`, `ExampleDoubleMetaphoneScore`, etc. — one per algorithm
+- `ExampleNormalise` — building consistent representations
+- `ExampleTokenise` — extracting tokens for token-based downstream processing
+
+---
+
+## 17. CI/CD Requirements
+
+### 17.1 Workflows
+
+`.github/workflows/`:
+
+- `ci.yml` — runs on every PR and push to `main`. Stages:
+  1. Lint: `golangci-lint run` with `.golangci.yml` (matching `axonops/mask` configuration)
+  2. Vet: `go vet ./...`
+  3. Markdown lint: `markdownlint-cli2`
+  4. Build: cross-compile for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
+  5. Test: `go test -race -shuffle=on -count=1 ./...`
+  6. Coverage: `go test -cover -coverprofile=coverage.out ./...`. Fail if thresholds missed. Codecov upload.
+  7. Fuzz (short): 60s per fuzzer
+  8. Determinism: dedicated test runs Scorer.Score 10,000 times asserting byte-identical output across runs
+  9. Cross-platform determinism: per-platform job runs the determinism golden-file test
+  10. BDD: `cd tests/bdd && go test ./...`
+  11. Vulncheck: `govulncheck ./...`
+  12. License header check: `scripts/verify-license-headers.sh`
+  13. No-runtime-deps check: `scripts/verify-no-runtime-deps.sh`
+  14. LLMs sync check: `scripts/verify-llms-sync.sh`
+
+  Target total CI runtime: < 5 minutes for a clean PR.
+
+- `nightly.yml` — daily at 03:00 UTC. Long-form fuzz (5 minutes per fuzzer). Benchmark regression detection vs. last tagged release via `benchstat`. > 10% regression auto-opens a tracking issue.
+
+- `release.yml` — triggered by `vX.Y.Z` tag push. Full CI pipeline. `goreleaser release --clean`. Sigstore keyless signing on `checksums.txt` via `cosign sign-blob --yes --oidc-issuer=https://token.actions.githubusercontent.com`. GitHub Actions OIDC build provenance attestation. CHANGELOG entry extraction → GitHub Release description. `pkg.go.dev` proxy ping for deterministic indexing.
+
+- `security.yml` — weekly + on PR. `gosec ./...`. `govulncheck ./...`. CodeQL semantic analysis. Sigstore signature verification on the most recent release tag.
+
+- `codeql.yml` — GitHub-native CodeQL on every push to `main` and weekly schedule.
+
+### 17.2 Branch protection on main
+
+- Required status checks: lint, vet, markdown-lint, build (all five platforms), test, coverage, fuzz-short, determinism, cross-platform-determinism, BDD, vulncheck, license-check, no-runtime-deps, llms-sync
+- Required approving reviews: 1 from CODEOWNER
+- No force-pushes
+- Linear history required (squash merges only)
+- Conversation resolution required before merge
+- Releases happen exclusively through CI workflows — never tag locally. The devops agent enforces this.
+
+### 17.3 Issue and PR templates
+
+`.github/ISSUE_TEMPLATE/`:
+
+- `bug_report.md`
+- `feature_request.md`
+- `algorithm_proposal.md` — for community contributions of new algorithms post-v1: academic source, license check, performance characteristics, expected use case
+
+`.github/pull_request_template.md` — what changes, why, testing, performance impact, compatibility impact, CHANGELOG entry.
+
+### 17.4 Dependabot
+
+- Go modules (PRs grouped: indirect / direct / test-only)
+- GitHub Actions versions
+- Daily check; auto-merge enabled for patch updates that pass CI
+
+### 17.5 CODEOWNERS
+
+Catch-all maintainer list, with potential per-area refinement (e.g. phonetic algorithms under a domain-expert reviewer once one is identified).
+
+---
+
+## 18. Repository Layout
+
+```
+github.com/axonops/fuzzymatch/
+├── .github/
+│   ├── workflows/{ci,nightly,release,security,codeql}.yml
+│   ├── ISSUE_TEMPLATE/{bug_report,feature_request,algorithm_proposal}.md
+│   ├── images/logo-readme.png
+│   ├── CODEOWNERS
+│   ├── dependabot.yml
+│   └── pull_request_template.md
+├── .claude/
+│   ├── agents/                  # generated in Response C/D
+│   └── skills/                  # generated in Response B
+├── docs/
+│   ├── algorithms.md
+│   ├── scorer.md
+│   ├── tuning.md
+│   ├── extending.md
+│   ├── performance.md
+│   └── faq.md
+├── scripts/
+│   ├── verify-license-headers.sh
+│   ├── verify-no-runtime-deps.sh
+│   ├── verify-llms-sync.sh
+│   └── update-bench-txt.sh
+├── tests/
+│   └── bdd/
+│       ├── go.mod                # godog + goleak + testify here
+│       ├── features/{algorithms,scorer,normalisation,determinism,scan,suppression}.feature
+│       └── steps/steps_test.go
+├── testdata/
+│   ├── fuzz/                     # fuzz corpora
+│   └── golden/                   # cross-version score stability fixtures
+├── scan/                         # collection-scan sub-package (Layer 3)
+│   ├── doc.go
+│   ├── scan.go                   # Item, Config, Warning, Check
+│   ├── bucket.go                 # token-bucket optimisation
+│   ├── errors.go                 # sentinel errors
+│   ├── scan_test.go              # external/black-box unit tests
+│   ├── scan_internal_test.go     # bucket-equivalent-to-naive correctness
+│   ├── scan_bench_test.go        # benchmarks per §12.6
+│   ├── example_test.go           # godoc runnable examples
+│   ├── props_test.go             # property tests
+│   └── fuzz_test.go              # native fuzz harness
+├── .gitignore
+├── .golangci.yml
+├── .goreleaser.yml
+├── .markdownlint-cli2.yaml
+├── CHANGELOG.md
+├── CLAUDE.md                     # generated in Response B (gitignored)
+├── CONTRIBUTING.md
+├── LICENSE
+├── Makefile
+├── NOTICE
+├── README.md
+├── SECURITY.md
+├── bench.txt
+├── doc.go                        # package documentation
+├── errors.go                     # sentinel errors
+├── go.mod                        # zero non-stdlib require lines
+├── go.sum
+├── llms.txt
+├── llms-full.txt
+├── algoid.go                     # AlgoID + AlgoIDs() + String()
+├── normalise.go                  # Normalise + NormalisationOptions
+├── tokenise.go                   # Tokenise
+├── scorer.go                     # Scorer + NewScorer + DefaultScorer + options
+├── scorer_options.go             # functional options
+├── levenshtein.go
+├── damerau_osa.go
+├── damerau_full.go
+├── hamming.go
+├── jaro.go
+├── jaro_winkler.go
+├── strcmp95.go
+├── smith_waterman_gotoh.go
+├── lcsstr.go
+├── q_gram.go                     # Q-Gram Jaccard, Sorensen-Dice, Cosine, Tversky (shared q-gram extraction)
+├── monge_elkan.go
+├── token_ratio.go                # TokenSort, TokenSet, Partial, TokenJaccard
+├── soundex.go
+├── double_metaphone.go
+├── nysiis.go
+├── mra.go
+├── ratcliff_obershelp.go
+├── *_test.go                     # one external test file per algorithm + scorer + normalise
+├── *_internal_test.go            # internal correctness tests where needed
+├── *_bench_test.go               # benchmark per algorithm + scorer + normalise
+├── example_test.go               # godoc runnable examples
+├── fuzz_test.go                  # native Go fuzz harnesses
+├── props_test.go                 # property tests via testing/quick
+├── documentation_test.go         # meta-test: docs examples compile
+├── ai_friendly_test.go           # meta-test: llms.txt sync
+├── readme_shop_front_test.go     # meta-test: README example produces documented output
+├── makefile_targets_test.go      # meta-test: documented make targets exist
+└── internal_coverage_test.go     # meta-test: coverage floor enforcement
+```
+
+---
+
+## 19. Release Phasing
+
+Phased delivery. Each phase ends with a tagged release. Phase scope is approximate; the actual scope of each tag is governed by what is implemented and tested.
+
+### Phase 1 — Bootstrap (no release)
+
+Repository scaffolding: `LICENSE`, `NOTICE`, `README.md` skeleton, `.gitignore`, `.golangci.yml`, `.goreleaser.yml`, `.markdownlint-cli2.yaml`, `Makefile`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md`, CI workflows, branch protection, Codecov, pkg.go.dev configured, CODEOWNERS, issue templates, PR template, placeholder logo, `.claude/skills/`, `.claude/agents/`, `CLAUDE.md`.
+
+### Phase 2 — Core algorithms (`v0.1.0` and `v0.2.0`)
+
+`v0.1.0`: Levenshtein, Damerau-Levenshtein OSA, Damerau-Levenshtein Full, Hamming, Jaro, Jaro-Winkler, plus normalisation and tokenisation. Unit tests + property tests + fuzz + benchmarks. Algorithm functions only; no Scorer yet.
+
+`v0.2.0`: Strcmp95, Smith-Waterman-Gotoh, LCSStr, Ratcliff-Obershelp. Same test coverage.
+
+### Phase 3 — Q-gram and token-based (`v0.3.0`)
+
+Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky, Monge-Elkan, Token Sort Ratio, Token Set Ratio, Partial Ratio, Token Jaccard.
+
+### Phase 4 — Phonetic (`v0.4.0`)
+
+Soundex, Double Metaphone, NYSIIS, MRA.
+
+### Phase 5 — Scorer (`v0.5.0`)
+
+Scorer + NewScorer + DefaultScorer + all option functions + per-algorithm dispatch. Scorer tests + property tests. BDD scenarios for Scorer composition, weight normalisation, threshold matching.
+
+### Phase 6 — Scan sub-package (`v0.6.0`)
+
+`github.com/axonops/fuzzymatch/scan` package: `Item`, `Config`, `Warning`, `WarningKind`, `Check`, sentinel errors. Token-bucket optimisation with property test verifying equivalence to naive O(N²). Within-group and cross-group passes. Both suppression mechanisms (`SilenceLint`, `SuppressedPairs`) with composition test. Cross-group identical-name suppression. Deterministic output ordering verified by property test. BDD scenarios for scan and suppression. `scan/example_test.go` runnable godoc examples. Performance budgets per section 12.6 met and committed to `bench.txt`.
+
+### Phase 7 — Integration shakedown via consumer (`v0.6.x` patches)
+
+Re-scope `axonops/audit` issue #853 to consume `github.com/axonops/fuzzymatch` and `github.com/axonops/fuzzymatch/scan`. Surface any API ergonomic issues. `v0.6.x` patch releases as needed.
+
+### Phase 8 — `v1.0.0` stable release
+
+API frozen. Final CHANGELOG. Final benchmark numbers in `bench.txt`. Tag `v1.0.0`. Publish via goreleaser. Sign via cosign. Build provenance attested. Update `axonops/audit` to depend on `fuzzymatch v1.0.0`. Announcement post.
+
+---
+
+## 20. Acceptance Criteria
+
+### Library structure
+
+- [ ] Module path `github.com/axonops/fuzzymatch`
+- [ ] Apache-2.0 `LICENSE`, `NOTICE`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `README.md`, `CHANGELOG.md` present
+- [ ] Every `.go` file has the standard AxonOps Apache-2.0 header
+- [ ] Root `go.mod` has zero non-stdlib `require` lines
+- [ ] `tests/bdd/go.mod` is separate so consumers do not transitively depend on godog / goleak / testify
+- [ ] No cgo anywhere
+- [ ] Repo layout mirrors `axonops/mask` (`.github/`, `docs/`, `scripts/`, `tests/bdd/`, root .go files)
+- [ ] `llms.txt` and `llms-full.txt` at repo root
+- [ ] `bench.txt` committed and updated per release
+- [ ] `.claude/skills/` and `.claude/agents/` populated per the Phase-1 bootstrap
+
+### Algorithms (all 23)
+
+- [ ] Each algorithm implemented from primary source with inline citation
+- [ ] Each algorithm's score function is a public function in package fuzzymatch
+- [ ] Each algorithm passes literature reference vectors in unit tests
+- [ ] Byte and rune variants where meaningful (`*ScoreRunes`)
+- [ ] Public `*Distance` function where a distance is meaningful (Levenshtein, Damerau-Levenshtein, Hamming)
+- [ ] Phonetic algorithms expose both `*Code` (or `*Keys`) and `*Score` functions
+- [ ] Every algorithm has an entry in `AlgoID` and `AlgoIDs()` returns the full ordered list
+- [ ] `AlgoID.String()` returns the snake_case name; mapping stable across patch versions
+
+### Scorer
+
+- [ ] `Scorer` type + `NewScorer(opts...)` + sentinel errors
+- [ ] Every `WithXxx` option per section 8.2
+- [ ] `DefaultScorer()` returns the documented composition
+- [ ] `Score`, `ScoreAll`, `Match`, `Threshold`, `Algorithms` methods
+- [ ] Construction validates configuration with appropriate sentinel errors
+- [ ] Last-wins behaviour when the same algorithm is added twice
+- [ ] Concurrent use safe after construction
+
+### Scan sub-package
+
+- [ ] Package path `github.com/axonops/fuzzymatch/scan` under the same module
+- [ ] `Item`, `Config`, `Warning`, `WarningKind` types per section 12.1
+- [ ] `Check(items, cfg) ([]Warning, error)` function
+- [ ] `ErrNilScorer`, `ErrInvalidItem`, `ErrInvalidConfig` sentinel errors
+- [ ] Within-group pass produces expected warnings
+- [ ] Cross-group pass disabled by default
+- [ ] Cross-group pass enabled produces warnings of correct `Kind`
+- [ ] Cross-group identical names suppressed by default
+- [ ] Cross-group identical names surfaced when `CompareIdenticalAcrossGroups: true`
+- [ ] `Item.SilenceLint` on either side silences pair (one-side suppression)
+- [ ] `Config.SuppressedPairs` entries silence pairs in both directions
+- [ ] Both suppression mechanisms compose
+- [ ] Output sorted deterministically by `(Kind, NameA, NameB, GroupA, GroupB)`
+- [ ] Empty input → empty output, no error
+- [ ] Nil Scorer → `ErrNilScorer`
+- [ ] Empty item Name → `ErrInvalidItem` wrapped with offending index
+- [ ] Token-bucket optimisation produces same warnings as naive O(N²) (property test)
+- [ ] Performance budgets per section 12.6 met
+- [ ] `scan/example_test.go` runnable godoc examples
+- [ ] BDD scenarios in `features/scan.feature` and `features/suppression.feature`
+- [ ] Root package has no import dependency on the scan sub-package
+
+### Normalisation and tokenisation
+
+- [ ] `Normalise` + `Tokenise` + `NormalisationOptions` + `DefaultNormalisationOptions` per sections 9 and 10
+- [ ] Defaults: Lowercase=true, StripSeparators=true, SeparatorChars="_-.:/", SplitCamelCase=true
+- [ ] ASCII fast path for short inputs
+
+### Determinism
+
+- [ ] Algorithm scores stable across patch versions (golden-file test)
+- [ ] Scorer.Score byte-identical across runs (property test)
+- [ ] Cross-platform determinism verified in CI (linux/darwin/windows × amd64/arm64)
+- [ ] No map iteration in output paths
+
+### Performance
+
+- [ ] All section-14 budgets met
+- [ ] `bench.txt` updated per release
+- [ ] `benchstat` regression > 10% fails CI
+- [ ] Self-hosted benchmark runner configured (shared with mask/audit)
+
+### Testing
+
+- [ ] Unit coverage ≥ 95% overall, ≥ 90% per file, 100% on public API
+- [ ] Property-based tests via `testing/quick`
+- [ ] Fuzz tests for every public function
+- [ ] Goroutine leak detection via goleak in `TestMain` (in `tests/bdd/`)
+- [ ] BDD scenarios for algorithms / scorer / normalisation / determinism
+- [ ] Meta-tests: documentation_test.go, ai_friendly_test.go, readme_shop_front_test.go, makefile_targets_test.go, internal_coverage_test.go
+- [ ] Race detector clean (`-race`)
+- [ ] Root tests use stdlib `testing` only (no testify in root module)
+
+### CI/CD
+
+- [ ] All workflows per section 16.1
+- [ ] Branch protection per section 16.2
+- [ ] Issue templates + PR template per section 16.3
+- [ ] Dependabot configured
+- [ ] CODEOWNERS in place
+- [ ] CI-only releases enforced (devops agent gate)
+
+### Documentation
+
+- [ ] README mirroring axonops/mask structure with logo, badges, TOC, all sections
+- [ ] All `docs/*.md` per section 15.2
+- [ ] godoc for every exported symbol with academic citations where relevant
+- [ ] CHANGELOG following Keep-a-Changelog
+- [ ] `llms.txt` and `llms-full.txt` synchronised with code (verified by `ai_friendly_test.go`)
+- [ ] Runnable godoc examples in `example_test.go`
+
+### Stability
+
+- [ ] `v1.0.0` API guarantee documented in README
+- [ ] Algorithm output stability documented (scores stable across patch versions)
+- [ ] Determinism documented as a guarantee, verified by property test
+- [ ] Major version bump policy documented in CONTRIBUTING.md
+
+---
+
+## 21. References
+
+### Primary algorithmic sources
+
+- Levenshtein, V. I. (1965). "Binary codes capable of correcting deletions, insertions, and reversals." *Soviet Physics Doklady*, 10(8):707–710.
+- Damerau, F. J. (1964). "A technique for computer detection and correction of spelling errors." *Communications of the ACM*, 7(3):171–176.
+- Lowrance, R., Wagner, R. A. (1975). "An extension of the string-to-string correction problem." *Journal of the ACM*, 22(2):177–183.
+- Boytsov, L. (2011). "Indexing methods for approximate dictionary searching: comparative analysis." *ACM Journal of Experimental Algorithmics*, 16, Article 1.
+- Hamming, R. W. (1950). "Error detecting and error correcting codes." *Bell System Technical Journal*, 29(2):147–160.
+- Jaro, M. A. (1989). "Advances in record-linkage methodology as applied to matching the 1985 census of Tampa, Florida." *Journal of the American Statistical Association*, 84(406):414–420.
+- Winkler, W. E. (1990). "String comparator metrics and enhanced decision rules in the Fellegi-Sunter model of record linkage." *Proceedings of the Section on Survey Research Methods*, American Statistical Association: 354–359.
+- Winkler, W. E. (1994). "Advanced methods for record linkage." *Proceedings of the Section on Survey Research Methods*: 467–472.
+- Smith, T. F., Waterman, M. S. (1981). "Identification of common molecular subsequences." *Journal of Molecular Biology*, 147(1):195–197.
+- Gotoh, O. (1982). "An improved algorithm for matching biological sequences." *Journal of Molecular Biology*, 162(3):705–708.
+- Wagner, R. A., Fischer, M. J. (1974). "The string-to-string correction problem." *Journal of the ACM*, 21(1):168–173.
+- Ukkonen, E. (1992). "Approximate string-matching with q-grams and maximal matches." *Theoretical Computer Science*, 92(1):191–211.
+- Jaccard, P. (1912). "The distribution of the flora in the alpine zone." *New Phytologist*, 11(2):37–50.
+- Dice, L. R. (1945). "Measures of the amount of ecologic association between species." *Ecology*, 26(3):297–302.
+- Sørensen, T. (1948). "A method of establishing groups of equal amplitude in plant sociology." *Kongelige Danske Videnskabernes Selskab*, 5(4):1–34.
+- Salton, G., McGill, M. J. (1983). *Introduction to Modern Information Retrieval*. McGraw-Hill.
+- Tversky, A. (1977). "Features of similarity." *Psychological Review*, 84(4):327–352.
+- Monge, A. E., Elkan, C. P. (1996). "The field matching problem: algorithms and applications." *Proceedings of the Second International Conference on Knowledge Discovery and Data Mining*: 267–270.
+- Russell, R. C. (1918). U.S. Patent 1261167 (Soundex).
+- Knuth, D. E. (1973). *The Art of Computer Programming, Volume 3*. Section 6.4. (Canonical Soundex description.)
+- Philips, L. (2000). "The double-metaphone search algorithm." *C/C++ Users Journal*, 18(6):38–43.
+- Taft, R. L. (1970). *Name search techniques*. New York State Identification and Intelligence System, Special Report No. 1.
+- Moore, G. B., Kuhns, J. L., Trefftzs, J. L., Montgomery, C. A. (1977). *Accessing individual records from personal data files using non-unique identifiers*. National Bureau of Standards Technical Note 943.
+- Ratcliff, J. W., Metzener, D. E. (1988). "Pattern matching: the gestalt approach." *Dr. Dobb's Journal*, 13(7):46–51.
+- Bachmann, M. (2020–present). RapidFuzz documentation. https://rapidfuzz.github.io/RapidFuzz/. (Canonical modern reference for Token Sort/Set/Partial Ratio shapes.)
+
+### Empirical study referenced for algorithm coverage decisions
+
+- Fränti, P., Mariescu-Istodor, R., Sengupta, L. (2016). "Similarity measures for title matching." University of Eastern Finland. (The "21 measures across 4,968 title strings" study cited for algorithm-set rationalisation.)
+
+### Reference Go implementations (studied for reference vectors only — code reimplemented from primary sources)
+
+- `github.com/agnivade/levenshtein` (MIT) — Levenshtein
+- `github.com/xrash/smetrics` (MIT) — Jaro, Jaro-Winkler, Strcmp95, Soundex, Hamming
+- `github.com/adrg/strutil` (MIT) — Smith-Waterman-Gotoh, Jaccard, Sørensen-Dice, architecture pattern reference
+- `github.com/hbollon/go-edlib` (MIT) — Damerau-Levenshtein OSA + Full, Q-gram, Cosine
+- `github.com/tilotech/go-phonetics` (MIT) — Metaphone reference
+- `github.com/CalypsoSys/godoublemetaphone` (MIT) — Double Metaphone reference (not copied)
+- `github.com/UjjwalAyyangar/go-jellyfish` (MIT) — NYSIIS reference
+
+### Project reference
+
+- `github.com/axonops/mask` — structural and process template (repo layout, BDD pattern, meta-tests, CI workflows, release engineering, README structure, `.claude/` skills and agents, llms.txt). None of mask's API surface or domain semantics applies to fuzzymatch.
+
+---
+
+*End of requirements document. This document is the authoritative specification for `github.com/axonops/fuzzymatch` v1.0.0.*

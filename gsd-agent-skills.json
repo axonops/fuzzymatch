@@ -1,0 +1,69 @@
+{
+  "_comment": "Merge the agent_skills block below into .planning/config.json after /gsd-new-project has created it. Use /gsd-settings or edit by hand. The other fields (mode, model_profile, etc.) are whatever /gsd-new-project chose; do not overwrite them.",
+
+  "agent_skills": {
+    "gsd-project-researcher": [
+      ".claude/skills/research-guidance",
+      ".claude/skills/algorithm-licensing-standards",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/performance-standards",
+      ".claude/skills/determinism-standards",
+      ".claude/skills/go-coding-standards"
+    ],
+    "gsd-research-synthesizer": [
+      ".claude/skills/research-guidance",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/algorithm-licensing-standards"
+    ],
+    "gsd-phase-researcher": [
+      ".claude/skills/research-guidance",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/algorithm-licensing-standards",
+      ".claude/skills/performance-standards",
+      ".claude/skills/determinism-standards"
+    ],
+    "gsd-planner": [
+      ".claude/skills/algorithm-licensing-standards",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/performance-standards",
+      ".claude/skills/determinism-standards",
+      ".claude/skills/go-coding-standards",
+      ".claude/skills/go-testing-standards",
+      ".claude/skills/fuzzymatch-review-protocol"
+    ],
+    "gsd-executor": [
+      ".claude/skills/go-coding-standards",
+      ".claude/skills/go-testing-standards",
+      ".claude/skills/documentation-standards",
+      ".claude/skills/commit-standards",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/algorithm-licensing-standards",
+      ".claude/skills/performance-standards",
+      ".claude/skills/determinism-standards",
+      ".claude/skills/fuzzymatch-review-protocol"
+    ],
+    "gsd-verifier": [
+      ".claude/skills/go-coding-standards",
+      ".claude/skills/go-testing-standards",
+      ".claude/skills/documentation-standards",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/algorithm-licensing-standards",
+      ".claude/skills/performance-standards",
+      ".claude/skills/determinism-standards",
+      ".claude/skills/fuzzymatch-review-protocol"
+    ],
+    "gsd-plan-checker": [
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/algorithm-licensing-standards",
+      ".claude/skills/performance-standards",
+      ".claude/skills/determinism-standards",
+      ".claude/skills/fuzzymatch-review-protocol"
+    ],
+    "gsd-debugger": [
+      ".claude/skills/go-coding-standards",
+      ".claude/skills/algorithm-correctness-standards",
+      ".claude/skills/determinism-standards",
+      ".claude/skills/fuzzymatch-review-protocol"
+    ]
+  }
+}
