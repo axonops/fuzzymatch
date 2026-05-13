@@ -1,0 +1,55 @@
+# CI — runs `make check` (the canonical pre-PR aggregate gate) on every PR
+# and every push to main, plus a markdownlint pass. The matrix is expanded
+# to the full cross-platform set in plan 01-04 (determinism infra); this
+# workflow currently runs on ubuntu-latest only.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: make check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install pinned tools
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.12.2
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/tools/cmd/goimports@latest
+
+      - name: make check
+        run: make check
+
+  markdownlint:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@latest-stable
+        with:
+          globs: "**/*.md"
+          config: .markdownlint-cli2.yaml

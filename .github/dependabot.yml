@@ -1,0 +1,50 @@
+# Dependabot — watches three ecosystems with grouped PRs:
+#   - gomod at the repository root (the frozen runtime module)
+#   - gomod under tests/bdd (the isolated BDD sub-module)
+#   - github-actions for workflow action upgrades
+#
+# Any PR raised by Dependabot still runs through the full CI gate
+# (make check + security + codeql + license-headers) and, once plan 01-04
+# lands, the verify-deps-allowlist guard blocks any PR adding a non-x/text
+# runtime dep.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    groups:
+      indirect:
+        dependency-type: indirect
+      direct:
+        dependency-type: direct
+
+  - package-ecosystem: gomod
+    directory: /tests/bdd
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    labels:
+      - test-only
+    commit-message:
+      prefix: chore(test-bdd)
+    groups:
+      indirect:
+        dependency-type: indirect
+      direct:
+        dependency-type: direct
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      actions:
+        patterns:
+          - "*"

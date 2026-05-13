@@ -1,0 +1,26 @@
+# License Headers — verifies every tracked .go file carries the canonical
+# AxonOps Apache-2.0 header. Wraps scripts/verify-license-headers.sh from
+# plan 01-01.
+name: License Headers
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify-license-headers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run verify-license-headers.sh
+        run: bash scripts/verify-license-headers.sh
