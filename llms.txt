@@ -1,0 +1,94 @@
+# fuzzymatch — github.com/axonops/fuzzymatch
+
+A pure-Go library for fuzzy string matching: 23 string-similarity
+algorithms, a weighted Scorer (Phase 8), a collection-scan sub-package
+(Phase 9), and a one-to-many Extract API (Phase 10). Stdlib-only with
+one curated runtime dep (golang.org/x/text for Unicode normalisation).
+Apache-2.0. Go 1.26+. No cgo.
+
+## Status
+
+Pre-release. The API is not stable until v1.0.0. Phase 1 ships the
+foundation primitives: AlgoID dispatch enum, sentinel errors, Normalise,
+Tokenise. Phase 2+ adds the 23 algorithms, then Scorer (Phase 8) and
+scan / Extract (Phases 9–10).
+
+## Public API (root package: fuzzymatch)
+
+### AlgoID dispatch enum
+
+- type AlgoID int
+- func (AlgoID) String() string
+- func AlgoIDs() []AlgoID
+- const AlgoLevenshtein AlgoID
+- const AlgoDamerauLevenshteinOSA AlgoID
+- const AlgoDamerauLevenshteinFull AlgoID
+- const AlgoHamming AlgoID
+- const AlgoJaro AlgoID
+- const AlgoJaroWinkler AlgoID
+- const AlgoStrcmp95 AlgoID
+- const AlgoSmithWatermanGotoh AlgoID
+- const AlgoLCSStr AlgoID
+- const AlgoQGramJaccard AlgoID
+- const AlgoSorensenDice AlgoID
+- const AlgoCosine AlgoID
+- const AlgoTversky AlgoID
+- const AlgoMongeElkan AlgoID
+- const AlgoTokenSortRatio AlgoID
+- const AlgoTokenSetRatio AlgoID
+- const AlgoPartialRatio AlgoID
+- const AlgoTokenJaccard AlgoID
+- const AlgoSoundex AlgoID
+- const AlgoDoubleMetaphone AlgoID
+- const AlgoNYSIIS AlgoID
+- const AlgoMRA AlgoID
+- const AlgoRatcliffObershelp AlgoID
+
+### Normalisation
+
+- type NormalisationOptions struct
+- func DefaultNormalisationOptions() NormalisationOptions
+- func Normalise(s string, opts NormalisationOptions) string
+
+### Tokenisation
+
+- type TokeniseOptions struct
+- func DefaultTokeniseOptions() TokeniseOptions
+- func Tokenise(s string, opts TokeniseOptions) []string
+
+### Sentinel errors
+
+- var ErrInvalidInput error
+- var ErrInvalidConfiguration error
+- var ErrInvalidAlgorithm error
+- var ErrEmptyInput error
+
+## Out of v1.0 scope
+
+- Needleman-Wunsch (superseded by Smith-Waterman-Gotoh's local
+  alignment).
+- Soft-TFIDF (out of scope; no domain corpus dependency wanted).
+- Metaphone 3 (U.S. Patent 7,440,941 — declined for licence hygiene).
+- ML / embeddings (out of scope for a pure-function library).
+- Goroutine-parallel scan (Phase 9 may revisit; not in v1.0).
+- Persistent caching (not a library concern).
+
+## Documentation
+
+- README.md — project front door
+- docs/algorithms.md — per-algorithm detail (23 sections)
+- docs/scorer.md — Scorer composition (Phase 8)
+- docs/scan.md — collection scan (Phase 9)
+- docs/extending.md — custom algorithms
+- docs/tuning.md — threshold calibration
+- docs/performance.md — benchmark numbers
+- docs/faq.md — common questions and exclusions
+- docs/requirements.md — authoritative spec
+- llms-full.txt — full API reference with per-symbol signatures and
+  per-algorithm primary-source citations
+
+## For agents
+
+- .claude/agents/ — domain review gates
+- .claude/skills/ — reusable standards
+- CLAUDE.md — project conventions
