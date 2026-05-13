@@ -1,0 +1,32 @@
+// Copyright 2026 AxonOps Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// export_test.go uses the build-tag-free `_test.go` suffix to re-export
+// selected unexported symbols to the external (black-box) test package
+// without polluting the public API surface. This is the canonical Go
+// pattern for testing package internals from package fuzzymatch_test.
+//
+// Anything added here is visible only to tests; consumers never see it.
+
+package fuzzymatch
+
+// CanonicalMarshalForTest exposes the unexported canonicalMarshal helper
+// to the external (black-box) fuzzymatch_test package so that
+// golden_canonical_test.go can assert the locked v1.x byte contract
+// without dragging canonicalMarshal into the public API.
+//
+// Do not use this in production code — it does not exist outside of
+// _test.go compilation. Use WriteGoldenFile (the public test-maintenance
+// wrapper) instead.
+var CanonicalMarshalForTest = canonicalMarshal
