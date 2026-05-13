@@ -41,9 +41,9 @@ import (
 
 // canonicalMakefileTargets is the locked list of targets from CLAUDE.md
 // "Makefile Targets". Adding a new target requires:
-//   1. Adding it to the Makefile.
-//   2. Adding it to CONTRIBUTING.md's "Make Targets" section.
-//   3. Adding it to this list.
+//  1. Adding it to the Makefile.
+//  2. Adding it to CONTRIBUTING.md's "Make Targets" section.
+//  3. Adding it to this list.
 //
 // The fmt-check vs fmt distinction is intentional: fmt mutates, fmt-check
 // reports. Both are user-facing targets.

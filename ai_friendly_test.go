@@ -102,7 +102,10 @@ func collectExportedSymbols(t *testing.T) []string {
 	filter := func(info os.FileInfo) bool {
 		return !strings.HasSuffix(info.Name(), "_test.go")
 	}
-	pkgs, err := parser.ParseDir(fset, ".", filter, parser.SkipObjectResolution)
+	// parser.ParseDir is sufficient for this single-package, no-build-tag
+	// root scan; go/packages would add a build-tools dep to test-only
+	// code with no benefit at our scope.
+	pkgs, err := parser.ParseDir(fset, ".", filter, parser.SkipObjectResolution) //nolint:staticcheck // SA1019: see comment above
 	if err != nil {
 		t.Fatalf("parse root package: %v", err)
 	}
