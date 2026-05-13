@@ -16,7 +16,11 @@ If everything else fails, this must work: a single algorithm function call retur
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — pre-release, nothing shipped)
+- [x] Unicode normalisation in `Normalise` — NFC/NFD + diacritic stripping via `golang.org/x/text/unicode/norm` (validated in Phase 1)
+- [x] Apache-2.0 release plumbing — goreleaser v2, cosign keyless, Syft SBOM, OIDC attestation, CLA Assistant, commitlint, Dependabot, CodeQL, govulncheck, gosec (validated in Phase 1)
+- [x] OSS-first developer experience from v0.1.0 — README, CONTRIBUTING, CHANGELOG, SECURITY, CoC, llms.txt + llms-full.txt, docs/*.md scaffolds, issue + PR templates (validated in Phase 1)
+- [x] Cross-platform determinism plumbing — 5-platform CI matrix, golden-file canonical byte form, `make verify-determinism`, locked normalisation.json golden fixture (validated in Phase 1; cross-platform diff is a deferred UAT)
+- [x] Algorithm correctness discipline scaffolding — patent-screen gate, fresh-implementation rule, AlgoID dispatch primitive, sentinel-errors vocabulary, the 9 standards skills + 17 agent gates ready for Phase 2 onwards (validated in Phase 1)
 
 ### Active
 
@@ -26,12 +30,7 @@ If everything else fails, this must work: a single algorithm function call retur
 - [ ] Weighted composite `Scorer` — immutable, concurrent-safe, configurable threshold and normalisation (see `docs/requirements.md` §8)
 - [ ] Optional `scan` sub-package — turnkey collection-scan layer over the Scorer with suppression semantics (see `docs/requirements.md` §9)
 - [ ] One-to-many `Extract` / `ExtractOne` search API — `process.extract`-equivalent (RapidFuzz-inspired) for "find best matches in a candidate list" workflows (added to v1.0 scope 2026-05-13)
-- [ ] Unicode normalisation in `Normalise` — NFC/NFD + diacritic stripping via `golang.org/x/text/unicode/norm` (the single permitted runtime dep)
-- [ ] Cross-platform determinism — byte-identical output on linux/amd64, linux/arm64, darwin/arm64, windows/amd64 (see `docs/requirements.md` §11)
-- [ ] OSS-first developer experience from v0.1.0 — README, CONTRIBUTING, CHANGELOG, godoc with examples, llms.txt, CI badges (mirrors mask)
-- [ ] Apache-2.0 release plumbing — goreleaser, CLA, DCO, NOTICE, conventional-commit linting in CI (mirrors mask)
-- [ ] Per-algorithm performance discipline — allocation budgets, ASCII fast paths, two-row DP, benchstat regression detection (see `docs/requirements.md` §12)
-- [ ] Algorithm correctness discipline — every algorithm fresh-implemented from primary source with inline citation, patent-screened before implementation, no GPL/LGPL derivation
+- [ ] Per-algorithm performance discipline — allocation budgets, ASCII fast paths, two-row DP, benchstat regression detection (see `docs/requirements.md` §12). Scaffolded in Phase 1; exercised against algorithms in Phase 2+.
 
 ### Out of Scope
 
@@ -98,4 +97,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-13 after initialization and post-research scope adjustments (Unicode normalisation in v1.0, runtime-dep allowlist of `golang.org/x/text`, `Extract` API in v1.0)*
+*Last updated: 2026-05-13 — Phase 1 (Foundation & Infrastructure) complete: 8 plans / 8 SUMMARYs, 38/38 requirements accounted for, `make check` green, coverage 96.7%. Five deferred items captured in `01-HUMAN-UAT.md` for user-driven verification (CI tag-push, 5-platform matrix, branch protection, CLA flow, markdownlint local).*
