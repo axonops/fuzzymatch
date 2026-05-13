@@ -1,0 +1,395 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Camel_ConsecutiveUpper",
+      "input": "ABCdef",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "abcdef"
+    },
+    {
+      "name": "Camel_Simple",
+      "input": "myVariableName",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "my variable name"
+    },
+    {
+      "name": "Edge_Long_Mixed_60_chars",
+      "input": "FooBarBazQux_quuxCorgeGrault.garplyWaldoFredPlughXyzzyThudEnd",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "foo bar baz qux quux corge grault garply waldo fred plugh xyzzy thud end"
+    },
+    {
+      "name": "Edge_Single_Char",
+      "input": "A",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "a"
+    },
+    {
+      "name": "Edge_Whitespace_Only",
+      "input": "   \t\n  ",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": ""
+    },
+    {
+      "name": "Empty_String",
+      "input": "",
+      "options": {
+        "Lowercase": false,
+        "StripSeparators": false,
+        "SeparatorChars": "",
+        "SplitCamelCase": false,
+        "NFC": false,
+        "StripDiacritics": false
+      },
+      "expected_output": ""
+    },
+    {
+      "name": "Idempotence_DoubleApply_Cafe",
+      "input": "café",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "café"
+    },
+    {
+      "name": "Idempotence_DoubleApply_Hello",
+      "input": "hello world",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "hello world"
+    },
+    {
+      "name": "MixedScript_Arabic_Marhaba",
+      "input": "مرحبا",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "مرحبا"
+    },
+    {
+      "name": "MixedScript_CJK_NiHao",
+      "input": "你好",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "你好"
+    },
+    {
+      "name": "MixedScript_Cyrillic_Privet",
+      "input": "Привет",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "привет"
+    },
+    {
+      "name": "NFC_Muller_PreserveDiacritic",
+      "input": "Müller",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "müller"
+    },
+    {
+      "name": "NFC_Muller_StripDiacritic",
+      "input": "Müller",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": false,
+        "SeparatorChars": "",
+        "SplitCamelCase": false,
+        "NFC": true,
+        "StripDiacritics": true
+      },
+      "expected_output": "muller"
+    },
+    {
+      "name": "NFC_NFD_Cafe_Decomposed",
+      "input": "café",
+      "options": {
+        "Lowercase": false,
+        "StripSeparators": false,
+        "SeparatorChars": "",
+        "SplitCamelCase": false,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "café"
+    },
+    {
+      "name": "NFC_NFD_Cafe_Precomposed",
+      "input": "café",
+      "options": {
+        "Lowercase": false,
+        "StripSeparators": false,
+        "SeparatorChars": "",
+        "SplitCamelCase": false,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "café"
+    },
+    {
+      "name": "NFC_Naive_Diacritic",
+      "input": "naïve",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "naïve"
+    },
+    {
+      "name": "NFC_Naive_StripDiacritic",
+      "input": "naïve",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": false,
+        "SeparatorChars": "",
+        "SplitCamelCase": false,
+        "NFC": true,
+        "StripDiacritics": true
+      },
+      "expected_output": "naive"
+    },
+    {
+      "name": "NFC_Resume_Diacritic",
+      "input": "résumé",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "résumé"
+    },
+    {
+      "name": "NFC_Resume_StripDiacritic",
+      "input": "résumé",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": false,
+        "SeparatorChars": "",
+        "SplitCamelCase": false,
+        "NFC": true,
+        "StripDiacritics": true
+      },
+      "expected_output": "resume"
+    },
+    {
+      "name": "PureASCII_FooBar",
+      "input": "FooBar",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "foo bar"
+    },
+    {
+      "name": "PureASCII_HTTPSConnection",
+      "input": "HTTPSConnection",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "httpsconnection"
+    },
+    {
+      "name": "PureASCII_XMLHTTPRequest",
+      "input": "XMLHTTPRequest",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "xmlhttprequest"
+    },
+    {
+      "name": "PureASCII_dot_case",
+      "input": "foo.bar.baz",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "foo bar baz"
+    },
+    {
+      "name": "PureASCII_kebab_case",
+      "input": "hello-world-here",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "hello world here"
+    },
+    {
+      "name": "PureASCII_parseJSON5",
+      "input": "parseJSON5",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "parse json5"
+    },
+    {
+      "name": "PureASCII_snake_case",
+      "input": "foo_bar_baz",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "foo bar baz"
+    },
+    {
+      "name": "Sep_Empty",
+      "input": "",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": ""
+    },
+    {
+      "name": "Sep_LeadingTrailing",
+      "input": "_hello_",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": "hello"
+    },
+    {
+      "name": "Sep_MultipleSeparators",
+      "input": "___...---",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": ""
+    },
+    {
+      "name": "Sep_SingleSeparator",
+      "input": "_",
+      "options": {
+        "Lowercase": true,
+        "StripSeparators": true,
+        "SeparatorChars": "_-.:/",
+        "SplitCamelCase": true,
+        "NFC": true,
+        "StripDiacritics": false
+      },
+      "expected_output": ""
+    }
+  ]
+}
