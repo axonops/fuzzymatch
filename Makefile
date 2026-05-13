@@ -119,27 +119,19 @@ bench-compare:
 coverage:
 	$(GO) test -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic ./...
 
-# Asserts overall coverage >= COVERAGE_FLOOR%. Per-file and public-API
-# enforcement lands in plan 01-04 (requires a dedicated parser script).
-# Tolerant: if coverage.out is absent (fresh clone) or contains no profiled
-# lines (no tests yet), print a pending message and exit 0 — `make check`
-# chains `coverage` immediately before `coverage-check`.
+# Coverage floor enforcement (plan 01-04 lands the script). Enforces all
+# three CLAUDE.md floors:
+#   - overall  >= 95%
+#   - per-file >= 90%
+#   - public-API funcs: 100% (every exported func has at least one
+#     non-zero coverage row)
+#
+# The script is tolerant of the bootstrap state — when coverage.out
+# contains no profiled statements (no test files yet), it exits 0 with
+# a "pending Phase 2" note. From Phase 2 onwards the floors are
+# enforced unconditionally.
 coverage-check:
-	@if [ ! -f $(COVERAGE_FILE) ]; then \
-	  echo "coverage-check: $(COVERAGE_FILE) not present; skipping (run 'make coverage' first)."; \
-	  exit 0; \
-	fi; \
-	profiled_lines=$$(awk 'BEGIN{n=0} !/^mode:/{n++} END{print n}' $(COVERAGE_FILE)); \
-	if [ "$$profiled_lines" -eq 0 ]; then \
-	  echo "coverage-check: no profiled lines in $(COVERAGE_FILE) (no tests yet); skipping (pending Phase 2)."; \
-	  exit 0; \
-	fi; \
-	total=$$($(GO) tool cover -func=$(COVERAGE_FILE) | awk '/^total:/ {gsub("%", "", $$3); print $$3}'); \
-	if [ -z "$$total" ]; then \
-	  echo "coverage-check: no coverage data; skipping."; \
-	  exit 0; \
-	fi; \
-	awk -v t="$$total" -v f="$(COVERAGE_FLOOR)" 'BEGIN { if (t+0 < f+0) { printf "coverage-check: total %s%% below floor %s%%\n", t, f; exit 1 } else { printf "OK: coverage %s%% >= %s%%\n", t, f; exit 0 } }'
+	bash scripts/verify-coverage-floors.sh $(COVERAGE_FILE)
 
 # ---- modules --------------------------------------------------------------
 
@@ -166,14 +158,13 @@ security:
 
 # ---- verify-* (CI gates) --------------------------------------------------
 
-# Plan 01-04 lands scripts/verify-no-runtime-deps.sh. Until then this
-# target is a tolerant no-op printing a pending message.
+# Runtime-deps allowlist gate. The script (plan 01-04) asserts that the
+# root go.mod's non-indirect runtime dependency set is exactly
+# {github.com/axonops/fuzzymatch, golang.org/x/text}. Adding any other
+# runtime dep requires explicit user approval and
+# algorithm-licensing-reviewer sign-off per CLAUDE.md.
 verify-deps-allowlist:
-	@if [ -x scripts/verify-no-runtime-deps.sh ]; then \
-	  bash scripts/verify-no-runtime-deps.sh; \
-	else \
-	  echo "pending plan 01-04: scripts/verify-no-runtime-deps.sh not yet present."; \
-	fi
+	bash scripts/verify-no-runtime-deps.sh
 
 # Plan 01-04 lands the golden-form determinism harness. Until then this
 # target runs `go test -run TestGolden_` which currently matches no tests.
