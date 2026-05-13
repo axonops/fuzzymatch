@@ -1,0 +1,22 @@
+# fuzzymatch — generated artefacts excluded from version control.
+#
+# bench.txt IS committed (the benchstat baseline — see CLAUDE.md "Releases"
+# and plan 01-04). bench.txt.new is a transient produced by `make bench` and
+# is excluded here.
+
+# Go build/test artefacts
+coverage.out
+coverage.html
+bench.txt.new
+*.test
+*.prof
+*.out.tmp
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
+
+# Local dev caches
+.idea/
+.vscode/
