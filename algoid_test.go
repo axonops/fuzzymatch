@@ -1,0 +1,259 @@
+// Copyright 2026 AxonOps Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// algoid_test.go pins the public-API contract of algoid.go: the 23
+// constants are stable, dense from zero, distinct in value and in
+// String() form, and String() never returns the empty string or a
+// whitespace-containing label. The harness also exercises the
+// internal dispatch-table skeleton (via export_test.go's
+// NumAlgorithmsForTest / DispatchLenForTest / DispatchEntryNilForTest)
+// to assert it's sized for 23 entries with every slot nil at the
+// Phase 1 state.
+//
+// Stdlib `testing` only — no testify in root tests, per
+// .claude/skills/go-coding-standards.
+
+package fuzzymatch_test
+
+import (
+	"strings"
+	"testing"
+	"testing/quick"
+	"unicode"
+
+	"github.com/axonops/fuzzymatch"
+)
+
+// TestAlgoIDs_Count_Is23 pins the catalogue size at exactly 23 (the
+// v1.x contract from docs/requirements.md §7). Adding or removing an
+// AlgoID is a major-version-bump event.
+func TestAlgoIDs_Count_Is23(t *testing.T) {
+	const want = 23
+	got := len(fuzzymatch.AlgoIDs())
+	if got != want {
+		t.Errorf("len(AlgoIDs()) = %d; want %d (the spec catalogue is locked at 23 — adding an algorithm requires a major version bump)", got, want)
+	}
+}
+
+// TestAlgoIDs_DeterministicOrder proves AlgoIDs() returns the same
+// slice contents in the same order on every call. The slice is freshly
+// allocated each time (so identity differs) but the elements MUST be
+// byte-identical.
+//
+// This is the runtime gate against any future refactor that might
+// build AlgoIDs() from map iteration (forbidden by DET-03 in
+// .claude/skills/determinism-standards).
+func TestAlgoIDs_DeterministicOrder(t *testing.T) {
+	const iterations = 100
+	baseline := fuzzymatch.AlgoIDs()
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.AlgoIDs()
+		if len(got) != len(baseline) {
+			t.Fatalf("iteration %d: len(AlgoIDs()) = %d; want %d", i, len(got), len(baseline))
+		}
+		for j := range got {
+			if got[j] != baseline[j] {
+				t.Fatalf("iteration %d, index %d: AlgoIDs()[%d] = %v; baseline = %v (map-iteration leak?)", i, j, j, got[j], baseline[j])
+			}
+		}
+	}
+}
+
+// TestAlgoIDs_Distinct asserts every entry in the catalogue is unique.
+// Two AlgoIDs with the same integer value would collide on dispatch
+// and break the round-trip String() invariant.
+func TestAlgoIDs_Distinct(t *testing.T) {
+	ids := fuzzymatch.AlgoIDs()
+	// Use a map internally — map contents check, not iteration order
+	// (test code internals are exempt from the no-map-iteration rule).
+	seen := make(map[fuzzymatch.AlgoID]int, len(ids))
+	for i, id := range ids {
+		if prev, dup := seen[id]; dup {
+			t.Errorf("AlgoIDs()[%d] = %v duplicates AlgoIDs()[%d]", i, id, prev)
+		}
+		seen[id] = i
+	}
+	if len(seen) != len(ids) {
+		t.Errorf("distinct AlgoID count = %d; want %d", len(seen), len(ids))
+	}
+}
+
+// TestAlgoIDs_DenseFromZero asserts the catalogue is a contiguous
+// block starting at AlgoLevenshtein = 0. This pins the iota backing:
+// consumers can rely on AlgoID(i) being the (i+1)-th catalogue entry
+// for any 0 <= i < 23.
+//
+// Failure modes this catches: a future PR sneaking in `AlgoID = iota +
+// 1` (shifts everything by one), or a `_ AlgoID = iota` blank entry
+// that gaps the block, or a manually-assigned value that breaks the
+// run.
+func TestAlgoIDs_DenseFromZero(t *testing.T) {
+	ids := fuzzymatch.AlgoIDs()
+	if len(ids) == 0 || ids[0] != 0 {
+		t.Fatalf("AlgoIDs()[0] = %v; want 0 (catalogue must start at zero per iota backing)", ids[0])
+	}
+	for i, id := range ids {
+		if int(id) != i {
+			t.Errorf("AlgoIDs()[%d] = %d (int); want %d (catalogue must be dense — no gaps, no offsets)", i, int(id), i)
+		}
+	}
+}
+
+// TestAlgoID_String_NotEmpty_ForEveryConstant exercises String() for
+// every AlgoID in the catalogue and asserts the result is non-empty
+// and contains no whitespace. The canonical labels are
+// CamelCase-without-spaces by contract.
+func TestAlgoID_String_NotEmpty_ForEveryConstant(t *testing.T) {
+	for _, id := range fuzzymatch.AlgoIDs() {
+		t.Run(id.String(), func(t *testing.T) {
+			s := id.String()
+			if s == "" {
+				t.Errorf("AlgoID(%d).String() = empty", int(id))
+			}
+			for _, r := range s {
+				if unicode.IsSpace(r) {
+					t.Errorf("AlgoID(%d).String() = %q contains whitespace at rune %q", int(id), s, r)
+					return
+				}
+			}
+		})
+	}
+}
+
+// TestAlgoID_String_OutOfRange exercises the fallback branch for an
+// AlgoID outside the declared catalogue. The contract is the
+// fmt.Sprintf("AlgoID(%d)", int(id)) form.
+func TestAlgoID_String_OutOfRange(t *testing.T) {
+	tests := []struct {
+		id   fuzzymatch.AlgoID
+		want string
+	}{
+		{fuzzymatch.AlgoID(999), "AlgoID(999)"},
+		{fuzzymatch.AlgoID(-1), "AlgoID(-1)"},
+		{fuzzymatch.AlgoID(100), "AlgoID(100)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := tt.id.String()
+			if got != tt.want {
+				t.Errorf("AlgoID(%d).String() = %q; want %q", int(tt.id), got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAlgoID_String_StableAcrossCalls is a property test via
+// testing/quick: for ANY AlgoID value (including out-of-range), two
+// successive calls to String() return the same string. This is the
+// determinism gate against any future refactor introducing
+// time-dependent or random behaviour.
+//
+// The two String() invocations are stored in separate local variables
+// to make it explicit (and to satisfy staticcheck's SA4000 rule, which
+// flags identical sub-expressions across an operator — here the intent
+// is to call the method twice and compare the results).
+func TestAlgoID_String_StableAcrossCalls(t *testing.T) {
+	f := func(id fuzzymatch.AlgoID) bool {
+		first := id.String()
+		second := id.String()
+		return first == second
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("AlgoID.String() not stable across calls: %v", err)
+	}
+}
+
+// TestAlgoID_RoundTrip asserts every AlgoID in the catalogue maps to
+// a UNIQUE String() label. Two AlgoIDs sharing a label would break
+// any downstream label-based round-trip (e.g. golden-file emission).
+//
+// A map is used internally; the assertion checks the COUNT (not the
+// iteration order), so this conforms to the no-map-iteration-on-output
+// rule (output here is a single int, not a slice or map).
+func TestAlgoID_RoundTrip(t *testing.T) {
+	ids := fuzzymatch.AlgoIDs()
+	labels := make(map[string]fuzzymatch.AlgoID, len(ids))
+	for _, id := range ids {
+		label := id.String()
+		if prev, dup := labels[label]; dup {
+			t.Errorf("AlgoID %v.String() = %q duplicates AlgoID %v.String()", id, label, prev)
+		}
+		labels[label] = id
+	}
+	if len(labels) != len(ids) {
+		t.Errorf("distinct label count = %d; want %d (catalogue String() labels must be unique)", len(labels), len(ids))
+	}
+}
+
+// TestAlgoID_String_NoAlgoPrefix asserts canonical labels do NOT carry
+// the "Algo" prefix that the constant names use — String() returns the
+// algorithm name itself ("Levenshtein", not "AlgoLevenshtein").
+// This pins the documented contract from algoid.go's String() godoc.
+func TestAlgoID_String_NoAlgoPrefix(t *testing.T) {
+	for _, id := range fuzzymatch.AlgoIDs() {
+		s := id.String()
+		if strings.HasPrefix(s, "Algo") {
+			t.Errorf("AlgoID(%d).String() = %q must not carry the Algo prefix", int(id), s)
+		}
+	}
+}
+
+// TestDispatch_SizedForCatalogue asserts the internal dispatch array
+// is sized for exactly the number of AlgoIDs. Exercised via the
+// export_test.go re-exports so the test stays in the black-box package.
+func TestDispatch_SizedForCatalogue(t *testing.T) {
+	wantLen := len(fuzzymatch.AlgoIDs())
+	if wantLen != fuzzymatch.NumAlgorithmsForTest {
+		t.Errorf("NumAlgorithmsForTest = %d; want %d (size constant must match AlgoIDs() length)", fuzzymatch.NumAlgorithmsForTest, wantLen)
+	}
+	gotLen := fuzzymatch.DispatchLenForTest()
+	if gotLen != wantLen {
+		t.Errorf("DispatchLenForTest() = %d; want %d (dispatch array must be sized for the catalogue)", gotLen, wantLen)
+	}
+}
+
+// TestDispatch_AllNilAtPhase1 asserts every dispatch entry is nil at
+// the Phase 1 state. Phase 2+ plans populate entries as each algorithm
+// is implemented; this test then needs to be updated to assert only
+// the unregistered slots are nil (or removed when the catalogue is
+// fully wired in Phase 7).
+func TestDispatch_AllNilAtPhase1(t *testing.T) {
+	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
+		if !fuzzymatch.DispatchEntryNilForTest(i) {
+			t.Errorf("dispatch[%d] is non-nil at the Phase 1 state — algorithms register themselves from Phase 2 onwards", i)
+		}
+	}
+}
+
+// BenchmarkAlgoID_String pins zero-allocation behaviour for the
+// in-range hot path of String(). `b.ReportAllocs()` is the gate:
+// future refactors that introduce a map lookup, fmt.Sprintf, or any
+// other allocating pattern surface as a regression in bench.txt.
+//
+// The benchmark iterates over the catalogue rather than a single
+// constant so the optimiser can't fold the switch into a constant
+// return.
+func BenchmarkAlgoID_String(b *testing.B) {
+	ids := fuzzymatch.AlgoIDs()
+	b.ReportAllocs()
+	b.ResetTimer()
+	var sink string
+	for i := 0; i < b.N; i++ {
+		sink = ids[i%len(ids)].String()
+	}
+	// Discourage dead-code elimination of sink.
+	if sink == "" {
+		b.Fatal("sink unexpectedly empty — compiler folded the benchmark away")
+	}
+}
