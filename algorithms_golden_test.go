@@ -167,6 +167,7 @@ func TestGolden_Algorithms_Merge(t *testing.T) {
 		"_staging/jaro.json",
 		"_staging/jarowinkler.json",
 		"_staging/levenshtein.json",
+		"_staging/swg.json",
 	}
 	var allEntries []goldenAlgorithmEntry
 	for _, f := range stagingFiles {
