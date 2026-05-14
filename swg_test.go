@@ -232,23 +232,41 @@ func TestSmithWatermanGotoh_NewSWGParams_Defaults(t *testing.T) {
 	}
 }
 
-// TestSmithWatermanGotoh_WithCustomParams exercises a non-default params
-// value and asserts the result is finite (not NaN, not Inf) and in [0, 1].
-// "hello" vs "hallo" has a 4-rune local match "h"+"llo" (or "hello" with one
-// internal mismatch); with Match=2.0 / Mismatch=-2.0 the best local raw is
-// non-trivial. The exact value is verified via biopython cross-validation in
-// plan 03-02; here we just gate finite + range.
+// TestSmithWatermanGotoh_WithCustomParams pins the exact raw and normalised
+// scores of SmithWatermanGotoh*WithParams on a canonical non-default-params
+// input pair. This is a direct kernel-regression gate (a transcription bug
+// that only manifests with non-default GapOpen/GapExtend will surface here
+// without needing to run the cross-validation corpus).
+//
+// Input: "hello" vs "hallo" with Match=2.0, Mismatch=-2.0, GapOpen=-3.0,
+// GapExtend=-1.0. The optimal local alignment is the full 5-position
+// alignment with one internal mismatch (h-a): 4 matches * 2 + 1 mismatch *
+// -2 = 8 - 2 = 6. No gaps needed. Normalised: 6 / min(5,5) = 1.2, clamped
+// to 1.0.
+//
+// These values are mirrored by the "non_default_params" entry in
+// testdata/cross-validation/swg/vectors.json (biopython_score = 6.0,
+// biopython_normalised = 1.0).
 func TestSmithWatermanGotoh_WithCustomParams(t *testing.T) {
 	custom := fuzzymatch.SWGParams{Match: 2.0, Mismatch: -2.0, GapOpen: -3.0, GapExtend: -1.0}
-	got := fuzzymatch.SmithWatermanGotohScoreWithParams("hello", "hallo", custom)
-	if math.IsNaN(got) {
-		t.Errorf("SmithWatermanGotohScoreWithParams(\"hello\", \"hallo\", custom) = NaN; want a finite value")
+
+	// Raw kernel output — the load-bearing numerical pin.
+	const wantRaw = 6.0
+	gotRaw := fuzzymatch.SmithWatermanGotohRawScoreWithParams("hello", "hallo", custom)
+	if math.Abs(gotRaw-wantRaw) > 1e-9 {
+		t.Errorf("SmithWatermanGotohRawScoreWithParams(\"hello\", \"hallo\", custom) = %g; want %g (cross-validation: testdata/cross-validation/swg/vectors.json#non_default_params)",
+			gotRaw, wantRaw)
 	}
-	if math.IsInf(got, 0) {
-		t.Errorf("SmithWatermanGotohScoreWithParams(\"hello\", \"hallo\", custom) = Inf; want a finite value")
-	}
-	if got < 0.0 || got > 1.0 {
-		t.Errorf("SmithWatermanGotohScoreWithParams(\"hello\", \"hallo\", custom) = %g; want in [0,1]", got)
+
+	// Normalised + clamped output — pinned at the clamp boundary (raw=6, len=5
+	// → 6/5=1.2 → clamp to 1.0). Verifying the clamp here protects against a
+	// future change to the normalisation formula that would silently drift
+	// downstream consumers.
+	const wantNorm = 1.0
+	gotNorm := fuzzymatch.SmithWatermanGotohScoreWithParams("hello", "hallo", custom)
+	if math.Abs(gotNorm-wantNorm) > 1e-9 {
+		t.Errorf("SmithWatermanGotohScoreWithParams(\"hello\", \"hallo\", custom) = %g; want %g",
+			gotNorm, wantNorm)
 	}
 }
 
