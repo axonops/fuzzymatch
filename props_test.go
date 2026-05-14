@@ -1366,3 +1366,176 @@ func TestProp_LongestCommonSubstring_LeftmostTieBreak(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Ratcliff-Obershelp property tests (plan 04-03)
+//
+// FIVE standard invariants (RangeBounds, Identity, NoNaN, NoInf, NoNegativeZero)
+// for both byte and rune surfaces — TEN property tests total — PLUS one
+// algorithm-specific hand-curated property
+// (TestProp_RatcliffObershelpScore_AtLeastLevenshtein_HandCurated).
+//
+// NB: TestProp_RatcliffObershelpScore_Symmetric is INTENTIONALLY OMITTED per
+//     OQ-1 resolution (LOCKED 2026-05-14). Ratcliff-Obershelp is asymmetric
+//     by design to preserve byte-for-byte difflib equivalence. See
+//     ratcliff_obershelp.go's godoc and CONTEXT.md §4 for the rationale.
+//     TestRatcliffObershelp_AsymmetryPin in ratcliff_obershelp_test.go is
+//     the load-bearing regression guard.
+//
+// Ratcliff-Obershelp is not a metric (it's a similarity), so no triangle
+// inequality.
+// ---------------------------------------------------------------------------
+
+// TestProp_RatcliffObershelpScore_RangeBounds asserts the score is in
+// [0.0, 1.0] for any pair of strings. DET-04 range-bounds invariant.
+func TestProp_RatcliffObershelpScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.RatcliffObershelpScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScore_Identity asserts Score(x, x) == 1.0 for
+// any non-empty string x. Both-empty is also 1.0 by convention but covered
+// by unit tests.
+func TestProp_RatcliffObershelpScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty handled in unit tests
+		}
+		return fuzzymatch.RatcliffObershelpScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScore identity violated: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScore_NoNaN asserts the score is never NaN.
+// The empty-input guard prevents the 0/0 division; the algorithm uses only
+// +, *, /, and comparisons so no other NaN paths exist.
+func TestProp_RatcliffObershelpScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.RatcliffObershelpScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScore_NoInf asserts the score never returns
+// ±Inf. The numerator and denominator are finite integers (max
+// len(a)+len(b) ~= 256 for quick.Check default inputs); their quotient is
+// finite.
+func TestProp_RatcliffObershelpScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.RatcliffObershelpScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScore_NoNegativeZero asserts that when the
+// score is 0.0 it is positive zero (+0.0), not negative zero (-0.0).
+func TestProp_RatcliffObershelpScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.RatcliffObershelpScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScoreRunes_RangeBounds: rune path range bounds.
+func TestProp_RatcliffObershelpScoreRunes_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.RatcliffObershelpScoreRunes(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScoreRunes out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScoreRunes_Identity: rune path identity.
+func TestProp_RatcliffObershelpScoreRunes_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true
+		}
+		return fuzzymatch.RatcliffObershelpScoreRunes(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScoreRunes identity violated: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScoreRunes_NoNaN: rune path NaN guard.
+func TestProp_RatcliffObershelpScoreRunes_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.RatcliffObershelpScoreRunes(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScoreRunes produced NaN: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScoreRunes_NoInf: rune path Inf guard.
+func TestProp_RatcliffObershelpScoreRunes_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.RatcliffObershelpScoreRunes(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScoreRunes produced Inf: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScoreRunes_NoNegativeZero: rune path -0.0 guard.
+func TestProp_RatcliffObershelpScoreRunes_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.RatcliffObershelpScoreRunes(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RatcliffObershelpScoreRunes produced -0.0: %v", err)
+	}
+}
+
+// TestProp_RatcliffObershelpScore_AtLeastLevenshtein_HandCurated checks the
+// "generally" property from RESEARCH.md: on substring-containment inputs
+// the Ratcliff-Obershelp score is typically ≥ the Levenshtein score
+// because RO finds the contiguous match and ignores the deletion cost,
+// while Levenshtein pays for every dropped character.
+//
+// This is HAND-CURATED rather than testing/quick — RESEARCH.md explicitly
+// notes the property is "generally" true, not universal. Quick.Check would
+// produce degenerate inputs (e.g. random non-overlapping strings) where
+// the property either trivially holds or accidentally fails for reasons
+// unrelated to the algorithm. Hand-curated substring-containment cases
+// directly exercise the intended use case.
+func TestProp_RatcliffObershelpScore_AtLeastLevenshtein_HandCurated(t *testing.T) {
+	tests := []struct {
+		a, b string
+	}{
+		{"http_request", "http_request_header_fields"},
+		{"abc", "xyzabcdef"},
+		{"kitten", "the_kitten_purrs"},
+		{"WIKIMEDIA", "WIKIMANIA"},
+		{"abcdef", "xyzabcdefuvw"},
+		{"user_id", "user_id_v2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.a+"_"+tt.b, func(t *testing.T) {
+			ro := fuzzymatch.RatcliffObershelpScore(tt.a, tt.b)
+			lev := fuzzymatch.LevenshteinScore(tt.a, tt.b)
+			if ro < lev {
+				t.Errorf("RatcliffObershelpScore(%q,%q) = %g < LevenshteinScore = %g (RO should be >= Lev on substring-containment inputs)",
+					tt.a, tt.b, ro, lev)
+			}
+		})
+	}
+}
