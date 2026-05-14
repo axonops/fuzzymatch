@@ -46,6 +46,14 @@
   3. Jaro-Winkler reference vectors `MARTHA`/`MARHTA` → 0.9611 and `DIXON`/`DICKSONX` → 0.8133 pass; Jaro constants (boost threshold `0.7`, prefix cap `4`, scale `0.1`) verified against Winkler 1990, not Wikipedia
   4. Allocation budgets enforced per algorithm via benchmark assertions; ASCII fast paths verified by escape-analysis check; two-row DP confirmed by code review (no full DP table allocation)
   5. Cross-platform golden file `algorithms.json` contains pinned scores for all six algorithms and diffs byte-identically across the CI matrix; first `bench.txt` committed with benchstat baseline; example program in `examples/identifier-similarity/` runs and is meta-tested
+**Plans**: 7 plans
+  - [ ] 02-01-levenshtein-PLAN.md — Implement Levenshtein and lock the canonical Phase 2 pattern (algorithm + dispatch + tests + golden + BDD + example)
+  - [ ] 02-02-hamming-PLAN.md — Implement Hamming with the LOCKED silent-zero unequal-length policy
+  - [ ] 02-03-jaro-PLAN.md — Implement Jaro (match-flag arrays; not a metric) with Winkler-1990-traceable reference vectors
+  - [ ] 02-04-jaro-winkler-PLAN.md — Implement Jaro-Winkler as Jaro + prefix boost; pin three Winkler-1990 constants
+  - [ ] 02-05-damerau-levenshtein-osa-PLAN.md — Implement Damerau-Levenshtein OSA (three-row DP) with discriminating vector ca/abc → 3
+  - [ ] 02-06-damerau-levenshtein-full-PLAN.md — Implement Damerau-Levenshtein Full (Lowrance-Wagner) with discriminating vector ca/abc → 2
+  - [ ] 02-07-finalisation-PLAN.md — Merge per-algorithm staging files into algorithms.json; identifier-similarity example + meta-test; cross-algorithm consistency tests; first bench.txt baseline
 
 ### Phase 3: Smith-Waterman-Gotoh
 **Goal**: Implement Smith-Waterman-Gotoh local alignment with configurable affine gap penalty, **isolated into its own phase** because the published Gotoh 1982 affine-gap recurrence contains a known erratum (initialisation step and an indexing flip — a biorxiv survey found 8 of 31 lecture-slide reproductions inherit the bug) and primary-source citation alone is insufficient. The implementation must cross-validate against EMBOSS or biopython reference vectors, the erratum must be called out explicitly in the file's block comment, and `algorithm-correctness-reviewer` review is gated on the cross-validation evidence appearing in the PR description.
@@ -145,7 +153,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Infrastructure | 0/TBD | Not started | - |
-| 2. Core Character Algorithms (six) | 0/TBD | Not started | - |
+| 2. Core Character Algorithms (six) | 0/7 | Not started | - |
 | 3. Smith-Waterman-Gotoh | 0/TBD | Not started | - |
 | 4. Remaining Character & Gestalt | 0/TBD | Not started | - |
 | 5. Q-gram Algorithms | 0/TBD | Not started | - |
