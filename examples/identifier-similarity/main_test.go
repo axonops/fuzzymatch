@@ -30,6 +30,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -57,19 +58,22 @@ is_deleted / is_active                 0.4000       0.4000       0.4000       0.
 // test time and keeps the test deterministic on all CI platforms.
 func TestExample_Output(t *testing.T) {
 	// Redirect os.Stdout to a pipe so we can capture main()'s fmt.Printf output.
+	// The deferred restore runs even if main() panics — without it, a panic
+	// would leave os.Stdout pointing at the closed pipe writer and corrupt
+	// all subsequent test output in the binary.
 	origStdout := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("TestExample_Output: os.Pipe: %v", err)
 	}
 	os.Stdout = w
+	defer func() { os.Stdout = origStdout }()
 
 	// Run main() — all fmt.Printf calls land in the pipe writer.
 	main()
 
 	// Close the write end so the reader gets EOF.
 	w.Close()
-	os.Stdout = origStdout
 
 	// Drain the read end.
 	var buf bytes.Buffer
@@ -97,27 +101,11 @@ func TestExample_Output(t *testing.T) {
 	for i := range wantLines {
 		if gotLines[i] != wantLines[i] {
 			differing = append(differing,
-				"  line "+itoa(i+1)+":\n    got:  "+gotLines[i]+"\n    want: "+wantLines[i])
+				"  line "+strconv.Itoa(i+1)+":\n    got:  "+gotLines[i]+"\n    want: "+wantLines[i])
 		}
 	}
 	t.Errorf("TestExample_Output: %d line(s) differ. Update the `want` constant if the change is intentional.\n%s",
 		len(differing), strings.Join(differing, "\n"))
-}
-
-// itoa is a minimal int-to-decimal-string helper to avoid importing strconv
-// just for this one call site. Line numbers are always small positive ints.
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [10]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
 }
 
 // TestExample_ColumnWidths pins the table layout (header and separator widths)
