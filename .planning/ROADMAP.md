@@ -82,7 +82,7 @@
 **Plans**: 5 plans
   - [x] 04-01-strcmp95-PLAN.md — Strcmp95 (Winkler 1994): algorithm + similar-character table (`var`, no init()) + dispatch + Census Bureau reference vectors + property/fuzz/bench/BDD + staging golden
   - [x] 04-02-lcsstr-PLAN.md — LCSStr (Wagner-Fischer 1974): 4 public functions (LongestCommonSubstring + Runes + LCSStrScore + Runes) + two-row DP with leftmost-tie-break + property/fuzz/bench/BDD + staging golden
-  - [ ] 04-03-ratcliff-obershelp-PLAN.md — Ratcliff-Obershelp (Dr. Dobb's 1988): 2 public functions + recursive LCSubstr decomposition + difflib-equivalence godoc directive + OQ-1-resolved asymmetric-by-design + property (no Symmetric)/fuzz/bench/BDD + staging golden
+  - [x] 04-03-ratcliff-obershelp-PLAN.md — Ratcliff-Obershelp (Dr. Dobb's 1988): 2 public functions + recursive LCSubstr decomposition + difflib-equivalence godoc directive + OQ-1-resolved asymmetric-by-design + property (no Symmetric)/fuzz/bench/BDD + staging golden
   - [ ] 04-04-ratcliff-obershelp-cross-validation-PLAN.md — Python stdlib difflib(autojunk=False) generator + committed 15-18-entry corpus + TestRatcliffObershelp_CrossValidation + Makefile regen target + CONTRIBUTING doc (algorithm-correctness-reviewer gate)
   - [ ] 04-05-finalisation-PLAN.md — Merge staging goldens into algorithms.json + 4 cross-algorithm consistency tests (incl. OQ-1 asymmetry pin) + identifier-similarity 7-to-10 columns + llms.txt sync + bench.txt baseline
 
