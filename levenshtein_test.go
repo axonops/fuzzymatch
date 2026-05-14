@@ -198,7 +198,7 @@ func TestLevenshtein_ASCII_vs_Rune_Equivalence(t *testing.T) {
 // ASCII fast path. testing.AllocsPerRun asserts allocation at test time, not
 // just benchmark time, so regressions are caught on every `go test ./...` run.
 func TestLevenshteinScore_ZeroAllocs_ASCII_Short(t *testing.T) {
-	// Quick warmup to let the JIT settle (avoid first-call init artifacts).
+	// Quick warmup to let the JIT settle (avoid first-call init artefacts).
 	_ = fuzzymatch.LevenshteinScore("kitten", "sitting")
 
 	allocs := testing.AllocsPerRun(100, func() {
@@ -223,4 +223,3 @@ func TestLevenshteinScore_ZeroAllocs_ASCII_Medium(t *testing.T) {
 		t.Errorf("LevenshteinScore ASCII medium: %.1f allocs/op; want 0 (stack buffer not escaping?)", allocs)
 	}
 }
-

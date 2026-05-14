@@ -40,16 +40,16 @@ import (
 func FuzzLevenshteinScore(f *testing.F) {
 	// Programmatic seed entries — canonical reference vectors plus edge cases.
 	for _, pair := range []struct{ a, b string }{
-		{"kitten", "sitting"},     // Wagner-Fischer 1974 reference pair
-		{"saturday", "sunday"},    // Wagner-Fischer 1974 reference pair
-		{"abc", "abc"},            // identical
-		{"", "abc"},               // one-empty
-		{"", ""},                  // both-empty
-		{"\xff\xfe", "abc"},       // invalid UTF-8 (high bytes without continuation)
-		{"\xc0\x80", "abc"},       // invalid UTF-8 (overlong NUL encoding)
-		{"Привет", "привет"},      // Cyrillic (multi-byte UTF-8)
-		{"café", "cafe"},          // Latin supplement (é = U+00E9, 2 bytes)
-		{"hello world", "hello"},  // common prefix
+		{"kitten", "sitting"},    // Wagner-Fischer 1974 reference pair
+		{"saturday", "sunday"},   // Wagner-Fischer 1974 reference pair
+		{"abc", "abc"},           // identical
+		{"", "abc"},              // one-empty
+		{"", ""},                 // both-empty
+		{"\xff\xfe", "abc"},      // invalid UTF-8 (high bytes without continuation)
+		{"\xc0\x80", "abc"},      // invalid UTF-8 (overlong NUL encoding)
+		{"Привет", "привет"},     // Cyrillic (multi-byte UTF-8)
+		{"café", "cafe"},         // Latin supplement (é = U+00E9, 2 bytes)
+		{"hello world", "hello"}, // common prefix
 	} {
 		f.Add(pair.a, pair.b)
 	}

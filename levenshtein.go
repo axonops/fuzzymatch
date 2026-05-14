@@ -102,7 +102,7 @@ func LevenshteinDistance(a, b string) int {
 	// buf; buf itself stays on the stack per Go's escape analysis (confirmed
 	// via go build -gcflags="-m=2" — buf does not escape).
 	if n <= maxStackInputLen {
-		var buf [(maxStackInputLen+1) * 2]int
+		var buf [(maxStackInputLen + 1) * 2]int
 		return levenshteinDP(a, b, m, n, buf[:n+1], buf[n+1:2*(n+1)])
 	}
 	// Heap path for inputs whose shorter dimension exceeds the threshold.

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Levenshtein_empty_empty",
+      "algorithm": "Levenshtein",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Levenshtein_identical",
+      "algorithm": "Levenshtein",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "Levenshtein_kitten_sitting",
+      "algorithm": "Levenshtein",
+      "a": "kitten",
+      "b": "sitting",
+      "expected_score": 0.5714285714285714
+    },
+    {
+      "name": "Levenshtein_saturday_sunday",
+      "algorithm": "Levenshtein",
+      "a": "saturday",
+      "b": "sunday",
+      "expected_score": 0.625
+    }
+  ]
+}
