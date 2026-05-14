@@ -312,16 +312,33 @@ func TestDispatch_LCSStrRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_RatcliffObershelpRegistered asserts that
+// dispatch[AlgoRatcliffObershelp] (slot 22 — the LAST slot, numAlgorithms-1)
+// is non-nil after Phase 4 plan 04-03 registers RatcliffObershelpScore.
+// Only the byte-path score is dispatched — RatcliffObershelpScoreRunes is
+// public but not dispatched (the dispatch table maps AlgoID to
+// (a, b string) float64).
+func TestDispatch_RatcliffObershelpRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoRatcliffObershelp)) {
+		t.Errorf("dispatch[AlgoRatcliffObershelp] (%d) is nil — dispatch_ratcliff_obershelp.go must register RatcliffObershelpScore at package load time",
+			int(fuzzymatch.AlgoRatcliffObershelp))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
 // AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
 // (slot 4), AlgoJaroWinkler (slot 5), AlgoStrcmp95 (slot 6 — registered by
 // Phase 4 plan 04-01), AlgoSmithWatermanGotoh (slot 7 — registered by Phase
-// 3 plan 03-01), and AlgoLCSStr (slot 8 — registered by Phase 4 plan 04-02)
-// are still nil.
+// 3 plan 03-01), AlgoLCSStr (slot 8 — registered by Phase 4 plan 04-02),
+// and AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by Phase 4
+// plan 04-03) are still nil.
+//
+// Plan 04-03 flips the LAST slot (slot 22) to registered. Slots 9..21
+// remain nil pending later phases (q-gram, token, and phonetic algorithms).
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
-	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, and
-	// plan 04-02 respectively; all others nil.
+	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
+	// plan 04-02, and plan 04-03 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -332,12 +349,13 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoStrcmp95):               true,
 		int(fuzzymatch.AlgoSmithWatermanGotoh):     true,
 		int(fuzzymatch.AlgoLCSStr):                 true,
+		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, or plan 04-02)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, or plan 04-03)", i)
 			}
 		} else {
 			if !isNil {
