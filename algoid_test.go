@@ -223,15 +223,27 @@ func TestDispatch_SizedForCatalogue(t *testing.T) {
 	}
 }
 
-// TestDispatch_AllNilAtPhase1 asserts every dispatch entry is nil at
-// the Phase 1 state. Phase 2+ plans populate entries as each algorithm
-// is implemented; this test then needs to be updated to assert only
-// the unregistered slots are nil (or removed when the catalogue is
-// fully wired in Phase 7).
-func TestDispatch_AllNilAtPhase1(t *testing.T) {
-	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
+// TestDispatch_LevenshteinRegistered asserts that dispatch[AlgoLevenshtein]
+// (slot 0) is non-nil after Phase 2 plan 02-01 registers LevenshteinScore.
+// Wave 2 plans (02-02 through 02-06) further update this test as each
+// algorithm populates its slot.
+func TestDispatch_LevenshteinRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoLevenshtein)) {
+		t.Errorf("dispatch[AlgoLevenshtein] (%d) is nil — dispatch_levenshtein.go must register LevenshteinScore at package load time",
+			int(fuzzymatch.AlgoLevenshtein))
+	}
+}
+
+// TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
+// AlgoLevenshtein (slot 0) are still nil at the Phase 2 Wave 1 state. Wave 2
+// plans (02-02 through 02-06) update this test as each algorithm registers
+// itself.
+func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
+	// Slot 0 (AlgoLevenshtein) is registered by plan 02-01. Slots 1–22 remain
+	// nil until Wave 2 plans run.
+	for i := int(fuzzymatch.AlgoDamerauLevenshteinOSA); i < fuzzymatch.DispatchLenForTest(); i++ {
 		if !fuzzymatch.DispatchEntryNilForTest(i) {
-			t.Errorf("dispatch[%d] is non-nil at the Phase 1 state — algorithms register themselves from Phase 2 onwards", i)
+			t.Errorf("dispatch[%d] is non-nil; expected to be nil until Wave 2 registers slot %d", i, i)
 		}
 	}
 }
