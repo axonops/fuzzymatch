@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "DamerauLevenshteinFull_ab_ba",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "ab",
+      "b": "ba",
+      "expected_score": 0.5
+    },
+    {
+      "name": "DamerauLevenshteinFull_ca_abc",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "ca",
+      "b": "abc",
+      "expected_score": 0.33333333333333337
+    },
+    {
+      "name": "DamerauLevenshteinFull_empty_empty",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinFull_identical",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinFull_one_empty",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    }
+  ]
+}

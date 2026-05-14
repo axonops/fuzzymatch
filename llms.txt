@@ -58,6 +58,13 @@ scan / Extract (Phases 9–10).
 - func DamerauLevenshteinOSAScore(a, b string) float64
 - func DamerauLevenshteinOSAScoreRunes(a, b string) float64
 
+### Damerau-Levenshtein Full similarity (Lowrance-Wagner 1975 — true metric)
+
+- func DamerauLevenshteinFullDistance(a, b string) int
+- func DamerauLevenshteinFullDistanceRunes(a, b string) int
+- func DamerauLevenshteinFullScore(a, b string) float64
+- func DamerauLevenshteinFullScoreRunes(a, b string) float64
+
 ### Hamming distance similarity
 
 - func HammingDistance(a, b string) int

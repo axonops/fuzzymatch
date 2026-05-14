@@ -200,6 +200,43 @@ func (ctx *AlgorithmContext) bothDamerauLevenshteinOSAScoresShouldBeEqual() erro
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Damerau-Levenshtein Full step definitions (plan 02-06)
+// ---------------------------------------------------------------------------
+
+// iComputeTheDamerauLevenshteinFullScoreBetween computes
+// DamerauLevenshteinFullScore(a, b) and stores the result in lastScore.
+// The full DP table is heap-allocated for all inputs (v1.0 implementation;
+// see damerau_full.go for the v1.x two-row optimisation plan).
+func (ctx *AlgorithmContext) iComputeTheDamerauLevenshteinFullScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.DamerauLevenshteinFullScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondDamerauLevenshteinFullScoreBetween computes
+// DamerauLevenshteinFullScore(a, b) and stores the result in lastScore2.
+// Used by the symmetry scenario to capture a second score for comparison.
+func (ctx *AlgorithmContext) iComputeTheSecondDamerauLevenshteinFullScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.DamerauLevenshteinFullScore(a, b)
+	return nil
+}
+
+// iComputeTheDamerauLevenshteinFullDistanceBetween computes
+// DamerauLevenshteinFullDistance(a, b) and stores the result in lastDistance.
+// Used by the discriminating-vector scenario to gate the distance == 2 contract.
+func (ctx *AlgorithmContext) iComputeTheDamerauLevenshteinFullDistanceBetween(a, b string) error {
+	ctx.lastDistance = fuzzymatch.DamerauLevenshteinFullDistance(a, b)
+	return nil
+}
+
+// bothDamerauLevenshteinFullScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothDamerauLevenshteinFullScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("damerau Full scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -284,5 +321,23 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both DamerauLevenshteinOSA scores should be equal$`,
 		a.bothDamerauLevenshteinOSAScoresShouldBeEqual,
+	)
+
+	// Damerau-Levenshtein Full step definitions (plan 02-06).
+	ctx.Step(
+		`^I compute the DamerauLevenshteinFull score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheDamerauLevenshteinFullScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second DamerauLevenshteinFull score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondDamerauLevenshteinFullScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the DamerauLevenshteinFull distance between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheDamerauLevenshteinFullDistanceBetween,
+	)
+	ctx.Step(
+		`^both DamerauLevenshteinFull scores should be equal$`,
+		a.bothDamerauLevenshteinFullScoresShouldBeEqual,
 	)
 }

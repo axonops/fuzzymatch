@@ -372,3 +372,80 @@ func TestGolden_DamerauLevenshteinOSA_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/damerau_osa.json", file)
 }
+
+// buildDamerauFullStagingEntries returns the five DamerauLevenshteinFull entries
+// used by TestGolden_DamerauLevenshteinFull_Staging. ExpectedScore is computed
+// from the current implementation so the staging file stays in sync with actual
+// output.
+//
+// Five entries (sorted by Name in the test):
+//   - DamerauLevenshteinFull_ab_ba       (transposition; Full distance 1, score 0.5)
+//   - DamerauLevenshteinFull_ca_abc      (discriminating vector; distance 2, score ≈0.3333)
+//   - DamerauLevenshteinFull_empty_empty (both-empty identity; score 1.0)
+//   - DamerauLevenshteinFull_identical   (abc/abc; score 1.0)
+//   - DamerauLevenshteinFull_one_empty   (""/abc; score 0.0)
+//
+// The ca/abc entry is the locked discriminating-vector gate: if this entry
+// ever shows expected_score == 0.0, the recurrence has drifted toward OSA
+// semantics. Wave 3 plan 02-07 will diff this against the DL-OSA staging file
+// to verify the Full-vs-OSA divergence at the cross-algorithm level.
+func buildDamerauFullStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "DamerauLevenshteinFull_ab_ba",
+			Algorithm:     "DamerauLevenshteinFull",
+			A:             "ab",
+			B:             "ba",
+			ExpectedScore: fuzzymatch.DamerauLevenshteinFullScore("ab", "ba"),
+		},
+		{
+			Name:          "DamerauLevenshteinFull_ca_abc",
+			Algorithm:     "DamerauLevenshteinFull",
+			A:             "ca",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.DamerauLevenshteinFullScore("ca", "abc"),
+		},
+		{
+			Name:          "DamerauLevenshteinFull_empty_empty",
+			Algorithm:     "DamerauLevenshteinFull",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.DamerauLevenshteinFullScore("", ""),
+		},
+		{
+			Name:          "DamerauLevenshteinFull_identical",
+			Algorithm:     "DamerauLevenshteinFull",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.DamerauLevenshteinFullScore("abc", "abc"),
+		},
+		{
+			Name:          "DamerauLevenshteinFull_one_empty",
+			Algorithm:     "DamerauLevenshteinFull",
+			A:             "",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.DamerauLevenshteinFullScore("", "abc"),
+		},
+	}
+}
+
+// TestGolden_DamerauLevenshteinFull_Staging produces
+// testdata/golden/_staging/damerau_full.json for plan 02-07's merge step.
+// Entries are sorted alphabetically by Name.
+//
+// The five entries cover: ab_ba (transposition, distance 1, score 0.5),
+// ca_abc (discriminating vector, distance 2, score ≈0.3333 — DIFFERENT from
+// the DL-OSA staging file where ca_abc has score 0.0), empty_empty, identical,
+// one_empty.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_DamerauLevenshteinFull_Staging(t *testing.T) {
+	entries := buildDamerauFullStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/damerau_full.json", file)
+}

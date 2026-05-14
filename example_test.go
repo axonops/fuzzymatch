@@ -71,3 +71,18 @@ func ExampleDamerauLevenshteinOSAScore() {
 	// 0.5000
 	// 0.0000
 }
+
+// ExampleDamerauLevenshteinFullScore demonstrates the Damerau-Levenshtein Full
+// (Lowrance-Wagner 1975) similarity. The "ca"/"abc" pair demonstrates DL-Full's
+// divergence from DL-OSA: DL-OSA returns 0.0000 (distance 3) for the same pair,
+// while DL-Full returns 0.3333 (distance 2) because Full DL permits unrestricted
+// transpositions with subsequent editing.
+func ExampleDamerauLevenshteinFullScore() {
+	// The "ca"/"abc" pair demonstrates DL-Full's divergence from DL-OSA:
+	// DL-OSA returns 0.0000 (distance 3); DL-Full returns 0.3333 (distance 2).
+	fmt.Printf("%.4f\n", fuzzymatch.DamerauLevenshteinFullScore("ca", "abc"))
+	fmt.Printf("%.4f\n", fuzzymatch.DamerauLevenshteinFullScore("ab", "ba"))
+	// Output:
+	// 0.3333
+	// 0.5000
+}
