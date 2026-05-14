@@ -217,6 +217,91 @@ func TestProp_HammingScore_NoNegativeZero(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Jaro property tests
+// ---------------------------------------------------------------------------
+//
+// Triangle inequality is OMITTED — Jaro similarity is NOT a metric; the
+// triangle inequality does not hold for arbitrary Jaro inputs. See
+// .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md
+// §Mathematical Invariants (Jaro row) for the full rationale, and jaro.go's
+// file-level godoc for the definitive statement. The omission is intentional
+// and should not be treated as a coverage gap.
+
+// TestProp_JaroScore_RangeBounds asserts the score is in [0.0, 1.0] for
+// any pair of strings. This is the DET-04 range-bounds invariant.
+func TestProp_JaroScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.JaroScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_JaroScore_Identity asserts Score(x, x) == 1.0 for any non-empty
+// string x. Both-empty is a special case (also 1.0) tested separately.
+func TestProp_JaroScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty: score is 1.0; covered elsewhere
+		}
+		return fuzzymatch.JaroScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScore identity violated: %v", err)
+	}
+}
+
+// TestProp_JaroScore_Symmetric asserts Score(a,b) == Score(b,a) for any
+// a, b. The Jaro formula is symmetric: the three-term mean uses la, lb and m
+// which are symmetric by construction.
+func TestProp_JaroScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.JaroScore(a, b) == fuzzymatch.JaroScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_JaroScore_NoNaN asserts JaroScore never returns NaN.
+// The division guard (if m == 0 { return 0.0 }) prevents 0/0 = NaN on
+// the (m-t)/m term, and both-empty returns 1.0 before the formula is reached.
+func TestProp_JaroScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.JaroScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_JaroScore_NoInf asserts JaroScore never returns ±Inf.
+func TestProp_JaroScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.JaroScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_JaroScore_NoNegativeZero asserts that when the score is 0.0 it is
+// positive zero (+0.0), not negative zero (-0.0). The formula returns 0.0
+// only from explicit constant returns (one-empty path) — not from floating-
+// point subtraction that could yield -0.0. math.Signbit detects -0.0.
+func TestProp_JaroScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.JaroScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScore produced -0.0: %v", err)
+	}
+}
+
 // TestProp_HammingDistance_TriangleInequality_EqualLength asserts the triangle
 // inequality for Hamming distance restricted to equal-length strings:
 // D(a,c) <= D(a,b) + D(b,c) where all three strings have the same byte length.

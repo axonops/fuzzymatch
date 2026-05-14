@@ -50,3 +50,11 @@ func ExampleHammingScore() {
 	// 0.5714
 	// 0.0000
 }
+
+// ExampleJaroScore demonstrates the Jaro similarity on the canonical Winkler
+// 1990 reference pair. The score is (6/6 + 6/6 + 5/6) / 3 ≈ 0.9444.
+func ExampleJaroScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.JaroScore("MARTHA", "MARHTA"))
+	// Output:
+	// 0.9444
+}

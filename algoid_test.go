@@ -243,21 +243,31 @@ func TestDispatch_HammingRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_JaroRegistered asserts that dispatch[AlgoJaro]
+// (slot 4) is non-nil after Phase 2 plan 02-03 registers JaroScore.
+func TestDispatch_JaroRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoJaro)) {
+		t.Errorf("dispatch[AlgoJaro] (%d) is nil — dispatch_jaro.go must register JaroScore at package load time",
+			int(fuzzymatch.AlgoJaro))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
-// AlgoLevenshtein (slot 0) and AlgoHamming (slot 3) are still nil at the Phase
-// 2 Wave 1+02-02 state. Wave 2 plans (02-03 through 02-06) further update this
-// test as each algorithm registers itself.
+// AlgoLevenshtein (slot 0), AlgoHamming (slot 3), and AlgoJaro (slot 4) are
+// still nil at the Phase 2 Wave 1+02-02+02-03 state. Wave 2 plans (02-04
+// through 02-06) further update this test as each algorithm registers itself.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
-	// Registered by Wave 1 and plan 02-02 respectively; all others nil.
+	// Registered by Wave 1, plan 02-02, and plan 02-03 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein): true,
 		int(fuzzymatch.AlgoHamming):     true,
+		int(fuzzymatch.AlgoJaro):        true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1 or plan 02-02)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, or plan 02-03)", i)
 			}
 		} else {
 			if !isNil {
