@@ -82,6 +82,10 @@ scan / Extract (Phases 9–10).
 - func JaroWinklerScore(a, b string) float64
 - func JaroWinklerScoreRunes(a, b string) float64
 
+### Strcmp95 (Winkler 1994) similarity
+
+- func Strcmp95Score(a, b string) float64
+
 ### Smith-Waterman-Gotoh local-alignment similarity
 
 - type SWGParams struct
