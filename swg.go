@@ -198,6 +198,12 @@ func SmithWatermanGotohScoreWithParams(a, b string, params SWGParams) float64 {
 //
 // The rune variant allocates two []rune slices. For ASCII inputs, prefer
 // SmithWatermanGotohScore (zero allocations on inputs ≤ 64 bytes).
+//
+// There is intentionally no SmithWatermanGotohScoreRunesWithParams: the v1.0
+// public surface pairs the *WithParams variants only with the byte path.
+// Consumers needing custom params on Unicode-aware input should normalise
+// their input to ASCII via Normalise first (folding diacritics) and then
+// call SmithWatermanGotohScoreWithParams.
 func SmithWatermanGotohScoreRunes(a, b string) float64 {
 	if a == b {
 		return 1.0 // fast identity — saves two []rune allocations (IN-02 pattern)
@@ -273,8 +279,20 @@ func SmithWatermanGotohRawScoreWithParams(a, b string, params SWGParams) float64
 //
 // The rune variant allocates two []rune slices. For ASCII inputs, prefer
 // SmithWatermanGotohRawScore.
+//
+// There is intentionally no SmithWatermanGotohRawScoreRunesWithParams: as
+// with SmithWatermanGotohScoreRunes, the *WithParams variants are paired
+// only with the byte path. Normalise to ASCII first if you need custom
+// params on Unicode-aware input.
 func SmithWatermanGotohRawScoreRunes(a, b string) float64 {
 	if a == b {
+		// Identity short-circuit. Logic mirrors the byte-path identity branch
+		// in SmithWatermanGotohRawScoreWithParams above (line ~256), but uses
+		// the rune count rather than byte count so multi-byte UTF-8 inputs
+		// (e.g. "café") score by character, not by byte. The duplication is
+		// deliberate: factoring the rune-path through the byte-path entry
+		// would force a []rune conversion before the identity test, defeating
+		// the short-circuit's purpose.
 		if a == "" {
 			return 0.0 // both-empty
 		}

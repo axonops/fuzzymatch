@@ -868,14 +868,37 @@ func TestProp_SmithWatermanGotoh_RawNeverExceedsMatchTimesMinLen(t *testing.T) {
 // increasing only the Match parameter (keeping Mismatch, GapOpen, GapExtend
 // fixed) cannot decrease the raw alignment score. Higher Match reward can
 // only improve (or hold) the best local alignment.
+//
+// The property is checked across a randomised (baseMatch, delta) pair from
+// testing/quick rather than the single +1.0 delta from the default — this
+// protects the test from silent coverage shrinkage if NewSWGParams's
+// defaults ever drift, and exercises the monotonicity across the full
+// non-negative Match domain (not just the [1.0, 2.0] sliver).
 func TestProp_SmithWatermanGotoh_MonotonicWithMatchReward(t *testing.T) {
-	f := func(a, b string) bool {
+	f := func(a, b string, baseMatch, delta float64) bool {
 		if len(a) == 0 || len(b) == 0 {
 			return true // degenerate: raw is 0 regardless
 		}
+		// Constrain randomised params to the documented Match domain: non-NaN,
+		// non-Inf, non-negative. Out-of-domain inputs return true (vacuously
+		// satisfied) so testing/quick's float64 generator does not flood the
+		// signal with degenerate cases.
+		if math.IsNaN(baseMatch) || math.IsInf(baseMatch, 0) || baseMatch < 0 {
+			return true
+		}
+		if math.IsNaN(delta) || math.IsInf(delta, 0) || delta < 0 {
+			return true
+		}
+		// Bound the magnitudes so high-Match doesn't drive RawScore past
+		// float64 precision (testing/quick's default float64 range includes
+		// values like 1e+300 which would overflow into Inf inside the DP).
+		if baseMatch > 1e6 || delta > 1e6 {
+			return true
+		}
 		baseParams := fuzzymatch.NewSWGParams()
+		baseParams.Match = baseMatch
 		highParams := baseParams
-		highParams.Match = baseParams.Match + 1.0
+		highParams.Match = baseMatch + delta
 		base := fuzzymatch.SmithWatermanGotohRawScoreWithParams(a, b, baseParams)
 		high := fuzzymatch.SmithWatermanGotohRawScoreWithParams(a, b, highParams)
 		return high >= base

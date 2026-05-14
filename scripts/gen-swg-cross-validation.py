@@ -62,9 +62,16 @@ Determinism:
 
 import json
 import os
+import sys
 
 import Bio
 from Bio.Align import PairwiseAligner
+
+# Minimum supported biopython version. PairwiseAligner's behaviour on the
+# affine-gap kernel stabilised at 1.85; older releases (notably 1.79) used
+# different defaults and could silently produce scores that diverge from the
+# committed corpus. Enforced at script entry — see _check_biopython_version().
+_MIN_BIOPYTHON_VERSION = (1, 85)
 
 # Default SWG parameters — must match Go-side ``NewSWGParams()`` in swg.go
 # byte-for-byte (Match=1.0, Mismatch=-1.0, GapOpen=-1.5, GapExtend=-0.5).
@@ -149,7 +156,40 @@ def score_case(a, b, params):
     return raw, norm
 
 
+def _check_biopython_version() -> None:
+    """Guard the script against silent corpus drift on outdated biopython.
+
+    Parses ``Bio.__version__`` into a (major, minor) tuple and exits with a
+    helpful message if it is older than _MIN_BIOPYTHON_VERSION. Without this
+    guard, a developer running with biopython 1.79 (the version still pinned
+    by some legacy distros) would regenerate a corpus that no longer matches
+    the committed reference, and the Go-side TestSWG_CrossValidation would
+    fail with a misleading delta rather than a version-mismatch error.
+    """
+    raw_parts = Bio.__version__.split(".")
+    try:
+        version = tuple(int(part) for part in raw_parts[:2])
+    except ValueError:
+        print(
+            f"WARNING: could not parse biopython version "
+            f"{Bio.__version__!r}; cannot enforce minimum {_MIN_BIOPYTHON_VERSION}.",
+            file=sys.stderr,
+        )
+        return
+    if version < _MIN_BIOPYTHON_VERSION:
+        min_str = ".".join(str(x) for x in _MIN_BIOPYTHON_VERSION)
+        sys.exit(
+            f"ERROR: biopython {Bio.__version__} is older than the supported "
+            f"minimum {min_str}. PairwiseAligner's affine-gap defaults shifted "
+            f"between 1.79 and 1.85; regenerating with an older release would "
+            f"silently produce a corpus that diverges from the committed "
+            f"reference vectors. Upgrade with:\n"
+            f"    python3 -m pip install --upgrade 'biopython>={min_str}'"
+        )
+
+
 def main():
+    _check_biopython_version()
     entries = []
     for name, a, b, overrides in CASES:
         params = dict(DEFAULT_PARAMS)

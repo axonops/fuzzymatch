@@ -89,8 +89,8 @@ func FuzzSmithWatermanGotohScore(f *testing.F) {
 		// Property 1: none of the six public surfaces may panic. Any panic
 		// propagates to the fuzz harness and is reported as a crash.
 		surfaces := []struct {
-			name   string
-			val    float64
+			name    string
+			val     float64
 			bounded bool // true → must be in [0,1]; false → finite-only
 		}{
 			{"Score", fuzzymatch.SmithWatermanGotohScore(a, b), true},
