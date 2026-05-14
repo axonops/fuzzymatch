@@ -58,3 +58,16 @@ func ExampleJaroScore() {
 	// Output:
 	// 0.9444
 }
+
+// ExampleDamerauLevenshteinOSAScore demonstrates the Damerau-Levenshtein OSA
+// similarity. The first call shows the canonical transposition pair "ab"/"ba"
+// (distance 1, score 0.5). The second call shows the discriminating vector
+// "ca"/"abc" that distinguishes OSA from Full DL — OSA returns 0.0 (distance 3)
+// while Full DL would return 0.3333 (distance 2) for the same pair.
+func ExampleDamerauLevenshteinOSAScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.DamerauLevenshteinOSAScore("ab", "ba"))
+	fmt.Printf("%.4f\n", fuzzymatch.DamerauLevenshteinOSAScore("ca", "abc"))
+	// Output:
+	// 0.5000
+	// 0.0000
+}
