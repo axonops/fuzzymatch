@@ -41,16 +41,16 @@ import (
 func FuzzHammingScore(f *testing.F) {
 	// Programmatic seed entries — canonical reference vectors plus edge cases.
 	for _, pair := range []struct{ a, b string }{
-		{"karolin", "kathrin"},    // Hamming 1950 reference pair — distance 3
-		{"1011101", "1001001"},    // Hamming 1950 reference pair — distance 2
-		{"abc", "abc"},            // identical
-		{"", ""},                  // both-empty → score 1.0
-		{"abc", "ab"},             // unequal-length → silent-zero policy
-		{"ab", "abc"},             // unequal-length, reversed
-		{"", "abc"},               // one-empty
-		{"\xff\xfe", "abc"},       // invalid UTF-8 (byte path must not panic)
+		{"karolin", "kathrin"},   // Hamming 1950 reference pair — distance 3
+		{"1011101", "1001001"},   // Hamming 1950 reference pair — distance 2
+		{"abc", "abc"},           // identical
+		{"", ""},                 // both-empty → score 1.0
+		{"abc", "ab"},            // unequal-length → silent-zero policy
+		{"ab", "abc"},            // unequal-length, reversed
+		{"", "abc"},              // one-empty
+		{"\xff\xfe", "abc"},      // invalid UTF-8 (byte path must not panic)
 		{"\xc0\x80", "\xc0\x81"}, // invalid UTF-8 overlong sequences
-		{"café", "cafè"},          // equal-rune-count multi-byte (rune path)
+		{"café", "cafè"},         // equal-rune-count multi-byte (rune path)
 	} {
 		f.Add(pair.a, pair.b)
 	}

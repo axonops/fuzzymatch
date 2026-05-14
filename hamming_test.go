@@ -168,6 +168,47 @@ func TestHamming_DistanceRunes_MultiByte(t *testing.T) {
 	}
 }
 
+// TestHamming_DistanceRunes_UnequalLength verifies the rune variant's
+// unequal-rune-count path: HammingDistanceRunes returns max(runeCount(a),
+// runeCount(b)) and HammingScoreRunes returns 0.0.
+func TestHamming_DistanceRunes_UnequalLength(t *testing.T) {
+	tests := []struct {
+		a, b     string
+		wantDist int
+		wantScr  float64
+	}{
+		// Purely ASCII unequal-length inputs.
+		{"abc", "ab", 3, 0.0},
+		{"ab", "abc", 3, 0.0},
+		// Multi-byte rune: "café" (4 runes) vs "caf" (3 runes).
+		{"café", "caf", 4, 0.0},
+		{"caf", "café", 4, 0.0},
+		// Empty vs non-empty.
+		{"", "abc", 3, 0.0},
+		{"abc", "", 3, 0.0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.a+"_"+tt.b, func(t *testing.T) {
+			if got := fuzzymatch.HammingDistanceRunes(tt.a, tt.b); got != tt.wantDist {
+				t.Errorf("HammingDistanceRunes(%q, %q) = %d; want %d", tt.a, tt.b, got, tt.wantDist)
+			}
+			if got := fuzzymatch.HammingScoreRunes(tt.a, tt.b); got != tt.wantScr {
+				t.Errorf("HammingScoreRunes(%q, %q) = %g; want %g (unequal-length silent-zero)", tt.a, tt.b, got, tt.wantScr)
+			}
+		})
+	}
+}
+
+// TestHamming_ScoreRunes_BothEmpty asserts HammingScoreRunes("","") == 1.0.
+func TestHamming_ScoreRunes_BothEmpty(t *testing.T) {
+	if got := fuzzymatch.HammingScoreRunes("", ""); got != 1.0 {
+		t.Errorf("HammingScoreRunes(\"\",\"\") = %g; want 1.0", got)
+	}
+	if got := fuzzymatch.HammingDistanceRunes("", ""); got != 0 {
+		t.Errorf("HammingDistanceRunes(\"\",\"\") = %d; want 0", got)
+	}
+}
+
 // TestHammingScore_ZeroAllocs pins the 0-alloc budget for the ASCII byte
 // path at any length. Hamming is a single counting loop with no DP buffer,
 // so it is trivially zero-alloc for all ASCII inputs.

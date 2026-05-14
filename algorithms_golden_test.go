@@ -171,3 +171,56 @@ func TestGolden_Levenshtein_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/levenshtein.json", file)
 }
+
+// buildHammingStagingEntries returns the four Hamming entries used by
+// TestGolden_Hamming_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output.
+func buildHammingStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "Hamming_empty_empty",
+			Algorithm:     "Hamming",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.HammingScore("", ""),
+		},
+		{
+			Name:          "Hamming_identical",
+			Algorithm:     "Hamming",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.HammingScore("abc", "abc"),
+		},
+		{
+			Name:          "Hamming_karolin_kathrin",
+			Algorithm:     "Hamming",
+			A:             "karolin",
+			B:             "kathrin",
+			ExpectedScore: fuzzymatch.HammingScore("karolin", "kathrin"),
+		},
+		{
+			Name:          "Hamming_unequal_length",
+			Algorithm:     "Hamming",
+			A:             "abc",
+			B:             "ab",
+			ExpectedScore: fuzzymatch.HammingScore("abc", "ab"),
+		},
+	}
+}
+
+// TestGolden_Hamming_Staging produces testdata/golden/_staging/hamming.json
+// for plan 02-07's merge step. Entries are sorted alphabetically by Name.
+// Contains the four canonical Hamming cases: empty_empty, identical,
+// karolin_kathrin, and unequal_length (the locked silent-zero case).
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_Hamming_Staging(t *testing.T) {
+	entries := buildHammingStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/hamming.json", file)
+}

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Hamming_empty_empty",
+      "algorithm": "Hamming",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Hamming_identical",
+      "algorithm": "Hamming",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "Hamming_karolin_kathrin",
+      "algorithm": "Hamming",
+      "a": "karolin",
+      "b": "kathrin",
+      "expected_score": 0.5714285714285714
+    },
+    {
+      "name": "Hamming_unequal_length",
+      "algorithm": "Hamming",
+      "a": "abc",
+      "b": "ab",
+      "expected_score": 0
+    }
+  ]
+}

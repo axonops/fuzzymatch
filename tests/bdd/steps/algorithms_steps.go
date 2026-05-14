@@ -43,8 +43,9 @@ import (
 // more than two scores. The two-score design covers the symmetry scenario
 // ("compute A and compute B, then assert both equal").
 type AlgorithmContext struct {
-	lastScore  float64 // populated by "I compute the Xxx score between" steps
-	lastScore2 float64 // populated by "I compute the second Xxx score between" steps
+	lastScore    float64 // populated by "I compute the Xxx score between" steps
+	lastScore2   float64 // populated by "I compute the second Xxx score between" steps
+	lastDistance int     // populated by "I compute the Xxx distance between" steps (plan 02-02+)
 }
 
 // iComputeTheLevenshteinScoreBetween computes LevenshteinScore(a, b) and
@@ -91,6 +92,49 @@ func (ctx *AlgorithmContext) bothLevenshteinScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Hamming step definitions (plan 02-02)
+// ---------------------------------------------------------------------------
+
+// iComputeTheHammingScoreBetween computes HammingScore(a, b) and stores the
+// result in lastScore. Demonstrates the locked unequal-length silent-zero
+// policy: Score("abc", "ab") == 0.0 silently.
+func (ctx *AlgorithmContext) iComputeTheHammingScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.HammingScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondHammingScoreBetween computes HammingScore(a, b) and stores
+// the result in lastScore2. Used by the symmetry scenario.
+func (ctx *AlgorithmContext) iComputeTheSecondHammingScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.HammingScore(a, b)
+	return nil
+}
+
+// iComputeTheHammingDistanceBetween computes HammingDistance(a, b) and stores
+// the result in lastDistance. Used by the distance-equals-max-length scenario.
+func (ctx *AlgorithmContext) iComputeTheHammingDistanceBetween(a, b string) error {
+	ctx.lastDistance = fuzzymatch.HammingDistance(a, b)
+	return nil
+}
+
+// bothHammingScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothHammingScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("hamming scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
+// theDistanceShouldBe asserts lastDistance == expected. Used by the
+// unequal-length distance-equals-max-length contract scenario.
+func (ctx *AlgorithmContext) theDistanceShouldBe(expected int) error {
+	if ctx.lastDistance != expected {
+		return fmt.Errorf("expected distance %d, got %d", expected, ctx.lastDistance)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -121,5 +165,27 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both Levenshtein scores should be equal$`,
 		a.bothLevenshteinScoresShouldBeEqual,
+	)
+
+	// Hamming step definitions (plan 02-02).
+	ctx.Step(
+		`^I compute the Hamming score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheHammingScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second Hamming score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondHammingScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the Hamming distance between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheHammingDistanceBetween,
+	)
+	ctx.Step(
+		`^both Hamming scores should be equal$`,
+		a.bothHammingScoresShouldBeEqual,
+	)
+	ctx.Step(
+		`^the distance should be (\d+)$`,
+		a.theDistanceShouldBe,
 	)
 }
