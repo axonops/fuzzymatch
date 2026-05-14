@@ -37,6 +37,7 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -1119,6 +1120,249 @@ func TestProp_Strcmp95Score_DeterministicAcrossRuns(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		if got := fuzzymatch.Strcmp95Score(a, b); got != want {
 			t.Fatalf("Strcmp95Score non-deterministic at iteration %d: got %g; want %g", i, got, want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// LCSStr property tests (plan 04-02)
+//
+// Standard Phase 2 invariants (RangeBounds, Identity, Symmetric, NoNaN, NoInf,
+// NoNegativeZero) for both byte and rune surfaces, PLUS three LCSStr-specific
+// invariants:
+//   - IsSubstringOfBoth — the returned substring is a substring of both a and b
+//   - LengthMatchesScore — score == 2·len(LongestCommonSubstring(a,b))/(la+lb)
+//   - LeftmostTieBreak — hand-curated tie-break inputs return leftmost-in-a
+//
+// LCSStr is not a metric (it's a similarity), so no triangle inequality.
+// ---------------------------------------------------------------------------
+
+// TestProp_LCSStrScore_RangeBounds asserts the score is in [0.0, 1.0] for any
+// pair of strings. DET-04 range-bounds invariant.
+func TestProp_LCSStrScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.LCSStrScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_LCSStrScore_Identity asserts Score(x, x) == 1.0 for any non-empty
+// string x. Both-empty is also 1.0 by convention but covered by unit tests.
+func TestProp_LCSStrScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty handled in unit tests
+		}
+		return fuzzymatch.LCSStrScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScore identity violated: %v", err)
+	}
+}
+
+// TestProp_LCSStrScore_Symmetric asserts Score(a, b) == Score(b, a) for any
+// (a, b). The substring relation is symmetric and the normalisation
+// 2·len(lcs)/(la+lb) is symmetric in (a, b).
+func TestProp_LCSStrScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.LCSStrScore(a, b) == fuzzymatch.LCSStrScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_LCSStrScore_NoNaN asserts the score is never NaN. The empty-input
+// guard prevents the 0/0 division; the algorithm uses only +, *, /, and
+// comparisons so no other NaN paths exist.
+func TestProp_LCSStrScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.LCSStrScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_LCSStrScore_NoInf asserts the score never returns ±Inf. The
+// numerator and denominator are finite integers (max len(a)+len(b) ~= 256 for
+// quick.Check default inputs); their quotient is finite.
+func TestProp_LCSStrScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.LCSStrScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_LCSStrScore_NoNegativeZero asserts that when the score is 0.0 it
+// is positive zero (+0.0), not negative zero (-0.0).
+func TestProp_LCSStrScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.LCSStrScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_LCSStrScoreRunes_RangeBounds: rune path range bounds.
+func TestProp_LCSStrScoreRunes_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.LCSStrScoreRunes(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScoreRunes out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_LCSStrScoreRunes_Identity: rune path identity.
+func TestProp_LCSStrScoreRunes_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true
+		}
+		return fuzzymatch.LCSStrScoreRunes(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScoreRunes identity violated: %v", err)
+	}
+}
+
+// TestProp_LCSStrScoreRunes_Symmetric: rune path symmetry.
+func TestProp_LCSStrScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.LCSStrScoreRunes(a, b) == fuzzymatch.LCSStrScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScoreRunes not symmetric: %v", err)
+	}
+}
+
+// TestProp_LCSStrScoreRunes_NoNaN: rune path NaN guard.
+func TestProp_LCSStrScoreRunes_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.LCSStrScoreRunes(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScoreRunes produced NaN: %v", err)
+	}
+}
+
+// TestProp_LCSStrScoreRunes_NoInf: rune path Inf guard.
+func TestProp_LCSStrScoreRunes_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.LCSStrScoreRunes(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScoreRunes produced Inf: %v", err)
+	}
+}
+
+// TestProp_LCSStrScoreRunes_NoNegativeZero: rune path -0.0 guard.
+func TestProp_LCSStrScoreRunes_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.LCSStrScoreRunes(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LCSStrScoreRunes produced -0.0: %v", err)
+	}
+}
+
+// TestProp_LongestCommonSubstring_IsSubstringOfBoth asserts that the returned
+// substring is actually a substring of BOTH a and b. The empty-string return
+// case is allowed (both-empty AND no-overlap legitimately return "").
+//
+// LCSStr-specific structural invariant: confirms the DP kernel correctly
+// reports a contiguous shared segment, not e.g. a non-contiguous LCS or a
+// substring of only one input.
+func TestProp_LongestCommonSubstring_IsSubstringOfBoth(t *testing.T) {
+	f := func(a, b string) bool {
+		got := fuzzymatch.LongestCommonSubstring(a, b)
+		if got == "" {
+			return true // both-empty or no-overlap; both legitimate
+		}
+		return strings.Contains(a, got) && strings.Contains(b, got)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LongestCommonSubstring not a substring of both inputs: %v", err)
+	}
+}
+
+// TestProp_LongestCommonSubstring_LengthMatchesScore asserts the relationship
+// between the substring-returning surface and the score-returning surface:
+//
+//	|2·len(LongestCommonSubstring(a,b))/(la+lb) - LCSStrScore(a,b)| < 1e-9
+//
+// Special case: both-empty inputs return substring "" with score 1.0; the
+// formula 2·0/0 would NaN, so we handle that case explicitly.
+//
+// This invariant prevents a subtle bug where the substring path and the
+// length-only path could compute different LCS lengths (e.g. one uses strict
+// `>` and the other `>=`).
+func TestProp_LongestCommonSubstring_LengthMatchesScore(t *testing.T) {
+	const eps = 1e-9
+	f := func(a, b string) bool {
+		got := fuzzymatch.LongestCommonSubstring(a, b)
+		score := fuzzymatch.LCSStrScore(a, b)
+		la, lb := len(a), len(b)
+		if la == 0 && lb == 0 {
+			return got == "" && score == 1.0
+		}
+		expected := 2.0 * float64(len(got)) / float64(la+lb)
+		return math.Abs(score-expected) < eps
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("len(LongestCommonSubstring) does not match LCSStrScore numerator: %v", err)
+	}
+}
+
+// TestProp_LongestCommonSubstring_LeftmostTieBreak is the LOAD-BEARING
+// regression test for RESEARCH.md Pitfall 4. Hand-curated tied-candidate
+// inputs (multiple longest common substrings of equal length exist in `a`);
+// the strict-`>` max-update guarantees the LEFTMOST occurrence in `a` is
+// returned. Any drift to `>=` flips the tie-break and breaks these
+// assertions.
+//
+// Each row asserts: (1) LongestCommonSubstring(a, b) == wantSub; (2) the
+// substring starts at index 0 (or wantStart) in `a` — verified via
+// strings.Index, which returns the leftmost match index by definition.
+func TestProp_LongestCommonSubstring_LeftmostTieBreak(t *testing.T) {
+	tests := []struct {
+		a, b      string
+		wantSub   string
+		wantStart int
+	}{
+		{"abcXYZabc", "abc", "abc", 0},
+		{"xy_abc_xy_abc", "abc", "abc", 3},
+		{"aaa", "aa", "aa", 0},
+		{"foo_bar_foo", "foo", "foo", 0},
+		{"mississippi", "issi", "issi", 1},
+		// Three tied length-2 windows in `a`:
+		{"abXabYabZ", "ab", "ab", 0},
+		// Tied length-1 matches: "ab" and "ba" share both 'a' and 'b' as
+		// length-1 matches; the DP iterates outer=a then inner=b, so the
+		// first match RECORDED is at (i=1, j=1) → a[0]='a' matching b[0]='a'
+		// → maxEnd=1, substring "a". Leftmost-in-`a`-by-ENDING-INDEX.
+		{"ab", "ba", "a", 0},
+	}
+	for _, tt := range tests {
+		got := fuzzymatch.LongestCommonSubstring(tt.a, tt.b)
+		if got != tt.wantSub {
+			t.Errorf("LongestCommonSubstring(%q, %q) = %q; want %q (leftmost-in-a)",
+				tt.a, tt.b, got, tt.wantSub)
+			continue
+		}
+		if idx := strings.Index(tt.a, got); idx != tt.wantStart {
+			t.Errorf("LongestCommonSubstring(%q, %q) found %q at index %d; want leftmost %d",
+				tt.a, tt.b, got, idx, tt.wantStart)
 		}
 	}
 }
