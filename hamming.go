@@ -136,7 +136,8 @@ func HammingDistanceRunes(a, b string) int {
 // Edge cases:
 //   - HammingScore("", "") == 1.0 exactly (both-empty identity)
 //   - HammingScore("abc", "abc") == 1.0 exactly (identical strings)
-//   - HammingScore("abc", "ab") == 0.0 exactly (unequal-length silent-zero)
+//   - HammingScore("abc", "ab") == 0.0 exactly (unequal-length: score is 0.0,
+//     while the underlying HammingDistance returns max(len)=3, not 0)
 //   - HammingScore(a, b) == HammingScore(b, a) (symmetric)
 //
 // This function operates on bytes. For multi-byte UTF-8 inputs, use
