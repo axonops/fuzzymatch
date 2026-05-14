@@ -234,16 +234,35 @@ func TestDispatch_LevenshteinRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_HammingRegistered asserts that dispatch[AlgoHamming]
+// (slot 3) is non-nil after Phase 2 plan 02-02 registers HammingScore.
+func TestDispatch_HammingRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoHamming)) {
+		t.Errorf("dispatch[AlgoHamming] (%d) is nil — dispatch_hamming.go must register HammingScore at package load time",
+			int(fuzzymatch.AlgoHamming))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
-// AlgoLevenshtein (slot 0) are still nil at the Phase 2 Wave 1 state. Wave 2
-// plans (02-02 through 02-06) update this test as each algorithm registers
-// itself.
+// AlgoLevenshtein (slot 0) and AlgoHamming (slot 3) are still nil at the Phase
+// 2 Wave 1+02-02 state. Wave 2 plans (02-03 through 02-06) further update this
+// test as each algorithm registers itself.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
-	// Slot 0 (AlgoLevenshtein) is registered by plan 02-01. Slots 1–22 remain
-	// nil until Wave 2 plans run.
-	for i := int(fuzzymatch.AlgoDamerauLevenshteinOSA); i < fuzzymatch.DispatchLenForTest(); i++ {
-		if !fuzzymatch.DispatchEntryNilForTest(i) {
-			t.Errorf("dispatch[%d] is non-nil; expected to be nil until Wave 2 registers slot %d", i, i)
+	// Registered by Wave 1 and plan 02-02 respectively; all others nil.
+	registered := map[int]bool{
+		int(fuzzymatch.AlgoLevenshtein): true,
+		int(fuzzymatch.AlgoHamming):     true,
+	}
+	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
+		isNil := fuzzymatch.DispatchEntryNilForTest(i)
+		if registered[i] {
+			if isNil {
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1 or plan 02-02)", i)
+			}
+		} else {
+			if !isNil {
+				t.Errorf("dispatch[%d] is non-nil; expected nil until Wave 2 registers slot %d", i, i)
+			}
 		}
 	}
 }

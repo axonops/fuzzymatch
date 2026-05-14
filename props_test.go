@@ -134,3 +134,118 @@ func TestProp_LevenshteinScore_NoNegativeZero(t *testing.T) {
 		t.Errorf("LevenshteinScore produced -0.0: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Hamming property tests
+// ---------------------------------------------------------------------------
+//
+// Triangle inequality is OMITTED for the general case — the property fails on
+// unequal-length inputs under the silent-zero policy (CONTEXT.md decision).
+// The equal-length-constrained variant is tested separately as
+// TestProp_HammingDistance_TriangleInequality_EqualLength below.
+// See .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md
+// §Mathematical Invariants for the full rationale.
+
+// TestProp_HammingScore_RangeBounds asserts the score is in [0.0, 1.0] for
+// any pair of strings. This is the DET-04 range-bounds invariant.
+func TestProp_HammingScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.HammingScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_HammingScore_Identity asserts Score(x, x) == 1.0 for any non-empty
+// string x. Both-empty is a special case (also 1.0) tested separately.
+func TestProp_HammingScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty: score is 1.0; covered elsewhere
+		}
+		return fuzzymatch.HammingScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScore identity violated: %v", err)
+	}
+}
+
+// TestProp_HammingScore_Symmetric asserts Score(a,b) == Score(b,a) for any
+// a, b. The unequal-length policy is symmetric: max(len(a),len(b)) ==
+// max(len(b),len(a)), so the normalised score is identical in both directions.
+func TestProp_HammingScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.HammingScore(a, b) == fuzzymatch.HammingScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_HammingScore_NoNaN asserts HammingScore never returns NaN.
+// The both-empty guard (if maxLen == 0 { return 1.0 }) prevents 0/0 = NaN.
+func TestProp_HammingScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.HammingScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_HammingScore_NoInf asserts HammingScore never returns ±Inf.
+func TestProp_HammingScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.HammingScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_HammingScore_NoNegativeZero asserts that when the score is 0.0
+// it is positive zero (+0.0), not negative zero (-0.0).
+func TestProp_HammingScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.HammingScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_HammingDistance_TriangleInequality_EqualLength asserts the triangle
+// inequality for Hamming distance restricted to equal-length strings:
+// D(a,c) <= D(a,b) + D(b,c) where all three strings have the same byte length.
+//
+// The general triangle inequality is not tested because the silent-zero
+// unequal-length policy makes HammingDistance non-metric for mixed-length inputs.
+//
+// Generation strategy: a random base string, b and c are same-length variants
+// produced by XOR-flipping bytes at controlled positions.
+func TestProp_HammingDistance_TriangleInequality_EqualLength(t *testing.T) {
+	f := func(base string) bool {
+		if len(base) == 0 {
+			return true // trivially holds for empty strings
+		}
+		// Build b and c as byte-modified copies of base (same length).
+		bBytes := []byte(base)
+		cBytes := []byte(base)
+		// Flip first byte of b to introduce a controlled mismatch.
+		bBytes[0] ^= 0x01
+		// Flip last byte of c to introduce a controlled mismatch.
+		cBytes[len(cBytes)-1] ^= 0x01
+		b := string(bBytes)
+		c := string(cBytes)
+		dAC := fuzzymatch.HammingDistance(base, c)
+		dAB := fuzzymatch.HammingDistance(base, b)
+		dBC := fuzzymatch.HammingDistance(b, c)
+		return dAC <= dAB+dBC
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingDistance triangle inequality violated for equal-length inputs: %v", err)
+	}
+}
