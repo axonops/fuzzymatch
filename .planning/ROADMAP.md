@@ -159,7 +159,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Foundation & Infrastructure | 0/TBD | Not started | - |
 | 2. Core Character Algorithms (six) | 0/7 | Not started | - |
-| 3. Smith-Waterman-Gotoh | 3/3 | Complete   | 2026-05-14 |
+| 3. Smith-Waterman-Gotoh | 3/3 | Complete    | 2026-05-14 |
 | 4. Remaining Character & Gestalt | 0/TBD | Not started | - |
 | 5. Q-gram Algorithms | 0/TBD | Not started | - |
 | 6. Token-based Algorithms | 0/TBD | Not started | - |
