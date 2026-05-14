@@ -116,6 +116,10 @@ From jaro.go (plan 02-03 output):
 From algoid.go: AlgoJaroWinkler AlgoID = 5
 From normalise.go: func isASCII(s string) bool
 From dispatch_levenshtein.go: registration idiom (copy character-for-character)
+From algorithms_golden_test.go (plan 02-01 Task 3 — defines the canonical staging-write helper for the entire phase):
+  func assertGoldenStaging(t *testing.T, relPath string, v any)
+  // Signature LOCKED. Call directly — no "if helper exists / else create" branch.
+  // Writes to testdata/golden/<relPath> (e.g. "_staging/jarowinkler.json") via WriteGoldenFile.
 
 From props_test.go: APPEND TestProp_JaroWinklerScore_*; SKIP triangle inequality
 From example_test.go: APPEND ExampleJaroWinklerScore
@@ -321,7 +325,7 @@ Create `jarowinkler_fuzz_test.go`:
 2. FuzzJaroWinklerScore — programmatic seeds: MARTHA/MARHTA, DIXON/DICKSONX, DWAYNE/DUANE, ""/"ABC", invalid-UTF-8. Body: no panic, !math.IsNaN, !math.IsInf, score in [0,1].
 3. Create testdata/fuzz/FuzzJaroWinklerScore/seed-001 with MARTHA/MARHTA.
 
-Extend `props_test.go` (APPEND):
+Extend `props_test.go` (APPEND — append after the last existing `TestProp_*` declaration):
 
 1. TestProp_JaroWinklerScore_RangeBounds
 2. TestProp_JaroWinklerScore_Identity (skip empty)
@@ -332,7 +336,7 @@ Extend `props_test.go` (APPEND):
 7. NO triangle inequality (JW inherits Jaro's non-metric status).
 8. (Optional but useful) TestProp_JaroWinklerScore_AtLeastJaro — for any a, b where JaroScore(a,b) >= 0.7, JaroWinklerScore(a,b) >= JaroScore(a,b). The boost is non-negative when the gate is open.
 
-Extend `example_test.go` (APPEND):
+Extend `example_test.go` (APPEND — append after the last `Example*` function in the file):
 
        func ExampleJaroWinklerScore() {
            fmt.Printf("%.4f\n", fuzzymatch.JaroWinklerScore("MARTHA", "MARHTA"))
@@ -382,10 +386,11 @@ Run:
   <name>Task 3: Per-algorithm staging golden file + BDD feature + extend BDD steps</name>
   <files>testdata/golden/_staging/jarowinkler.json, tests/bdd/features/jarowinkler.feature, tests/bdd/steps/algorithms_steps.go, algorithms_golden_test.go</files>
   <read_first>
-    - algorithms_golden_test.go (Wave 1 — staging-write helper)
-    - testdata/golden/_staging/jaro.json (sibling Wave 2 file; reference for staging file form)
+    - algorithms_golden_test.go (Wave 1 plan 02-01 Task 3 — defines the LOCKED-signature helper `assertGoldenStaging(t *testing.T, relPath string, v any)`. Call the helper directly — there is NO "if helper exists / else create" branch in this plan.)
+    - testdata/golden/_staging/levenshtein.json (created by plan 02-01 — confirms the staging schema)
+    - testdata/golden/_staging/jaro.json (sibling Wave 2 plan 02-03 — direct dependency for JW reference vectors)
     - tests/bdd/features/jaro.feature (sibling Wave 2 BDD pattern)
-    - tests/bdd/steps/algorithms_steps.go (current state)
+    - tests/bdd/steps/algorithms_steps.go (current state — APPEND new step methods after the last `iComputeThe*` method and append regex registrations after the last `ctx.Step(...)` call in InitializeScenario)
     - .planning/phases/02-core-character-algorithms-six/02-PATTERNS.md (Pattern 12, Pattern 15)
     - .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md §Golden File Integration; §BDD Scenario Coverage
   </read_first>
@@ -402,11 +407,13 @@ Create `testdata/golden/_staging/jarowinkler.json`:
      - JaroWinkler_MARTHA_MARHTA (a "MARTHA", b "MARHTA")
      - JaroWinkler_one_empty (a "", b "ABC")
      - JaroWinkler_prefix_cap (a "TESTABCD", b "TESTABCE")
-3. Generate via the staging-write helper extension to algorithms_golden_test.go:
+3. Generate via the LOCKED-signature helper `assertGoldenStaging` defined by plan 02-01 Task 3. Add `TestGolden_JaroWinkler_Staging` to algorithms_golden_test.go (gated on the `-update` flag). The test calls `assertGoldenStaging(t, "_staging/jarowinkler.json", file)` — UNCONDITIONALLY. Do NOT add a fallback "if helper exists / else create" branch; plan 02-01 owns the helper definition. Concrete shape:
 
        func TestGolden_JaroWinkler_Staging(t *testing.T) {
-           if !*updateGolden { t.Skip("only runs with -update; produces _staging/jarowinkler.json") }
-           ... build, sort, write via CanonicalMarshalForTest
+           entries := buildJaroWinklerStagingEntries(t)
+           sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
+           file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+           assertGoldenStaging(t, "_staging/jarowinkler.json", file)
        }
 
    Run with `-update` once; commit the file. Re-run without `-update` and confirm zero diff.

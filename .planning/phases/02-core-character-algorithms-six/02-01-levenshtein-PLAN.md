@@ -15,6 +15,7 @@ files_modified:
   - algorithms_golden_test.go
   - algoid_test.go
   - testdata/golden/algorithms.json
+  - testdata/golden/_staging/levenshtein.json
   - testdata/fuzz/FuzzLevenshteinScore/seed-001
   - tests/bdd/features/levenshtein.feature
   - tests/bdd/steps/algorithms_steps.go
@@ -57,6 +58,8 @@ must_haves:
     - "Benchmark file uses b.ReportAllocs() before b.ResetTimer(); BenchmarkLevenshteinScore_ASCII_Short and _Medium report 0 B/op, 0 allocs/op"
     - "BDD scenario in tests/bdd/features/levenshtein.feature exercises canonical reference vectors via a Scenario Outline + Examples table; godog suite green via `cd tests/bdd && go test ./...`"
     - "testdata/golden/algorithms.json exists, is marshalled via CanonicalMarshalForTest, contains entries sorted by Name, and includes Levenshtein_kitten_sitting, Levenshtein_saturday_sunday, Levenshtein_identical, Levenshtein_empty_empty"
+    - "testdata/golden/_staging/levenshtein.json exists with the same four Levenshtein entries — produced by Wave 1 so plan 02-07's merge can read all six per-algorithm staging files uniformly (no special-case for Levenshtein)"
+    - "algorithms_golden_test.go defines the canonical staging-write helper `assertGoldenStaging(t *testing.T, relPath string, v any)` — signature LOCKED for Phase 2; Wave 2 plans (02-02, 02-03, 02-04, 02-05, 02-06) call it directly without conditional fallback. The helper writes to `testdata/golden/_staging/<basename>.json` using the canonical `WriteGoldenFile` discipline from `golden_canonical.go`"
     - "algoid_test.go's TestDispatch_AllNilAtPhase1 is updated/renamed (e.g. TestDispatch_LevenshteinRegistered + TestDispatch_UnregisteredSlotsAreNil) so it no longer asserts slot AlgoLevenshtein is nil"
     - "ExampleLevenshteinScore runs and the `// Output:` block matches byte-for-byte"
     - "make check green (lint, vet, race, coverage-check, verify-determinism, verify-license-headers, verify-no-runtime-deps, tidy-check)"
@@ -77,9 +80,13 @@ must_haves:
     - path: "props_test.go"
       provides: "TestProp_LevenshteinScore_RangeBounds, _Identity, _Symmetric; TestProp_LevenshteinDistance_TriangleInequality; TestProp_LevenshteinScore_NoNaN, _NoInf, _NoNegativeZero"
     - path: "algorithms_golden_test.go"
-      provides: "TestGolden_Algorithms — assembles entries, sorts by Name, calls assertGolden"
+      provides: "TestGolden_Algorithms — assembles entries, sorts by Name, calls assertGolden; AND the Phase-2-canonical staging-write helper `assertGoldenStaging(t *testing.T, relPath string, v any)`; AND TestGolden_Levenshtein_Staging that produces _staging/levenshtein.json"
+      contains: "func assertGoldenStaging"
     - path: "testdata/golden/algorithms.json"
       provides: "Canonical golden file with Levenshtein entries (sorted, LF-terminated, no BOM)"
+      contains: "Levenshtein_kitten_sitting"
+    - path: "testdata/golden/_staging/levenshtein.json"
+      provides: "Per-algorithm staging file for Levenshtein — produced by Wave 1 so plan 02-07's merge step has uniform inputs (no Levenshtein special case)"
       contains: "Levenshtein_kitten_sitting"
     - path: "example_test.go"
       provides: "ExampleLevenshteinScore runnable godoc example"
@@ -104,6 +111,10 @@ must_haves:
       to: "testdata/golden/algorithms.json"
       via: "assertGolden via CanonicalMarshalForTest"
       pattern: "assertGolden\\(t, \"algorithms\\.json\""
+    - from: "algorithms_golden_test.go assertGoldenStaging (helper)"
+      to: "testdata/golden/_staging/<algo>.json (called by Wave 2 plans)"
+      via: "WriteGoldenFile through canonicalMarshal — single locked signature for the entire phase"
+      pattern: "func assertGoldenStaging"
     - from: "tests/bdd/features/levenshtein.feature"
       to: "tests/bdd/steps/algorithms_steps.go"
       via: "godog step regex matching"
@@ -117,7 +128,7 @@ Implement Levenshtein edit distance as the canonical pattern for Phase 2's six c
 
 Purpose: derisk the entire pipeline (two-row DP with stack-allocated `[(maxStackInputLen+1)*2]int` buffer, ASCII fast path via the existing `isASCII` helper, dispatch registration via the `var _ = func() bool { ... }()` idiom, golden file extension via `CanonicalMarshalForTest`, BDD step infrastructure, fuzz seed corpus layout) on the simplest non-trivial algorithm so the parallel Wave 2 plans can copy-rename-adjust without exploring the codebase.
 
-Output: a working `LevenshteinScore` that returns deterministic, 0-allocation scores on ASCII ≤ 50 bytes, plus all the cross-cutting infrastructure (golden file, BDD harness, example, property suite, ExampleXxx) that Wave 2 plans extend.
+Output: a working `LevenshteinScore` that returns deterministic, 0-allocation scores on ASCII ≤ 50 bytes, plus all the cross-cutting infrastructure (golden file, BDD harness, example, property suite, ExampleXxx) that Wave 2 plans extend. CRITICALLY: this Wave 1 plan also defines and ships the canonical `assertGoldenStaging` helper that all Wave 2 plans call, AND produces `_staging/levenshtein.json` so plan 02-07's merge step has uniform inputs across all six algorithms.
 </objective>
 
 <execution_context>
@@ -187,6 +198,17 @@ From tests/bdd/go.mod (sub-module — testify, godog, goleak available):
   github.com/stretchr/testify v1.10.0    // permitted in tests/bdd/ only
   go.uber.org/goleak v1.3.0
   replace github.com/axonops/fuzzymatch => ../..
+
+NEW contract this Wave 1 plan defines for the entire phase (consumed by Wave 2 plans 02-02, 02-03, 02-04, 02-05, 02-06):
+
+  // Defined in algorithms_golden_test.go (this plan, Task 3):
+  func assertGoldenStaging(t *testing.T, relPath string, v any)
+  // - relPath is relative to testdata/golden/, e.g. "_staging/hamming.json"
+  // - Marshals v via CanonicalMarshalForTest then writes through WriteGoldenFile
+  //   when the -update flag is set; otherwise reads the existing file and
+  //   asserts byte-equality with the marshalled v.
+  // - Wave 2 plans MUST call this helper directly. There is no
+  //   "if helper exists / else create" branch in any Wave 2 plan.
 </interfaces>
 
 <canonical_pattern_decisions>
@@ -206,7 +228,9 @@ The five decisions this plan locks for the entire phase (overrides RESEARCH.md o
 
 Plus this plan establishes:
 
-6. Cross-platform golden file strategy for Wave 2 parallelism: Wave 2 plans each write to `testdata/golden/_staging/<algo>.json` (per-algorithm entries only, same `goldenAlgorithmsFile` schema). Plan 02-07 (Wave 3 finalisation) merges all staging files into the canonical `testdata/golden/algorithms.json`. This Wave 1 plan creates `algorithms.json` with only Levenshtein entries; it does NOT create the `_staging` directory (that is Wave 2's responsibility).
+6. Cross-platform golden file strategy for Wave 2 parallelism: Wave 2 plans each write to `testdata/golden/_staging/<algo>.json` (per-algorithm entries only, same `goldenAlgorithmsFile` schema). Plan 02-07 (Wave 3 finalisation) merges all staging files into the canonical `testdata/golden/algorithms.json`. THIS Wave 1 plan creates BOTH `algorithms.json` (with only Levenshtein entries) AND `_staging/levenshtein.json` (with the same four Levenshtein entries) so plan 02-07's merge step can read all six staging files uniformly.
+
+7. Staging-write helper ownership: this Wave 1 plan defines `assertGoldenStaging(t *testing.T, relPath string, v any)` in `algorithms_golden_test.go` with the LOCKED signature above. Wave 2 plans (02-02, 02-03, 02-04, 02-05, 02-06) call this helper directly — no conditional "if helper exists / else create" branches. The wave-dependency from Wave 2 plans to `02-01-levenshtein` enforces that the helper is in place before Wave 2 runs.
 </canonical_pattern_decisions>
 </context>
 
@@ -396,8 +420,8 @@ The first command must exit 0. The second must report `0 B/op  0 allocs/op` for 
 </task>
 
 <task type="auto" tdd="true">
-  <name>Task 3: Golden file + BDD harness + final phase quality gate</name>
-  <files>algorithms_golden_test.go, testdata/golden/algorithms.json, tests/bdd/features/levenshtein.feature, tests/bdd/steps/algorithms_steps.go</files>
+  <name>Task 3: Golden file + staging-write helper + Levenshtein staging file + BDD harness + final phase quality gate</name>
+  <files>algorithms_golden_test.go, testdata/golden/algorithms.json, testdata/golden/_staging/levenshtein.json, tests/bdd/features/levenshtein.feature, tests/bdd/steps/algorithms_steps.go</files>
   <read_first>
     - .planning/phases/01-foundation-infrastructure/01-04-determinism-infra-SUMMARY.md (golden-file canonical-byte-form rules: indent 2 spaces, trailing LF, no BOM, sorted entries)
     - golden_canonical.go (canonicalMarshal + WriteGoldenFile — the LOCKED marshaller)
@@ -412,7 +436,7 @@ The first command must exit 0. The second must report `0 B/op  0 allocs/op` for 
   <action>
 Create `algorithms_golden_test.go` in the root (package `fuzzymatch_test`):
 
-1. Apache-2.0 header + file-level godoc comment explaining the file pins the byte-stable canonical golden form for ALL Phase 2 algorithm scores. Reference plan 01-04's locked canonical byte form (indent 2 spaces, trailing LF, no BOM).
+1. Apache-2.0 header + file-level godoc comment explaining the file pins the byte-stable canonical golden form for ALL Phase 2 algorithm scores. Reference plan 01-04's locked canonical byte form (indent 2 spaces, trailing LF, no BOM). Note that this file ALSO defines the canonical staging-write helper consumed by Wave 2 plans.
 2. Declare typed structs matching the schema in RESEARCH.md §Golden File Integration:
 
        type goldenAlgorithmEntry struct {
@@ -428,14 +452,53 @@ Create `algorithms_golden_test.go` in the root (package `fuzzymatch_test`):
            Entries []goldenAlgorithmEntry `json:"entries"`
        }
 
-3. `func TestGolden_Algorithms(t *testing.T)` — calls `buildAlgorithmGoldenEntries()` (helper below), sorts the result by `Name` using `sort.Slice`, wraps in `goldenAlgorithmsFile{Version: 1, Entries: entries}`, calls `assertGolden(t, "algorithms.json", file)`.
-4. `func buildAlgorithmGoldenEntries(t *testing.T) []goldenAlgorithmEntry` — returns the four Levenshtein entries from RESEARCH.md §Minimum entry set:
+3. Define the LOCKED-signature staging-write helper consumed by Wave 2 plans:
+
+       // assertGoldenStaging is the Phase-2-canonical write helper for
+       // per-algorithm staging golden files. Wave 2 plans (02-02 .. 02-06)
+       // call this helper directly — there is NO "if helper exists / else
+       // create" branch in any Wave 2 plan. The signature is LOCKED for
+       // Phase 2: do not change the parameter list without coordinated
+       // updates to all Wave 2 plans.
+       //
+       //   relPath: path under testdata/golden/, e.g. "_staging/hamming.json"
+       //   v:       any value implementing the goldenAlgorithmsFile schema
+       //
+       // Behaviour mirrors assertGolden:
+       //   - With -update flag: marshal v via canonicalMarshal and write
+       //     through WriteGoldenFile.
+       //   - Without -update flag: read the existing file and assert
+       //     byte-equality with the marshalled v.
+       func assertGoldenStaging(t *testing.T, relPath string, v any) {
+           t.Helper()
+           // Implementation: reuse the canonicalMarshal + WriteGoldenFile
+           // pipeline. The relPath is joined with "testdata/golden/" before
+           // I/O. Mirror assertGolden's -update flag handling.
+       }
+
+   The implementation may delegate to existing helpers (assertGolden, WriteGoldenFile) if their signatures permit subdirectory paths; otherwise add a thin wrapper that calls WriteGoldenFile(filepath.Join("testdata/golden", relPath), ...).
+
+4. `func TestGolden_Algorithms(t *testing.T)` — calls `buildAlgorithmGoldenEntries()` (helper below), sorts the result by `Name` using `sort.Slice`, wraps in `goldenAlgorithmsFile{Version: 1, Entries: entries}`, calls `assertGolden(t, "algorithms.json", file)`.
+
+5. `func buildAlgorithmGoldenEntries(t *testing.T) []goldenAlgorithmEntry` — returns the four Levenshtein entries from RESEARCH.md §Minimum entry set:
      - `Levenshtein_kitten_sitting` — a "kitten", b "sitting", ExpectedScore from a live `fuzzymatch.LevenshteinScore` call
      - `Levenshtein_saturday_sunday` — a "saturday", b "sunday"
      - `Levenshtein_identical` — a "abc", b "abc"
      - `Levenshtein_empty_empty` — a "", b ""
-   Wave 2 plans extend this function (or merge from `_staging/<algo>.json` in plan 02-07) — explicitly comment that hook.
-5. Generate the initial `testdata/golden/algorithms.json`: run `go test -run TestGolden_Algorithms -update -count=1 ./...` once. Inspect the result; commit the file. The file must be byte-stable across re-runs (rerun the test without `-update` and confirm it exits 0).
+   Plan 02-07 (Wave 3) will REPLACE this function with a multi-source-file-merging form (TestGolden_Algorithms_Merge) that reads all six `_staging/<algo>.json` files; for now, this Wave 1 form is the seed.
+
+6. `func TestGolden_Levenshtein_Staging(t *testing.T)` — produces `_staging/levenshtein.json` so plan 02-07's merge has uniform inputs across all six algorithms (no Levenshtein special case). Gated on the `-update` flag; mirrors the structure Wave 2 plans use:
+
+       func TestGolden_Levenshtein_Staging(t *testing.T) {
+           entries := buildAlgorithmGoldenEntries(t) // same four Levenshtein entries
+           sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
+           file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+           assertGoldenStaging(t, "_staging/levenshtein.json", file)
+       }
+
+   Run this once with `-update` to produce `testdata/golden/_staging/levenshtein.json`. Commit the file. Re-running without `-update` must produce no diff.
+
+7. Generate the initial `testdata/golden/algorithms.json`: run `go test -run TestGolden_Algorithms -update -count=1 ./...` once. Inspect the result; commit the file. The file must be byte-stable across re-runs (rerun the test without `-update` and confirm it exits 0).
 
 Create `tests/bdd/features/levenshtein.feature`:
 
@@ -467,15 +530,19 @@ Run the full quality gate:
   make verify-determinism
   make check
 
-`make check` must exit 0. The golden file must be canonical-form (re-running TestGolden_Algorithms WITHOUT `-update` must succeed and produce no diff).
+`make check` must exit 0. The golden file must be canonical-form (re-running TestGolden_Algorithms WITHOUT `-update` must succeed and produce no diff). The staging file `_staging/levenshtein.json` must also be byte-stable.
   </action>
   <verify>
-    <automated>go test -race -shuffle=on -count=1 -run 'TestGolden_Algorithms' ./... && (cd tests/bdd && go test -count=1 ./...) && make verify-determinism</automated>
+    <automated>go test -race -shuffle=on -count=1 -run 'TestGolden_Algorithms|TestGolden_Levenshtein_Staging' ./... && (cd tests/bdd && go test -count=1 ./...) && make verify-determinism</automated>
   </verify>
   <acceptance_criteria>
     - testdata/golden/algorithms.json exists and contains exactly four Levenshtein entries sorted alphabetically by Name (Levenshtein_empty_empty, Levenshtein_identical, Levenshtein_kitten_sitting, Levenshtein_saturday_sunday).
-    - The file ends with a single LF byte; no BOM; 2-space indent (verifiable via `xxd testdata/golden/algorithms.json | head` showing canonical form).
-    - Re-running `go test -run TestGolden_Algorithms -count=1 ./...` without `-update` exits 0 (the file is byte-stable; no diff).
+    - testdata/golden/_staging/levenshtein.json exists with the same four Levenshtein entries (sorted alphabetically by Name) — produced by Wave 1 so plan 02-07's merge step has uniform inputs.
+    - Both files end with a single LF byte; no BOM; 2-space indent (verifiable via `xxd testdata/golden/algorithms.json | head` and `xxd testdata/golden/_staging/levenshtein.json | tail -1`).
+    - Re-running `go test -run 'TestGolden_Algorithms|TestGolden_Levenshtein_Staging' -count=1 ./...` without `-update` exits 0 (both files byte-stable; no diff).
+    - algorithms_golden_test.go contains the function `assertGoldenStaging` with the LOCKED signature `assertGoldenStaging(t *testing.T, relPath string, v any)`. Verifiable by `grep -E 'func assertGoldenStaging\(t \*testing\.T, relPath string, v any\)' algorithms_golden_test.go` returning at least one match.
+    - The helper writes to `testdata/golden/_staging/<basename>.json` (verifiable by inspecting the helper code AND by the existence of `_staging/levenshtein.json` at the expected path).
+    - The helper is callable from sibling _test.go files in the same package (verifiable by Wave 2 plans' staging tests passing once 02-01 has merged; in this Wave 1 task, verified by TestGolden_Levenshtein_Staging itself calling the helper successfully).
     - tests/bdd/features/levenshtein.feature parses as valid Gherkin and includes at least four scenarios (the Scenario Outline counts as one feature element with multiple Examples rows).
     - `cd tests/bdd && go test -count=1 ./...` exits 0 (godog suite green; goleak detects no leaks).
     - `make verify-determinism` exits 0.
@@ -483,12 +550,13 @@ Run the full quality gate:
   </acceptance_criteria>
   <behavior>
     - algorithms.json schema mirrors normalisation.json (version + entries sorted by Name).
-    - The golden file is byte-stable across re-runs and cross-platform-identical (the CI matrix will diff it; locally the canonical form is enforced).
+    - Both algorithms.json AND _staging/levenshtein.json are byte-stable across re-runs and cross-platform-identical (the CI matrix will diff them; locally the canonical form is enforced).
+    - assertGoldenStaging helper is the Phase-2-canonical staging writer; Wave 2 plans call it directly.
     - BDD harness exercises canonical reference vectors via Scenario Outline and pins identity, symmetry, both-empty as separate scenarios.
     - The algorithms_steps.go AlgorithmContext + InitializeScenario shape is the template Wave 2 plans extend.
   </behavior>
   <done>
-    Golden file committed and stable. BDD feature + steps committed. `make check` green. Wave 1's canonical pattern is now established for Wave 2 to copy: every Wave 2 plan touches exactly its own `<algo>.go`, `dispatch_<algo>.go`, `<algo>_{test,bench_test,fuzz_test}.go`, appends to `props_test.go` and `example_test.go`, writes `testdata/golden/_staging/<algo>.json`, creates `tests/bdd/features/<algo>.feature`, and appends to `tests/bdd/steps/algorithms_steps.go`.
+    Golden file committed and stable. _staging/levenshtein.json committed and stable. assertGoldenStaging helper defined with locked signature. BDD feature + steps committed. `make check` green. Wave 1's canonical pattern is now established for Wave 2 to copy: every Wave 2 plan touches exactly its own `<algo>.go`, `dispatch_<algo>.go`, `<algo>_{test,bench_test,fuzz_test}.go`, appends to `props_test.go` and `example_test.go`, calls `assertGoldenStaging` (defined here) to write `testdata/golden/_staging/<algo>.json`, creates `tests/bdd/features/<algo>.feature`, and appends to `tests/bdd/steps/algorithms_steps.go`.
   </done>
 </task>
 
@@ -525,10 +593,11 @@ Severity assessment: all `high` items are `mitigate` or have a clear mitigation 
 7. Allocation budget: `go test -bench=BenchmarkLevenshteinScore_ASCII_Short -benchmem -run=^$ -count=3 ./...` reports `0 B/op  0 allocs/op` for the Short benchmark.
 8. Fuzz smoke: `go test -fuzz=FuzzLevenshteinScore -fuzztime=30s -run=^$ ./...` completes without crash or invariant violation (informational locally; CI runs longer fuzz windows per plan 01-02).
 9. Golden file: `go test -run TestGolden_Algorithms -count=1 ./...` exits 0 WITHOUT `-update` (file is byte-stable).
-10. BDD: `(cd tests/bdd && go test -race -shuffle=on -count=1 ./...)` exits 0.
-11. Determinism: `make verify-determinism` exits 0.
-12. Coverage: `make coverage && make coverage-check` — overall ≥ 95%, per-file ≥ 90%, 100% on the four new public symbols (LevenshteinDistance, LevenshteinDistanceRunes, LevenshteinScore, LevenshteinScoreRunes).
-13. Full quality gate: `make check` exits 0.
+10. Staging file: `go test -run TestGolden_Levenshtein_Staging -count=1 ./...` exits 0 WITHOUT `-update` (`_staging/levenshtein.json` byte-stable).
+11. BDD: `(cd tests/bdd && go test -race -shuffle=on -count=1 ./...)` exits 0.
+12. Determinism: `make verify-determinism` exits 0.
+13. Coverage: `make coverage && make coverage-check` — overall ≥ 95%, per-file ≥ 90%, 100% on the four new public symbols (LevenshteinDistance, LevenshteinDistanceRunes, LevenshteinScore, LevenshteinScoreRunes).
+14. Full quality gate: `make check` exits 0.
 </verification>
 
 <success_criteria>
@@ -538,6 +607,7 @@ Severity assessment: all `high` items are `mitigate` or have a clear mitigation 
 - Score is in [0.0, 1.0] for any input; never NaN, Inf, or -0 (DET-04 satisfied for Levenshtein).
 - Cross-platform byte-identical golden output via testdata/golden/algorithms.json (DET-02 partial — full coverage lands in plan 02-07 after all six algorithms ship).
 - The canonical pattern (file naming, dispatch idiom, test/bench/fuzz/golden/BDD/example layout) is locked and documented in code comments so Wave 2 plans can copy it deterministically.
+- `assertGoldenStaging` helper defined with locked signature; `_staging/levenshtein.json` produced by Wave 1 so Wave 2 plans (and plan 02-07's merge) have uniform infrastructure.
 - All required gates (license headers, no-runtime-deps, lint, vet, race, tidy, coverage, determinism, BDD) pass via `make check`.
 </success_criteria>
 
@@ -547,6 +617,8 @@ After completion, create `.planning/phases/02-core-character-algorithms-six/02-0
 - Benchmark numbers observed locally (B/op, allocs/op for ASCII Short/Medium/Long, Unicode Short).
 - Coverage percentages (overall, per-file levenshtein.go, public-symbol).
 - The exact maxStackInputLen value shipped (locked at 64 by this plan; later phases may revisit).
-- The Wave 2 hand-off contract: which functions in algorithms_golden_test.go, props_test.go, example_test.go, and tests/bdd/steps/algorithms_steps.go are append-points for Wave 2 plans.
+- The exact signature shipped for `assertGoldenStaging` (must match the locked signature in the plan; surface any drift for Wave 2 plans to consume).
+- The Wave 2 hand-off contract: which functions in algorithms_golden_test.go (assertGoldenStaging, buildAlgorithmGoldenEntries, TestGolden_Algorithms), props_test.go, example_test.go, and tests/bdd/steps/algorithms_steps.go are append-points for Wave 2 plans.
 - Any deviations from the plan and their rationale.
+</output>
 </output>

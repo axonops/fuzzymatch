@@ -118,16 +118,14 @@ From Wave 2:
   - DamerauLevenshteinFullDistance, DamerauLevenshteinFullScore (discriminating vector ca/abc → 2)
 
 From the testdata/golden/_staging/ directory (created by Wave 2 plans):
-  - testdata/golden/_staging/levenshtein.json   (created by Wave 1 plan 02-01 OR by this Wave 3 plan if Wave 1 wrote directly to algorithms.json — see Task 1)
+  - testdata/golden/_staging/levenshtein.json   (Wave 1 plan 02-01 Task 3 — committed by plan 02-01 alongside the assertGoldenStaging helper)
   - testdata/golden/_staging/hamming.json       (Wave 2 plan 02-02)
   - testdata/golden/_staging/jaro.json          (Wave 2 plan 02-03)
   - testdata/golden/_staging/jarowinkler.json   (Wave 2 plan 02-04)
   - testdata/golden/_staging/damerau_osa.json   (Wave 2 plan 02-05)
   - testdata/golden/_staging/damerau_full.json  (Wave 2 plan 02-06)
 
-  NOTE: Wave 1 plan 02-01 wrote directly to testdata/golden/algorithms.json (it had no Wave 2 collisions to worry about at that point). This Wave 3 plan must EITHER:
-    (a) Read the existing Levenshtein entries from algorithms.json, copy them into a synthesised _staging/levenshtein.json, then run the merge — OR —
-    (b) Re-build the Levenshtein entries from live calls (preferred — avoids parsing the existing JSON; the four Levenshtein entries are deterministic from the four canonical pairs).
+  NOTE: Plan 02-01 Task 3 (revised) commits BOTH testdata/golden/algorithms.json (Levenshtein entries) AND testdata/golden/_staging/levenshtein.json so this Wave 3 plan's merge step has uniform inputs across all six algorithms — no Levenshtein special-case logic. The merge simply reads all six staging files and rewrites algorithms.json.
 
 From algorithms_golden_test.go (Wave 1 + extended by each Wave 2 plan with TestGolden_<algo>_Staging helpers):
   - goldenAlgorithmEntry struct
@@ -142,7 +140,7 @@ From CLAUDE.md (project guidelines): conventional commits without AI attribution
 
 <task type="auto">
   <name>Task 1: Merge per-algorithm staging files into canonical testdata/golden/algorithms.json</name>
-  <files>algorithms_golden_test.go, testdata/golden/algorithms.json, testdata/golden/_staging/levenshtein.json</files>
+  <files>algorithms_golden_test.go, testdata/golden/algorithms.json</files>
   <read_first>
     - algorithms_golden_test.go (current state — Wave 1 + 5 Wave 2 extensions; understand the existing TestGolden_Algorithms function and the per-algorithm TestGolden_<algo>_Staging helpers)
     - testdata/golden/algorithms.json (Wave 1's Levenshtein-only contents — this file will be rewritten by this task)
@@ -155,10 +153,7 @@ From CLAUDE.md (project guidelines): conventional commits without AI attribution
   <action>
 1. Read each of the five Wave 2 staging files (hamming.json, jaro.json, jarowinkler.json, damerau_osa.json, damerau_full.json) and confirm they exist and are valid JSON matching the goldenAlgorithmsFile schema.
 
-2. Decide on the source of Levenshtein entries:
-   PREFERRED PATH: build a `_staging/levenshtein.json` file via the same staging-file pattern Wave 2 plans used. This makes the merge step uniform across all six algorithms and gives Levenshtein the same audit trail as the others. Add `TestGolden_Levenshtein_Staging` to algorithms_golden_test.go (gated on -update; mirrors the structure of TestGolden_Hamming_Staging et al). Run with -update once to produce `testdata/golden/_staging/levenshtein.json`. Commit it.
-
-   FALLBACK PATH: skip the levenshtein.json staging file and treat Levenshtein entries as inline in TestGolden_Algorithms_Merge. The PREFERRED path is recommended for symmetry and for plan 02-07's audit trail.
+2. Confirm `_staging/levenshtein.json` exists. Plan 02-01 Task 3 (revised) committed it alongside the `assertGoldenStaging` helper — this Wave 3 plan does NOT need to create it. If for any reason it is missing, re-run plan 02-01's `TestGolden_Levenshtein_Staging -update` before proceeding; do NOT inline-build Levenshtein entries in this plan.
 
 3. Refactor algorithms_golden_test.go's TestGolden_Algorithms (Wave 1's original) into a new `TestGolden_Algorithms_Merge`:
 
@@ -211,7 +206,7 @@ After this task, the Wave 1 stub `TestGolden_Algorithms` is replaced by `TestGol
     <automated>go test -race -shuffle=on -count=1 -run 'TestGolden_Algorithms_Merge|TestGolden_.*_Staging' ./... && make verify-determinism</automated>
   </verify>
   <acceptance_criteria>
-    - testdata/golden/_staging/levenshtein.json exists (preferred path) OR is documented as inline in the SUMMARY (fallback path).
+    - testdata/golden/_staging/levenshtein.json exists (created by plan 02-01 Task 3; this Wave 3 plan only verifies its presence).
     - testdata/golden/algorithms.json exists and contains entries from all six algorithms — verifiable by `jq '[.entries[].algorithm] | unique' testdata/golden/algorithms.json` returning a JSON array containing all six algorithm names: Levenshtein, Hamming, Jaro, JaroWinkler, DamerauLevenshteinOSA, DamerauLevenshteinFull.
     - The file is in canonical form (2-space indent, trailing LF byte 0x0a, no BOM, sorted by Name).
     - Re-running TestGolden_Algorithms_Merge WITHOUT -update produces zero diff (the merged file is byte-stable across re-runs).
@@ -296,6 +291,7 @@ Create `cross_algorithm_consistency_test.go` (package fuzzymatch_test, stdlib te
     - TestCrossAlgorithm_OSA_Full_Divergence references both expected values (3 for OSA, 2 for Full) explicitly in the test body — verifiable by `grep -E 'OSA.*== 3|Full.*== 2' cross_algorithm_consistency_test.go` returning at least one match each.
     - `grep -c '"github.com/stretchr/testify' cross_algorithm_consistency_test.go` returns 0.
     - The file is in package fuzzymatch_test (NOT fuzzymatch) — uses public API only.
+    - **PERF-03 deviation gate (W-3):** Confirm plan 02-06's PERF-03 disposition by reading 02-06-damerau-full-SUMMARY.md. If the fallback path was taken (full DP table allocated for any input regime — e.g. the rune mode), open a GitHub issue, add it to KNOWN_ISSUES.md (or the project's equivalent tracking file; if neither exists, create the issue and reference it in 02-SUMMARY.md), and reference the issue number in 02-SUMMARY.md before the phase is declared shippable. PERF-03 is BLOCKING for two-row DP family algorithms — do NOT proceed to Phase 3 with an unmitigated DL-Full PERF-03 deviation unless the issue is tracked. The audit-trail SUMMARY note alone is insufficient; an issue link is required.
   </acceptance_criteria>
   <behavior>
     - DL-OSA vs DL-Full divergence pinned in a single test that cannot pass if either algorithm's recurrence is wrong.
@@ -357,7 +353,16 @@ Create `examples/identifier-similarity/main.go` (package main):
 
 6. main() function:
      - Print a header row with column names, fixed-width formatting (e.g. `%-30s` for the pair column, `%12s` for each algorithm column).
-     - For each pair, compute all six scores and print a row. Use `fmt.Sprintf("%.4f", score)` for cell values (4-decimal precision per CONTEXT.md). Hamming on length-mismatched pairs returns 0.0000 (per the LOCKED silent-zero policy from plan 02-02 — NOT `ERR`; the planning context document mentioned `ERR` as one consideration but plan 02-02 locked silent zero, so the example reflects that).
+     - For each pair, compute all six scores and print a row. Use `fmt.Sprintf("%.4f", score)` for cell values (4-decimal precision per CONTEXT.md). Hamming on length-mismatched pairs returns 0.0000 (per the LOCKED silent-zero policy from plan 02-02 — NOT `ERR`).
+
+     **Documentation supersession note (W-2 — include this exact comment in main.go's file-level godoc):**
+
+       // Note: CONTEXT.md `<deferred>` identifier-similarity format spec'd
+       // `ERR` for Hamming length-mismatch BEFORE the Hamming silent-zero
+       // policy was locked (commit 1e25e31). The locked Hamming policy
+       // supersedes that earlier illustrative format — the example shows
+       // `0.0000` and never `ERR`. This resolution is a documentation
+       // supersession, not a scope reduction.
      - Output is plaintext, deterministic, byte-stable.
 
 Create `examples/identifier-similarity/main_test.go` (package main):

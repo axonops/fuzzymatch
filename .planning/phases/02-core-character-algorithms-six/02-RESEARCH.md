@@ -1108,7 +1108,21 @@ ASVS V5 (Input Validation): the only applicable category. Mitigation: fuzz tests
 
 ---
 
-## Open Questions for the Planner
+## Open Questions for the Planner (RESOLVED)
+
+> All questions below were resolved during `/gsd-plan-phase` iterations 1-2.
+> Resolutions are embedded in the seven PLAN.md files for Phase 2. Summary:
+>
+> 1. **Jaro-Winkler file naming:** `jarowinkler.go` (no underscore) — matches `normalise.go` / `tokenise.go` / `algoid.go` no-underscore convention.
+> 2. **Dispatch:** Separate `dispatch_<algo>.go` per algorithm using the `var _ = func() bool { ... }()` idiom.
+> 3. **Stack buffer threshold:** `const maxStackInputLen = 64` declared once in `levenshtein.go` and reused by DL-OSA + DL-Full; Jaro uses `const maxJaroStackLen = 256`.
+> 4. **Rune mode:** Eager `[]rune` conversion in the rune fallback path; ASCII fast path uses byte indexing on the original string.
+> 5. **BDD feature-file structure:** One `.feature` file per algorithm sharing a single `tests/bdd/steps/algorithms_steps.go`.
+> 6. **`examples/identifier-similarity/` placement:** Dedicated plan 02-07 (Wave 4).
+> 7. **`cross_algorithm_consistency_test.go`:** Included in plan 02-07.
+> 8. **Three-row vs two-row DP for DL-OSA:** Three-row DP (track `i-2` row for transposition lookup).
+
+The original research-time formulation of these questions follows for archival purposes.
 
 1. **File naming: `jarowinkler.go` vs `jaro_winkler.go`?**
    Evidence from existing files: `normalise.go`, `tokenise.go`, `algoid.go`, `errors.go` — all single-word or bare concatenation. The AlgoID constant is `AlgoJaroWinkler`. Recommendation: `jarowinkler.go` (no underscore) to match the existing no-underscore convention. But `damerau_osa.go` and `damerau_full.go` need underscores to disambiguate. Planner picks.

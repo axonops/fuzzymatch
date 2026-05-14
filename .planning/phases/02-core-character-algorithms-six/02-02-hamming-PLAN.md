@@ -114,6 +114,11 @@ From algoid.go:
   AlgoHamming AlgoID = 3
   var dispatch [numAlgorithms]func(a, b string) float64
 
+From algorithms_golden_test.go (Wave 1 plan 02-01 Task 3 — defines the canonical staging-write helper for the entire phase):
+  func assertGoldenStaging(t *testing.T, relPath string, v any)
+  // Signature LOCKED. Call directly — no "if helper exists / else create" branch.
+  // Writes to testdata/golden/<relPath> (e.g. "_staging/hamming.json") via WriteGoldenFile.
+
 From dispatch_levenshtein.go (template to copy character-for-character with identifiers swapped):
   var _ = func() bool {
       dispatch[AlgoLevenshtein] = LevenshteinScore
@@ -264,7 +269,7 @@ Create `hamming_fuzz_test.go`:
 2. FuzzHammingScore — seed with reference vectors plus invalid-UTF-8 plus a length-mismatched pair to exercise the silent-zero path. Body asserts no panic, !math.IsNaN, !math.IsInf, score in [0,1].
 3. Create `testdata/fuzz/FuzzHammingScore/seed-001` in the `go test fuzz v1` format with the karolin/kathrin pair.
 
-Extend `props_test.go` (DO NOT recreate; read the existing file first to confirm the import block and package declaration):
+Extend `props_test.go` (DO NOT recreate; read the existing file first to confirm the import block and package declaration; APPEND new functions after the last existing `TestProp_*` declaration found via grep):
 
 1. Append (do not duplicate imports):
      - TestProp_HammingScore_RangeBounds
@@ -275,7 +280,7 @@ Extend `props_test.go` (DO NOT recreate; read the existing file first to confirm
      - TestProp_HammingScore_NoNegativeZero
 2. Triangle inequality: SKIP. The general triangle inequality fails for Hamming under the silent-zero policy on unequal-length inputs (RESEARCH.md §Mathematical Invariants — Hamming triangle inequality must be constrained to equal-length inputs). If implementing an equal-length-constrained variant is simple, add `TestProp_HammingDistance_TriangleInequality_EqualLength` that generates a random base string and two same-length perturbations (e.g. via XOR-flip of bytes); otherwise add a comment in props_test.go explaining the omission and citing RESEARCH.md.
 
-Extend `example_test.go` (append, do not recreate):
+Extend `example_test.go` (append, do not recreate; append after the last `Example*` function in the file):
 
 1. ExampleHammingScore — must demonstrate BOTH the equal-length case AND the unequal-length silent-zero case per the locked policy:
        fmt.Printf("%.4f\n", fuzzymatch.HammingScore("karolin", "kathrin"))
@@ -323,11 +328,12 @@ Run:
   <name>Task 3: Per-algorithm staging golden file + BDD feature + extend BDD steps</name>
   <files>testdata/golden/_staging/hamming.json, tests/bdd/features/hamming.feature, tests/bdd/steps/algorithms_steps.go</files>
   <read_first>
-    - algorithms_golden_test.go (Wave 1 — note the goldenAlgorithmsFile + goldenAlgorithmEntry structs; these are referenced by all staging files)
+    - algorithms_golden_test.go (Wave 1 plan 02-01 Task 3 — note the goldenAlgorithmsFile + goldenAlgorithmEntry structs AND the LOCKED-signature helper `assertGoldenStaging(t *testing.T, relPath string, v any)`. Call the helper directly — there is NO "if helper exists / else create" branch in this plan. If the helper is missing, plan 02-01 has not landed yet and Wave 2 must wait per the wave dependency.)
     - testdata/golden/algorithms.json (Wave 1 — reference for the canonical byte form: 2-space indent, trailing LF, sorted entries)
+    - testdata/golden/_staging/levenshtein.json (created by plan 02-01 Task 3 — confirms the staging schema and gives a structural reference)
     - golden_canonical.go (CanonicalMarshal contract)
     - tests/bdd/features/levenshtein.feature (Wave 1 BDD pattern — copy structure, swap identifiers and reference vectors)
-    - tests/bdd/steps/algorithms_steps.go (Wave 1 — find AlgorithmContext + InitializeScenario; understand the existing step regex set)
+    - tests/bdd/steps/algorithms_steps.go (Wave 1 — find AlgorithmContext + InitializeScenario; understand the existing step regex set; APPEND new step methods after the last `iComputeThe*` method and append regex registrations after the last `ctx.Step(...)` call in InitializeScenario)
     - .planning/phases/02-core-character-algorithms-six/02-PATTERNS.md (Pattern 12 golden file; Pattern 15 BDD feature + steps)
     - .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md §Golden File Integration — Wave 2 staging strategy; §BDD Scenario Coverage
   </read_first>
@@ -340,18 +346,16 @@ Create `testdata/golden/_staging/hamming.json` (the staging file Wave 3 plan 02-
      - Hamming_identical (a "abc", b "abc", expected_score 1.0)
      - Hamming_karolin_kathrin (a "karolin", b "kathrin", expected_score from a live HammingScore call — 0.5714285714285714)
      - Hamming_unequal_length (a "abc", b "ab", expected_score 0.0)
-3. Generate the file by running a small one-off TestGolden_Hamming_Staging (added to algorithms_golden_test.go OR to a new hamming_golden_test.go) that builds the entries from live calls, sorts them, marshals via CanonicalMarshalForTest, and writes to `testdata/golden/_staging/hamming.json` via WriteGoldenFile when the `-update` flag is set. Plan 02-07 will read this staging file and merge into the canonical algorithms.json.
-4. Alternative simpler approach: write the JSON file directly by hand-computing the four scores (or running a one-off go program) and saving the canonical form. The canonical form requires 2-space indent, trailing LF, no BOM. To guarantee canonical form, ALWAYS write via WriteGoldenFile (do not hand-edit the JSON).
-5. The simplest implementation: extend algorithms_golden_test.go with a build-and-write helper for staging files. Add a test like:
+3. Generate the file by adding `TestGolden_Hamming_Staging` to algorithms_golden_test.go (gated on the `-update` flag). The test builds the entries from live HammingScore calls, sorts them by Name, wraps in `goldenAlgorithmsFile{Version: 1, Entries: entries}`, and calls the LOCKED-signature helper `assertGoldenStaging(t, "_staging/hamming.json", file)` — UNCONDITIONALLY. Do NOT add a fallback "if helper exists / else create" branch; plan 02-01 Task 3 owns the helper definition. Concrete shape:
+
        func TestGolden_Hamming_Staging(t *testing.T) {
-           if !*updateGolden { t.Skip("only runs with -update; produces _staging/hamming.json") }
-           entries := buildHammingStagingEntries()
-           sort.Slice(entries, ...)
+           entries := buildHammingStagingEntries(t)  // builds 4 entries from live calls
+           sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
            file := goldenAlgorithmsFile{Version: 1, Entries: entries}
-           assertGolden_writeStaging(t, "_staging/hamming.json", file)   // helper that writes through CanonicalMarshalForTest
+           assertGoldenStaging(t, "_staging/hamming.json", file)
        }
-   If `assertGolden` already supports writing to subdirectories of testdata/golden/, reuse it directly. Otherwise add a thin helper in algorithms_golden_test.go that wraps WriteGoldenFile.
-6. Run with `-update` once to generate the file; commit the file. Re-running the test (with or without `-update`) must produce no diff.
+
+4. Run with `-update` once to generate `testdata/golden/_staging/hamming.json`; commit the file. Re-running the test (without `-update`) must produce no diff. The canonical byte form (2-space indent, trailing LF, no BOM) is guaranteed by the helper's use of CanonicalMarshalForTest + WriteGoldenFile.
 
 Create `tests/bdd/features/hamming.feature`:
 

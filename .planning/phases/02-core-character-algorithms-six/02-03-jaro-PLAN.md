@@ -107,6 +107,10 @@ From algoid.go: AlgoJaro AlgoID = 4
 From normalise.go: func isASCII(s string) bool
 From levenshtein.go: const maxStackInputLen = 64 (Jaro does NOT use this — Jaro uses [256]bool, a different stack threshold; document why in jaro.go's godoc)
 From dispatch_levenshtein.go: copy the registration idiom character-for-character
+From algorithms_golden_test.go (plan 02-01 Task 3 — defines the canonical staging-write helper for the entire phase):
+  func assertGoldenStaging(t *testing.T, relPath string, v any)
+  // Signature LOCKED. Call directly — no "if helper exists / else create" branch.
+  // Writes to testdata/golden/<relPath> (e.g. "_staging/jaro.json") via WriteGoldenFile.
 From props_test.go: APPEND TestProp_JaroScore_*; SKIP triangle inequality (Jaro is not a metric)
 From example_test.go: APPEND ExampleJaroScore
 From algoid_test.go: UPDATE the dispatch test (remove AlgoJaro from unregistered-slots)
@@ -277,7 +281,7 @@ Create `jaro_fuzz_test.go`:
 2. FuzzJaroScore — programmatic seeds: MARTHA/MARHTA, DIXON/DICKSONX, ""/"ABC", invalid-UTF-8 (`"\xff\xfe"`), and a length-mismatched pair. Body: no panic, !math.IsNaN, !math.IsInf, score in [0,1].
 3. Create `testdata/fuzz/FuzzJaroScore/seed-001` in `go test fuzz v1` format with MARTHA/MARHTA.
 
-Extend `props_test.go` (APPEND — read existing file's package + import block first):
+Extend `props_test.go` (APPEND — read existing file's package + import block first; append new functions after the last existing `TestProp_*` declaration found via grep):
 
 1. TestProp_JaroScore_RangeBounds
 2. TestProp_JaroScore_Identity (skip empty in predicate)
@@ -287,7 +291,7 @@ Extend `props_test.go` (APPEND — read existing file's package + import block f
 6. TestProp_JaroScore_NoNegativeZero
 7. NO triangle inequality property — add a comment explaining the omission per RESEARCH.md (Jaro is not a metric).
 
-Extend `example_test.go` (APPEND):
+Extend `example_test.go` (APPEND — append after the last `Example*` function in the file):
 
        func ExampleJaroScore() {
            fmt.Printf("%.4f\n", fuzzymatch.JaroScore("MARTHA", "MARHTA"))
@@ -333,11 +337,12 @@ Run:
   <name>Task 3: Per-algorithm staging golden file + BDD feature + extend BDD steps</name>
   <files>testdata/golden/_staging/jaro.json, tests/bdd/features/jaro.feature, tests/bdd/steps/algorithms_steps.go, algorithms_golden_test.go</files>
   <read_first>
-    - algorithms_golden_test.go (Wave 1 — goldenAlgorithmsFile + goldenAlgorithmEntry struct shape; the staging-write helper Wave 1 / Wave 2-Hamming established)
+    - algorithms_golden_test.go (Wave 1 plan 02-01 Task 3 — goldenAlgorithmsFile + goldenAlgorithmEntry struct shape AND the LOCKED-signature helper `assertGoldenStaging(t *testing.T, relPath string, v any)`. Call the helper directly — there is NO "if helper exists / else create" branch in this plan. If the helper is missing, plan 02-01 has not landed yet and Wave 2 must wait per the wave dependency.)
+    - testdata/golden/_staging/levenshtein.json (created by plan 02-01 — confirms the staging schema and gives a structural reference)
     - testdata/golden/_staging/hamming.json (if landed earlier — exact byte-form reference for staging files)
     - tests/bdd/features/levenshtein.feature (Wave 1 BDD pattern)
     - tests/bdd/features/hamming.feature (if landed earlier — sibling pattern)
-    - tests/bdd/steps/algorithms_steps.go (current state — find AlgorithmContext + InitializeScenario)
+    - tests/bdd/steps/algorithms_steps.go (current state — find AlgorithmContext + InitializeScenario; APPEND new step methods after the last `iComputeThe*` method and append regex registrations after the last `ctx.Step(...)` call in InitializeScenario)
     - .planning/phases/02-core-character-algorithms-six/02-PATTERNS.md (Pattern 12, Pattern 15)
     - .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md §Golden File Integration; §BDD Scenario Coverage
   </read_first>
@@ -352,7 +357,7 @@ Create `testdata/golden/_staging/jaro.json`:
      - Jaro_JELLYFISH_SMELLYFISH (a "JELLYFISH", b "SMELLYFISH", expected_score from live call)
      - Jaro_MARTHA_MARHTA (a "MARTHA", b "MARHTA", expected_score from live call)
      - Jaro_one_empty (a "", b "ABC", 0.0)
-3. Generate via the staging-write helper Wave 1 / Wave 2-Hamming established in algorithms_golden_test.go. Add `TestGolden_Jaro_Staging` (gated on the `-update` flag) that builds the entries list, sorts, marshals via CanonicalMarshalForTest, and writes to `testdata/golden/_staging/jaro.json`. Run with `-update` once; commit. Re-run without `-update` and confirm zero diff.
+3. Generate via the LOCKED-signature helper `assertGoldenStaging` defined by plan 02-01 Task 3. Add `TestGolden_Jaro_Staging` to algorithms_golden_test.go (gated on the `-update` flag) that builds the entries list, sorts by Name, wraps in `goldenAlgorithmsFile{Version: 1, Entries: entries}`, and calls `assertGoldenStaging(t, "_staging/jaro.json", file)` — UNCONDITIONALLY. Do NOT add a fallback "if helper exists / else create" branch; plan 02-01 owns the helper definition. Run with `-update` once; commit. Re-run without `-update` and confirm zero diff.
 
 Create `tests/bdd/features/jaro.feature`:
 

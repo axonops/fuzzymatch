@@ -7,6 +7,7 @@ depends_on: [02-01-levenshtein]
 files_modified:
   - damerau_osa.go
   - dispatch_damerau_osa.go
+  - damerau_osa_discriminator_test.go
   - damerau_osa_test.go
   - damerau_osa_bench_test.go
   - damerau_osa_fuzz_test.go
@@ -54,6 +55,7 @@ must_haves:
     - "testdata/golden/_staging/damerau_osa.json contains DL-OSA entries (DamerauLevenshteinOSA_ab_ba, _ca_abc, _identical, _empty_empty) sorted by Name"
     - "algoid_test.go updated: AlgoDamerauLevenshteinOSA removed from unregistered-slots list"
     - "ExampleDamerauLevenshteinOSAScore runs with `// Output:` block matching byte-for-byte"
+    - "Task 1 ships a TDD canary stub `TestDamerauLevenshteinOSA_DiscriminatingVector_Stub` in `damerau_osa_discriminator_test.go` that asserts `DamerauLevenshteinOSADistance(\"ca\",\"abc\") == 3` — symmetric counterpart to plan 02-06's DL-Full canary, gating OSA's distinct identity at Task 1"
   artifacts:
     - path: "damerau_osa.go"
       provides: "DamerauLevenshteinOSADistance, DamerauLevenshteinOSADistanceRunes, DamerauLevenshteinOSAScore, DamerauLevenshteinOSAScoreRunes"
@@ -62,6 +64,9 @@ must_haves:
     - path: "dispatch_damerau_osa.go"
       provides: "Package-load-time registration of DamerauLevenshteinOSAScore into dispatch[AlgoDamerauLevenshteinOSA]"
       contains: "dispatch[AlgoDamerauLevenshteinOSA] = DamerauLevenshteinOSAScore"
+    - path: "damerau_osa_discriminator_test.go"
+      provides: "Task 1 TDD canary: TestDamerauLevenshteinOSA_DiscriminatingVector_Stub asserting Distance(\"ca\",\"abc\") == 3 (NOT 2 — that is DL-Full's value)"
+      contains: "TestDamerauLevenshteinOSA_DiscriminatingVector_Stub"
     - path: "testdata/golden/_staging/damerau_osa.json"
       provides: "Per-algorithm staging golden file"
       contains: "DamerauLevenshteinOSA_ca_abc"
@@ -106,6 +111,7 @@ From algoid.go: AlgoDamerauLevenshteinOSA AlgoID = 1
 From normalise.go: func isASCII(s string) bool
 From levenshtein.go: const maxStackInputLen = 64 (REUSE — DL-OSA uses 3 rows so allocates [(maxStackInputLen+1)*3]int = 1560 bytes)
 From dispatch_levenshtein.go: registration idiom (copy character-for-character)
+From algorithms_golden_test.go: assertGoldenStaging(t, relPath, v) helper (defined by plan 02-01 Task 3 — append-anchor for Wave 2 staging tests; signature LOCKED in plan 02-01)
 From props_test.go: APPEND TestProp_DamerauLevenshteinOSA*; INCLUDE TriangleInequality (distance is a valid candidate; OSA is not a strict metric but the property usually holds — if testing/quick reports a counter-example, document it as a known-OSA-quirk and either add a constrained generator or skip with a citation)
 From example_test.go: APPEND ExampleDamerauLevenshteinOSAScore
 From algoid_test.go: UPDATE the dispatch test
@@ -142,8 +148,8 @@ The OSA restriction (compared to Full DL): after a transposition, the affected c
 <tasks>
 
 <task type="auto" tdd="true">
-  <name>Task 1: Implement damerau_osa.go (three-row DP) and dispatch_damerau_osa.go</name>
-  <files>damerau_osa.go, dispatch_damerau_osa.go</files>
+  <name>Task 1: Implement damerau_osa.go (three-row DP) and dispatch_damerau_osa.go + TDD canary stub test</name>
+  <files>damerau_osa.go, dispatch_damerau_osa.go, damerau_osa_discriminator_test.go</files>
   <read_first>
     - levenshtein.go (Wave 1 canonical pattern — two-row DP; DL-OSA extends to three rows)
     - dispatch_levenshtein.go (registration idiom)
@@ -215,10 +221,32 @@ Create `dispatch_damerau_osa.go`:
            return true
        }()
 
-After writing: `go build ./... && go vet ./... && bash scripts/verify-license-headers.sh`.
+Create `damerau_osa_discriminator_test.go` (package fuzzymatch_test, stdlib testing only — TDD CANARY for Task 1, symmetric to plan 02-06's DL-Full canary):
+
+This file ships ONE test only. Its sole purpose is to gate the recurrence at Task 1 BEFORE the full reference-vector suite runs in Task 2. OSA's distinct identity vs DL-Full ("ca"/"abc" → 3 for OSA, 2 for Full) is load-bearing for the phase.
+
+1. Apache-2.0 header copied from normalise.go lines 1-13.
+2. File-level godoc explaining this is the Task 1 TDD canary; the full reference-vector suite lives in `damerau_osa_test.go` (Task 2). Reference plan 02-05 §B-1 (revision context).
+3. Single test:
+
+       func TestDamerauLevenshteinOSA_DiscriminatingVector_Stub(t *testing.T) {
+           // Boytsov 2011 §3.1 / Damerau 1964 discriminating vector:
+           // "ca" vs "abc" must return 3 under OSA (because the OSA
+           // restriction forbids re-editing after transposition). DL-Full
+           // (plan 02-06) returns 2 for the same pair. If this test fails
+           // with got==2, the recurrence collapsed into Full DL semantics.
+           got := fuzzymatch.DamerauLevenshteinOSADistance("ca", "abc")
+           if got != 3 {
+               t.Fatalf("DamerauLevenshteinOSADistance(\"ca\",\"abc\") = %d, want 3 (NOT 2 — that is DL-Full's value)", got)
+           }
+       }
+
+4. Imports: `testing` and `github.com/axonops/fuzzymatch`. NO testify.
+
+After writing all three files: `go build ./... && go vet ./... && bash scripts/verify-license-headers.sh && go test -run TestDamerauLevenshteinOSA_DiscriminatingVector_Stub -count=1 ./...`. The stub test MUST pass before this task is considered done — if it fails with got==2, the recurrence is wrong and must be fixed before proceeding to Task 2.
   </action>
   <verify>
-    <automated>go build ./... && go vet ./... && bash scripts/verify-license-headers.sh</automated>
+    <automated>go build ./... && go vet ./... && bash scripts/verify-license-headers.sh && go test -run TestDamerauLevenshteinOSA_DiscriminatingVector_Stub -count=1 ./...</automated>
   </verify>
   <acceptance_criteria>
     - damerau_osa.go starts with Apache-2.0 header.
@@ -229,11 +257,13 @@ After writing: `go build ./... && go vet ./... && bash scripts/verify-license-he
     - `grep -c '\[\]byte\(' damerau_osa.go` returns 0.
     - damerau_osa.go does NOT redeclare maxStackInputLen (it reuses the constant from levenshtein.go).
     - dispatch_damerau_osa.go contains `dispatch[AlgoDamerauLevenshteinOSA] = DamerauLevenshteinOSAScore` exactly once.
+    - damerau_osa_discriminator_test.go contains the single test `TestDamerauLevenshteinOSA_DiscriminatingVector_Stub` and uses no testify.
     - `go build ./...` exits 0; `go vet ./...` exits 0.
+    - `go test -run TestDamerauLevenshteinOSA_DiscriminatingVector_Stub -count=1 ./...` exits 0 — the recurrence returns 3 for "ca"/"abc" and is NOT collapsed into DL-Full semantics. THIS IS THE TASK 1 GATE: if the stub fails, fix the recurrence before proceeding to Task 2.
   </acceptance_criteria>
   <behavior>
     - DamerauLevenshteinOSADistance("ab", "ba") == 1
-    - DamerauLevenshteinOSADistance("ca", "abc") == 3 (LOCKED discriminating vector)
+    - DamerauLevenshteinOSADistance("ca", "abc") == 3 (LOCKED discriminating vector; gated at Task 1 by the stub test)
     - DamerauLevenshteinOSADistance("abc", "abc") == 0
     - DamerauLevenshteinOSADistance("", "") == 0
     - DamerauLevenshteinOSADistance("", "abc") == 3
@@ -244,7 +274,7 @@ After writing: `go build ./... && go vet ./... && bash scripts/verify-license-he
     - dispatch[AlgoDamerauLevenshteinOSA] non-nil after package load
   </behavior>
   <done>
-    damerau_osa.go and dispatch_damerau_osa.go committed. Package builds. Discriminating-vector behaviour verified.
+    damerau_osa.go, dispatch_damerau_osa.go, and damerau_osa_discriminator_test.go committed. Package builds. The TDD canary `TestDamerauLevenshteinOSA_DiscriminatingVector_Stub` passes — recurrence verified at Task 1 (NOT 2 — that is DL-Full's value).
   </done>
 </task>
 
@@ -253,8 +283,9 @@ After writing: `go build ./... && go vet ./... && bash scripts/verify-license-he
   <files>damerau_osa_test.go, damerau_osa_bench_test.go, damerau_osa_fuzz_test.go, props_test.go, example_test.go, algoid_test.go, testdata/fuzz/FuzzDamerauLevenshteinOSAScore/seed-001</files>
   <read_first>
     - levenshtein_test.go, levenshtein_bench_test.go, levenshtein_fuzz_test.go (Wave 1 templates)
-    - props_test.go (existing — APPEND, do not recreate; review the TriangleInequality property pattern)
-    - example_test.go, algoid_test.go (Wave 1 — extend)
+    - damerau_osa_discriminator_test.go (Task 1's TDD canary — TestDamerauLevenshteinOSA_DiscriminatingVector_Stub already exists; do NOT duplicate it. The full reference-vector suite goes in damerau_osa_test.go below.)
+    - props_test.go (existing — APPEND, do not recreate; review the TriangleInequality property pattern; append after the last existing `TestProp_*` declaration found via grep)
+    - example_test.go, algoid_test.go (Wave 1 — extend; append-anchor: append after the last `Example*` function in example_test.go; modify the existing dispatch test in algoid_test.go in place)
     - .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md §Mathematical Invariants (DL-OSA triangle inequality CAN fail; document accordingly); §Allocation Budgets — DL-OSA row
     - .planning/phases/02-core-character-algorithms-six/02-PATTERNS.md (Patterns 7, 9, 10, 11, 14)
   </read_first>
@@ -262,12 +293,12 @@ After writing: `go build ./... && go vet ./... && bash scripts/verify-license-he
 Create `damerau_osa_test.go`:
 
 1. Apache-2.0 header + file-level godoc.
-2. Tests:
+2. Tests (note: TestDamerauLevenshteinOSA_DiscriminatingVector_Stub already exists in `damerau_osa_discriminator_test.go` from Task 1 — do not duplicate it; this file ships the FULL reference-vector suite that builds on the stub):
      - TestDamerauLevenshteinOSA_BothEmpty — Distance and Score on ("","") → 0 / 1.0
      - TestDamerauLevenshteinOSA_OneEmpty — ("","abc") → 3 / 0.0
      - TestDamerauLevenshteinOSA_Identical — ("abc","abc") → 0 / 1.0
      - TestDamerauLevenshteinOSA_ReferenceVectors — table-driven over ab/ba → 1 / 0.5; ca/abc → 3 / 0.0; abc/abc → 0 / 1.0; ""/abc → 3 / 0.0.
-     - TestDamerauLevenshteinOSA_DiscriminatingVector — explicit assertion that DamerauLevenshteinOSADistance("ca","abc") == 3 (cite RESEARCH.md and ROADMAP success criterion #2 in the comment).
+     - TestDamerauLevenshteinOSA_DiscriminatingVector — explicit assertion that DamerauLevenshteinOSADistance("ca","abc") == 3 (cite RESEARCH.md and ROADMAP success criterion #2 in the comment). Richer than the Task 1 stub.
      - TestDamerauLevenshteinOSA_Symmetry — Score(a,b) == Score(b,a) for the reference vectors.
      - TestDamerauLevenshteinOSA_DistanceRunes_MultiByte — multi-byte UTF-8 input.
      - TestDamerauLevenshteinOSAScore_ZeroAllocs_ASCII_Short — `testing.AllocsPerRun(100, func() { _ = fuzzymatch.DamerauLevenshteinOSAScore("ab", "ba") })` must be 0.
@@ -283,7 +314,7 @@ Create `damerau_osa_fuzz_test.go`:
 2. FuzzDamerauLevenshteinOSAScore — programmatic seeds: ca/abc, ab/ba, abc/abc, ""/"abc", invalid-UTF-8. Body: no panic, !math.IsNaN, !math.IsInf, score in [0,1].
 3. testdata/fuzz/FuzzDamerauLevenshteinOSAScore/seed-001 with the canonical pair.
 
-Extend `props_test.go` (APPEND):
+Extend `props_test.go` (APPEND — append after the last existing `TestProp_*` function):
 
 1. TestProp_DamerauLevenshteinOSAScore_RangeBounds
 2. TestProp_DamerauLevenshteinOSAScore_Identity (skip empty)
@@ -293,7 +324,7 @@ Extend `props_test.go` (APPEND):
 6. TestProp_DamerauLevenshteinOSAScore_NoNegativeZero
 7. TestProp_DamerauLevenshteinOSADistance_TriangleInequality — execute optimistically. If it passes under testing/quick's default 100 random invocations, leave it. If it FAILS (testing/quick reports a counter-example), do NOT silently disable it — instead, replace the predicate with a constrained-input form (e.g. limit string lengths to 4-8 ASCII characters), OR comment-out the test with a citation: `// DL-OSA can violate triangle inequality on contrived inputs (Boytsov 2011 §3.1; this is by design — see godoc on damerau_osa.go). Property test SKIPPED; use DamerauLevenshteinFull for the metric variant.`. Document the decision in the SUMMARY.
 
-Extend `example_test.go` (APPEND):
+Extend `example_test.go` (APPEND — append after the last `Example*` function in the file):
 
        func ExampleDamerauLevenshteinOSAScore() {
            fmt.Printf("%.4f\n", fuzzymatch.DamerauLevenshteinOSAScore("ab", "ba"))
@@ -338,10 +369,11 @@ Run:
   <name>Task 3: Per-algorithm staging golden file + BDD feature + extend BDD steps</name>
   <files>testdata/golden/_staging/damerau_osa.json, tests/bdd/features/damerau_osa.feature, tests/bdd/steps/algorithms_steps.go, algorithms_golden_test.go</files>
   <read_first>
-    - algorithms_golden_test.go (Wave 1 — staging-write helper)
+    - algorithms_golden_test.go (Wave 1 — `assertGoldenStaging` helper defined by plan 02-01 Task 3; signature LOCKED: `assertGoldenStaging(t *testing.T, relPath string, v any)`. Call it directly — do NOT add a fallback "if helper does not exist, create one" branch. If the helper is missing, plan 02-01 has not landed yet and Wave 2 must wait per the wave dependency.)
     - testdata/golden/_staging/hamming.json (Wave 2 sibling reference for staging form)
+    - testdata/golden/_staging/levenshtein.json (created by plan 02-01 — confirms the staging schema and gives a structural reference)
     - tests/bdd/features/levenshtein.feature (Wave 1 BDD pattern)
-    - tests/bdd/steps/algorithms_steps.go (current state)
+    - tests/bdd/steps/algorithms_steps.go (current state — append after the last `iComputeThe*` step method and after the last regex registration in `InitializeScenario`)
     - .planning/phases/02-core-character-algorithms-six/02-PATTERNS.md (Pattern 12, Pattern 15)
     - .planning/phases/02-core-character-algorithms-six/02-RESEARCH.md §BDD Scenario Coverage — DL-OSA discriminating-vector scenario
   </read_first>
@@ -355,7 +387,7 @@ Create `testdata/golden/_staging/damerau_osa.json`:
      - DamerauLevenshteinOSA_empty_empty (a "", b "", 1.0)
      - DamerauLevenshteinOSA_identical (a "abc", b "abc", 1.0)
      - DamerauLevenshteinOSA_one_empty (a "", b "abc", 0.0)
-3. Generate via algorithms_golden_test.go's staging-write helper. Add `TestGolden_DamerauLevenshteinOSA_Staging` (gated on -update). Run with `-update` once; commit. Re-run without `-update` and confirm no diff.
+3. Generate via the `assertGoldenStaging` helper defined by plan 02-01 Task 3 (signature LOCKED: `assertGoldenStaging(t *testing.T, relPath string, v any)`; writes to `testdata/golden/_staging/<basename>.json` using the canonical `WriteGoldenFile` discipline). Add `TestGolden_DamerauLevenshteinOSA_Staging` to algorithms_golden_test.go (gated on -update). The test calls `assertGoldenStaging(t, "_staging/damerau_osa.json", file)` — UNCONDITIONALLY. There is no "if helper exists / else create" branch; plan 02-01 owns the helper definition. Run with `-update` once; commit. Re-run without `-update` and confirm no diff.
 
 Create `tests/bdd/features/damerau_osa.feature`:
 
@@ -369,7 +401,7 @@ Create `tests/bdd/features/damerau_osa.feature`:
 5. Scenario "both-empty strings score 1.0".
 6. Scenario "score is symmetric".
 
-Extend `tests/bdd/steps/algorithms_steps.go` (APPEND):
+Extend `tests/bdd/steps/algorithms_steps.go` (APPEND — append after the last `iComputeThe*` step method on AlgorithmContext, and append the regex registrations after the last `ctx.Step(...)` call in `InitializeScenario`):
 
 1. iComputeTheDamerauLevenshteinOSAScoreBetween(a, b string) error
 2. iComputeTheDamerauLevenshteinOSADistanceBetween(a, b string) error
@@ -419,7 +451,7 @@ Run:
 | T-02-05-03 | Information Disclosure | Malformed UTF-8 input causing panic | mitigate | Byte-level DL-OSA operates on bytes — invalid UTF-8 cannot panic. Rune variant uses `[]rune(s)`. FuzzDamerauLevenshteinOSAScore in Task 2 covers invalid-UTF-8 seeds. |
 | T-02-05-04 | Tampering | dispatch[AlgoDamerauLevenshteinOSA] overwritten | mitigate | dispatch is unexported; registration runs once at package load. Same as T-02-01-04. |
 | T-02-05-05 | Repudiation | "DL-OSA is a metric" misuse leading to invalid distance reasoning | mitigate | Locked godoc paragraph in damerau_osa.go file-level godoc states OSA is NOT a strict metric, with a pointer to DamerauLevenshteinFull for the metric variant. Property test disposition (constrained or skipped TriangleInequality) is documented in props_test.go. |
-| T-02-05-06 | Tampering | Discriminating-vector contract weakened (e.g. someone tweaks the recurrence and ca/abc starts returning 2) | mitigate | TestDamerauLevenshteinOSA_DiscriminatingVector + the BDD scenario + the staging golden file all gate on the same value. Three independent enforcement points; any drift triggers all three. algorithm-correctness-reviewer must approve any recurrence change. |
+| T-02-05-06 | Tampering | Discriminating-vector contract weakened (e.g. someone tweaks the recurrence and ca/abc starts returning 2) | mitigate | The Task 1 TDD canary `TestDamerauLevenshteinOSA_DiscriminatingVector_Stub` + Task 2's TestDamerauLevenshteinOSA_DiscriminatingVector + the BDD scenario + the staging golden file all gate on the same value. Four independent enforcement points — including a Task 1 gate that catches recurrence drift BEFORE Task 2 runs; algorithm-correctness-reviewer must approve any recurrence change. |
 
 No high-severity items. Plan passes the security gate.
 </threat_model>
@@ -451,8 +483,10 @@ No high-severity items. Plan passes the security gate.
 <output>
 After completion, create `.planning/phases/02-core-character-algorithms-six/02-05-damerau-osa-SUMMARY.md` recording:
 - Final identifier names confirmed (DamerauLevenshteinOSADistance, DamerauLevenshteinOSADistanceRunes, DamerauLevenshteinOSAScore, DamerauLevenshteinOSAScoreRunes).
+- Confirmation that TestDamerauLevenshteinOSA_DiscriminatingVector_Stub (Task 1 canary) AND TestDamerauLevenshteinOSA_DiscriminatingVector (Task 2) pass.
 - The TriangleInequality property-test disposition (passed / constrained / skipped) with rationale.
 - Benchmark numbers observed.
 - Coverage percentages.
 - Any deviations from the plan.
+</output>
 </output>
