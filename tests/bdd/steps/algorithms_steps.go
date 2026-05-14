@@ -163,6 +163,43 @@ func (ctx *AlgorithmContext) bothJaroScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Damerau-Levenshtein OSA step definitions (plan 02-05)
+// ---------------------------------------------------------------------------
+
+// iComputeTheDamerauLevenshteinOSAScoreBetween computes
+// DamerauLevenshteinOSAScore(a, b) and stores the result in lastScore.
+// The ASCII fast path uses a stack-allocated three-row DP buffer for zero
+// heap allocations on inputs ≤ 64 bytes.
+func (ctx *AlgorithmContext) iComputeTheDamerauLevenshteinOSAScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.DamerauLevenshteinOSAScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondDamerauLevenshteinOSAScoreBetween computes
+// DamerauLevenshteinOSAScore(a, b) and stores the result in lastScore2.
+// Used by the symmetry scenario to capture a second score for comparison.
+func (ctx *AlgorithmContext) iComputeTheSecondDamerauLevenshteinOSAScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.DamerauLevenshteinOSAScore(a, b)
+	return nil
+}
+
+// iComputeTheDamerauLevenshteinOSADistanceBetween computes
+// DamerauLevenshteinOSADistance(a, b) and stores the result in lastDistance.
+// Used by the discriminating-vector scenario to gate the distance == 3 contract.
+func (ctx *AlgorithmContext) iComputeTheDamerauLevenshteinOSADistanceBetween(a, b string) error {
+	ctx.lastDistance = fuzzymatch.DamerauLevenshteinOSADistance(a, b)
+	return nil
+}
+
+// bothDamerauLevenshteinOSAScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothDamerauLevenshteinOSAScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("damerau OSA scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -229,5 +266,23 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both Jaro scores should be equal$`,
 		a.bothJaroScoresShouldBeEqual,
+	)
+
+	// Damerau-Levenshtein OSA step definitions (plan 02-05).
+	ctx.Step(
+		`^I compute the DamerauLevenshteinOSA score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheDamerauLevenshteinOSAScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second DamerauLevenshteinOSA score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondDamerauLevenshteinOSAScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the DamerauLevenshteinOSA distance between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheDamerauLevenshteinOSADistanceBetween,
+	)
+	ctx.Step(
+		`^both DamerauLevenshteinOSA scores should be equal$`,
+		a.bothDamerauLevenshteinOSAScoresShouldBeEqual,
 	)
 }

@@ -51,6 +51,13 @@ scan / Extract (Phases 9–10).
 - func LevenshteinScore(a, b string) float64
 - func LevenshteinScoreRunes(a, b string) float64
 
+### Damerau-Levenshtein OSA similarity
+
+- func DamerauLevenshteinOSADistance(a, b string) int
+- func DamerauLevenshteinOSADistanceRunes(a, b string) int
+- func DamerauLevenshteinOSAScore(a, b string) float64
+- func DamerauLevenshteinOSAScoreRunes(a, b string) float64
+
 ### Hamming distance similarity
 
 - func HammingDistance(a, b string) int

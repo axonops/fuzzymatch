@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "DamerauLevenshteinOSA_ab_ba",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "ab",
+      "b": "ba",
+      "expected_score": 0.5
+    },
+    {
+      "name": "DamerauLevenshteinOSA_ca_abc",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "ca",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "DamerauLevenshteinOSA_empty_empty",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinOSA_identical",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinOSA_one_empty",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    }
+  ]
+}
