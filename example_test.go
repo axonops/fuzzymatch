@@ -132,3 +132,40 @@ func ExampleStrcmp95Score() {
 	// Output:
 	// 0.9676
 }
+
+// ExampleLongestCommonSubstring demonstrates the substring-returning surface
+// of LCSStr. The canonical schema-similarity pair returns the full identifier
+// "http_request" — the longest contiguous segment shared by both inputs.
+func ExampleLongestCommonSubstring() {
+	fmt.Println(fuzzymatch.LongestCommonSubstring("http_request", "http_request_header_fields"))
+	// Output:
+	// http_request
+}
+
+// ExampleLongestCommonSubstringRunes demonstrates the rune-aware variant on
+// a multi-byte UTF-8 pair. The shared rune-substring is "caf" (3 runes); the
+// byte path would return "caf" as well for these particular inputs but the
+// rune variant guarantees rune-boundary alignment for any input.
+func ExampleLongestCommonSubstringRunes() {
+	fmt.Println(fuzzymatch.LongestCommonSubstringRunes("café", "cafe"))
+	// Output:
+	// caf
+}
+
+// ExampleLCSStrScore demonstrates the Sørensen-Dice-normalised LCSStr
+// similarity score on the schema-similarity pair. The LCS is "http_request"
+// of length 12; the score is 2·12 / (12 + 26) = 24/38 ≈ 0.6316.
+func ExampleLCSStrScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.LCSStrScore("http_request", "http_request_header_fields"))
+	// Output:
+	// 0.6316
+}
+
+// ExampleLCSStrScoreRunes demonstrates the rune-path score variant on
+// café/cafe. The rune LCS is "caf" of length 3; the score is 2·3 / (4 + 4) =
+// 6/8 = 0.7500.
+func ExampleLCSStrScoreRunes() {
+	fmt.Printf("%.4f\n", fuzzymatch.LCSStrScoreRunes("café", "cafe"))
+	// Output:
+	// 0.7500
+}

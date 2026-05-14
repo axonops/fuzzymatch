@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "LCSStr_both_empty",
+      "algorithm": "LCSStr",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "LCSStr_http_request_containment",
+      "algorithm": "LCSStr",
+      "a": "http_request",
+      "b": "http_request_header_fields",
+      "expected_score": 0.631578947368421
+    },
+    {
+      "name": "LCSStr_identical",
+      "algorithm": "LCSStr",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "LCSStr_kitten_sitting",
+      "algorithm": "LCSStr",
+      "a": "kitten",
+      "b": "sitting",
+      "expected_score": 0.46153846153846156
+    },
+    {
+      "name": "LCSStr_leftmost_tie_break",
+      "algorithm": "LCSStr",
+      "a": "abcXYZabc",
+      "b": "abc",
+      "expected_score": 0.5
+    },
+    {
+      "name": "LCSStr_no_overlap",
+      "algorithm": "LCSStr",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "LCSStr_one_empty",
+      "algorithm": "LCSStr",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
+    }
+  ]
+}
