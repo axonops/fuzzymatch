@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "JaroWinkler_DIXON_DICKSONX",
+      "algorithm": "JaroWinkler",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "expected_score": 0.8133333333333332
+    },
+    {
+      "name": "JaroWinkler_DWAYNE_DUANE",
+      "algorithm": "JaroWinkler",
+      "a": "DWAYNE",
+      "b": "DUANE",
+      "expected_score": 0.8400000000000001
+    },
+    {
+      "name": "JaroWinkler_MARTHA_MARHTA",
+      "algorithm": "JaroWinkler",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "expected_score": 0.9611111111111111
+    },
+    {
+      "name": "JaroWinkler_below_threshold",
+      "algorithm": "JaroWinkler",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "JaroWinkler_empty_empty",
+      "algorithm": "JaroWinkler",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "JaroWinkler_identical",
+      "algorithm": "JaroWinkler",
+      "a": "ABC",
+      "b": "ABC",
+      "expected_score": 1
+    },
+    {
+      "name": "JaroWinkler_one_empty",
+      "algorithm": "JaroWinkler",
+      "a": "",
+      "b": "ABC",
+      "expected_score": 0
+    },
+    {
+      "name": "JaroWinkler_prefix_cap",
+      "algorithm": "JaroWinkler",
+      "a": "TESTABCD",
+      "b": "TESTABCE",
+      "expected_score": 0.95
+    }
+  ]
+}

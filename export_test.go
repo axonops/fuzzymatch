@@ -55,3 +55,18 @@ func DispatchEntryNilForTest(i int) bool {
 	}
 	return dispatch[i] == nil
 }
+
+// WinklerPrefixScaleForTest re-exports the unexported winklerPrefixScale
+// constant to the external test package. Test code asserts the constant is
+// exactly 0.1 (Winkler 1990 p. 357) against accidental drift.
+const WinklerPrefixScaleForTest = winklerPrefixScale
+
+// WinklerMaxPrefixForTest re-exports the unexported winklerMaxPrefix constant
+// to the external test package. Test code asserts the constant is exactly 4
+// (Winkler 1990 p. 357 — the L_max cap) against accidental drift.
+const WinklerMaxPrefixForTest = winklerMaxPrefix
+
+// WinklerBoostThresholdForTest re-exports the unexported winklerBoostThreshold
+// constant to the external test package. Test code asserts the constant is
+// exactly 0.7 (Winkler 1990 p. 357 — the boost gate) against accidental drift.
+const WinklerBoostThresholdForTest = winklerBoostThreshold

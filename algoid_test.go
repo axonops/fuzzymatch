@@ -272,25 +272,36 @@ func TestDispatch_DamerauLevenshteinFullRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_JaroWinklerRegistered asserts that dispatch[AlgoJaroWinkler]
+// (slot 5) is non-nil after Phase 2 plan 02-04 registers JaroWinklerScore.
+func TestDispatch_JaroWinklerRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoJaroWinkler)) {
+		t.Errorf("dispatch[AlgoJaroWinkler] (%d) is nil — dispatch_jarowinkler.go must register JaroWinklerScore at package load time",
+			int(fuzzymatch.AlgoJaroWinkler))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
-// AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), and AlgoJaro
-// (slot 4) are still nil at the Phase 2 Wave 1+02-02+02-03+02-05+02-06 state.
+// AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
+// (slot 4), and AlgoJaroWinkler (slot 5) are still nil at the Phase 2 Wave
+// 1+02-02+02-03+02-04+02-05+02-06 state.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
-	// Registered by Wave 1, plan 02-02, plan 02-03, plan 02-05, and plan 02-06
-	// respectively; all others nil.
+	// Registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05,
+	// and plan 02-06 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
 		int(fuzzymatch.AlgoDamerauLevenshteinFull): true,
 		int(fuzzymatch.AlgoHamming):                true,
 		int(fuzzymatch.AlgoJaro):                   true,
+		int(fuzzymatch.AlgoJaroWinkler):            true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-05, or plan 02-06)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05, or plan 02-06)", i)
 			}
 		} else {
 			if !isNil {

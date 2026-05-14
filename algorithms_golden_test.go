@@ -449,3 +449,96 @@ func TestGolden_DamerauLevenshteinFull_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/damerau_full.json", file)
 }
+
+// buildJaroWinklerStagingEntries returns the eight JaroWinkler entries used by
+// TestGolden_JaroWinkler_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output.
+//
+// Eight entries (sorted by Name in the test):
+//   - JaroWinkler_below_threshold  (abc/xyz — Jaro = 0.0, below gate; JW == J)
+//   - JaroWinkler_DIXON_DICKSONX   (Winkler 1990 reference; JW ≈ 0.8133)
+//   - JaroWinkler_DWAYNE_DUANE     (Winkler 1990 reference; JW ≈ 0.8400)
+//   - JaroWinkler_empty_empty      (both-empty identity; score 1.0)
+//   - JaroWinkler_identical        (ABC/ABC; score 1.0)
+//   - JaroWinkler_MARTHA_MARHTA    (Winkler 1990 reference; JW ≈ 0.9611)
+//   - JaroWinkler_one_empty        (""/ABC; score 0.0)
+//   - JaroWinkler_prefix_cap       (TESTABCD/TESTABCE — 7-char prefix capped at 4)
+func buildJaroWinklerStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "JaroWinkler_below_threshold",
+			Algorithm:     "JaroWinkler",
+			A:             "abc",
+			B:             "xyz",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("abc", "xyz"),
+		},
+		{
+			Name:          "JaroWinkler_DIXON_DICKSONX",
+			Algorithm:     "JaroWinkler",
+			A:             "DIXON",
+			B:             "DICKSONX",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("DIXON", "DICKSONX"),
+		},
+		{
+			Name:          "JaroWinkler_DWAYNE_DUANE",
+			Algorithm:     "JaroWinkler",
+			A:             "DWAYNE",
+			B:             "DUANE",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("DWAYNE", "DUANE"),
+		},
+		{
+			Name:          "JaroWinkler_empty_empty",
+			Algorithm:     "JaroWinkler",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("", ""),
+		},
+		{
+			Name:          "JaroWinkler_identical",
+			Algorithm:     "JaroWinkler",
+			A:             "ABC",
+			B:             "ABC",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("ABC", "ABC"),
+		},
+		{
+			Name:          "JaroWinkler_MARTHA_MARHTA",
+			Algorithm:     "JaroWinkler",
+			A:             "MARTHA",
+			B:             "MARHTA",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("MARTHA", "MARHTA"),
+		},
+		{
+			Name:          "JaroWinkler_one_empty",
+			Algorithm:     "JaroWinkler",
+			A:             "",
+			B:             "ABC",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("", "ABC"),
+		},
+		{
+			Name:          "JaroWinkler_prefix_cap",
+			Algorithm:     "JaroWinkler",
+			A:             "TESTABCD",
+			B:             "TESTABCE",
+			ExpectedScore: fuzzymatch.JaroWinklerScore("TESTABCD", "TESTABCE"),
+		},
+	}
+}
+
+// TestGolden_JaroWinkler_Staging produces testdata/golden/_staging/jarowinkler.json
+// for plan 02-07's merge step. Entries are sorted alphabetically by Name.
+//
+// Eight entries covering: below_threshold (gate test), DIXON_DICKSONX,
+// DWAYNE_DUANE, empty_empty, identical, MARTHA_MARHTA (canonical Winkler 1990
+// reference vectors), one_empty, and prefix_cap (L=4 cap verification).
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_JaroWinkler_Staging(t *testing.T) {
+	entries := buildJaroWinklerStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/jarowinkler.json", file)
+}
