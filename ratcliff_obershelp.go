@@ -251,10 +251,11 @@ func roFindLongestMatch(a, b string) (aLo, aHi, bLo, bHi, n int) {
 			}
 		}
 		prev, curr = curr, prev
-		// Clear `curr` for the next pass (rolling buffer reset).
-		for j := 0; j <= lb; j++ {
-			curr[j] = 0
-		}
+		// No re-zero of curr needed: the inner loop above writes curr[j]
+		// unconditionally for every j in 1..lb (matched branch writes
+		// prev[j-1]+1; mismatched branch writes 0). curr[0] is never read.
+		// make([]int, ...) returns zero-initialised slices, so the first
+		// iteration is also safe.
 	}
 	if maxLen == 0 {
 		return 0, 0, 0, 0, 0
@@ -303,9 +304,7 @@ func roFindLongestMatchRunes(a, b []rune) (aLo, aHi, bLo, bHi, n int) {
 			}
 		}
 		prev, curr = curr, prev
-		for j := 0; j <= lb; j++ {
-			curr[j] = 0
-		}
+		// No re-zero needed — see roFindLongestMatch comment above.
 	}
 	if maxLen == 0 {
 		return 0, 0, 0, 0, 0

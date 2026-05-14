@@ -253,12 +253,12 @@ func lcsstrDP(a, b string, m, n int, prev, curr []int) (length, endI int) {
 			}
 		}
 		prev, curr = curr, prev
-		// Clear the new `curr` for the next pass (rolling buffer reset).
-		// Without this clear, stale values from two rows back leak into
-		// the next match-comparison.
-		for j := 0; j <= n; j++ {
-			curr[j] = 0
-		}
+		// No re-zero of curr needed: the inner loop above writes curr[j]
+		// unconditionally for every j in 1..n (matched branch writes
+		// prev[j-1]+1; mismatched branch writes 0). curr[0] is never read.
+		// The initial buffers arrive zero-initialised (stack arrays are
+		// zero; make([]int, ...) is zero), so the first iteration is also
+		// safe.
 	}
 	return maxLen, maxEnd
 }
@@ -281,9 +281,7 @@ func lcsstrDPRunes(a, b []rune, m, n int, prev, curr []int) (length, endI int) {
 			}
 		}
 		prev, curr = curr, prev
-		for j := 0; j <= n; j++ {
-			curr[j] = 0
-		}
+		// No re-zero needed — see lcsstrDP comment above.
 	}
 	return maxLen, maxEnd
 }
