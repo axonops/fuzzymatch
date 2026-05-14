@@ -46,7 +46,9 @@ findings:
   warning: 4
   info: 6
   total: 10
-status: issues_found
+findings_resolved: 8
+findings_deferred: 2
+status: issues_addressed
 ---
 
 # Phase 04: Code Review Report
@@ -374,6 +376,35 @@ no risk of pipe-blocking semantics). See `testscript` or the
 
 This is low risk (the test passes on every reviewed platform), but
 the pattern is worth tightening before the example expands.
+
+---
+
+## Resolution Log (2026-05-14, post-review)
+
+Eight of ten findings were addressed in atomic follow-up commits before
+moving to Phase 5. Two were intentionally deferred — see
+`deferred-items.md` (Outstanding section) for rationale.
+
+| ID | Status | Commit |
+|----|--------|--------|
+| WR-01 — `strcmp95.go` Source Origin | **Resolved** | `65302b8 docs(04): clarify transposition halving + complete strcmp95 source origin` |
+| WR-02 — dead row-clear in LCSStr/RO DP kernels | **Resolved** | `ffa1539 perf(04): remove dead row-clear in LCSStr/RO two-row DP kernels` |
+| WR-03 — Strcmp95 m==0 short-circuit undocumented | **Resolved** | `93937e3 docs(04): document Strcmp95 m==0 short-circuit + pin HAMINGTON denominator` |
+| WR-04 — Python version not asserted at parse time | **Resolved** | `bf04ff3 test(04): assert Python version >= 3.7 in RO cross-validation corpus` |
+| IN-01 — misleading `t /= 2` transposition comment | **Resolved** | `65302b8 docs(04): clarify transposition halving + complete strcmp95 source origin` |
+| IN-02 — HAMINGTON not pinned in unit test | **Resolved** | `93937e3 docs(04): document Strcmp95 m==0 short-circuit + pin HAMINGTON denominator` |
+| IN-03 — LCSStr shared-backing-storage undocumented | **Resolved** | `0c256d7 docs(04): document LCSStr substring escape + fix mis-prefixed test name` |
+| IN-04 — `j > 1.0` clamp could mask overshoot | **Deferred** | `deferred-items.md` Outstanding §IN-04 |
+| IN-05 — `TestProp_…HandCurated` misnamed | **Resolved** | `0c256d7 docs(04): document LCSStr substring escape + fix mis-prefixed test name` |
+| IN-06 — fragile stdout-redirect in example | **Deferred** | `deferred-items.md` Outstanding §IN-06 |
+
+**Post-fix verification:**
+
+- `make check` exits 0 (golangci-lint v2: 0 issues, vet clean, race tests green, coverage 97.1% ≥ 95.0%, per-file ≥ 90.0%, license headers OK on 80 .go files, deps allowlist clean, govulncheck clean, tidy clean)
+- WR-02 perf win confirmed locally (Apple M1, darwin/arm64, 2-iter quick bench): LCSStr ASCII Medium ~21% faster, ASCII Long ~25% faster. `bench.txt` regenerated post-fix to reflect the new baseline.
+- All cross-algorithm consistency tests + RO cross-validation (16-entry difflib corpus) + WR-03 pin (`TestStrcmp95_AllSimilarNoMatches_ScoresZero`) + IN-02 pin (HAMINGTON at 1e-9) green.
+
+**Status:** issues_addressed — 8 fixed, 2 tracked.
 
 ---
 
