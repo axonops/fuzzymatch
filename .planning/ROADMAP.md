@@ -47,7 +47,7 @@
   4. Allocation budgets enforced per algorithm via benchmark assertions; ASCII fast paths verified by escape-analysis check; two-row DP confirmed by code review (no full DP table allocation)
   5. Cross-platform golden file `algorithms.json` contains pinned scores for all six algorithms and diffs byte-identically across the CI matrix; first `bench.txt` committed with benchstat baseline; example program in `examples/identifier-similarity/` runs and is meta-tested
 **Plans**: 7 plans
-  - [ ] 02-01-levenshtein-PLAN.md — Implement Levenshtein and lock the canonical Phase 2 pattern (algorithm + dispatch + tests + golden + BDD + example)
+  - [x] 02-01-levenshtein-PLAN.md — Implement Levenshtein and lock the canonical Phase 2 pattern (algorithm + dispatch + tests + golden + BDD + example)
   - [ ] 02-02-hamming-PLAN.md — Implement Hamming with the LOCKED silent-zero unequal-length policy
   - [ ] 02-03-jaro-PLAN.md — Implement Jaro (match-flag arrays; not a metric) with Winkler-1990-traceable reference vectors
   - [ ] 02-04-jaro-winkler-PLAN.md — Implement Jaro-Winkler as Jaro + prefix boost; pin three Winkler-1990 constants
