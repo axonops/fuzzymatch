@@ -916,9 +916,11 @@ if __name__ == "__main__":
 
 **Table is empty — all claims in this research were verified against source files, CONTEXT.md, or cited from primary documentation. No user confirmation needed.**
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-### OQ-1 (HIGH PRIORITY — planner must resolve before plan 04-03 implementation lands)
+### OQ-1 (HIGH PRIORITY — RESOLVED 2026-05-14)
+
+**RESOLVED 2026-05-14: Option 1.** RatcliffObershelp is **asymmetric by design** — `TestProp_RatcliffObershelpScore_Symmetric` is DROPPED from the inherited Phase 2 invariant template for RO. The 5 other inherited property tests (RangeBounds, Identity, NoNaN, NoInf, NoNegativeZero) all still apply. Plan 04-03 requires a godoc paragraph documenting the asymmetry and pointing at difflib bpo-37004. Plan 04-05 adds `TestCrossAlgorithm_RatcliffObershelp_AsymmetryPin` to `cross_algorithm_consistency_test.go` to assert INEQUALITY on a hand-curated pair (e.g. `'tide'`/`'diet'`) as a regression guard.
 
 **Question:** difflib's `SequenceMatcher.ratio()` is documented as NOT symmetric across argument order. CPython issue python/cpython#81185 (and Python tracker bpo-37004) explicitly notes that `ratio()` is "noncommutative". CONTEXT.md §5 lists `TestProp_RatcliffObershelpScore_Symmetric` as a standard inherited Phase 2 invariant. **Which wins?**
 
@@ -942,7 +944,9 @@ if __name__ == "__main__":
 
 **Recommendation: Option 1.** difflib byte-for-byte equivalence is the load-bearing CONTEXT.md §4 contract — it's what the algorithm exists for. Mathematical symmetry is a "nice to have" for the property-test template but, for the specific algorithm whose entire purpose is "be the difflib-equivalent", inheriting difflib's documented asymmetry is the only coherent option. Document prominently. CONTEXT.md §5 should be amended to drop `Symmetric` from the RO inherited template. The other 5 standard property tests (RangeBounds, Identity, NoNaN, NoInf, NoNegativeZero) all still apply.
 
-### OQ-2 (LOW priority — implementation detail)
+### OQ-2 (LOW priority — RESOLVED 2026-05-14)
+
+**RESOLVED 2026-05-14: Pass `[]rune` slices through the recursion** (Phase 2 `levenshteinDistanceRuneSlices` precedent). Recursive calls slice into the same backing array; no additional allocations. Documented as the recommended path in plan 04-03; executor may switch to integer-index if benchmarks show a clear win, but the precedent direction is `[]rune` slices.
 
 **Question:** Should the Ratcliff-Obershelp `*Runes` variant convert to `[]rune` once at the entry point and pass `[]rune` slices through the recursion (cleaner, but each recursive call passes slice headers), OR convert to `[]rune` once and use integer index bounds throughout (slightly faster, but more error-prone)?
 
@@ -950,7 +954,9 @@ if __name__ == "__main__":
 
 **Recommendation:** Use the Phase 2 precedent — pass `[]rune` slices. Recursive calls slice into the same backing array; no additional allocations.
 
-### OQ-3 (LOW priority — Strcmp95 internal architecture decision deferred to planner per CONTEXT.md D-1)
+### OQ-3 (LOW priority — RESOLVED 2026-05-14)
+
+**RESOLVED 2026-05-14: Re-derive the match-flag arrays inline in `strcmp95.go`.** Keeps Strcmp95 independent of `jaro.go`'s internal layout — `jaroBytes` does not expose match-flag arrays as outputs, and exposing them would couple Jaro's API to Strcmp95's needs. The performance penalty is minor (single O(la·w) match-flag loop in either case). Plan 04-01 captures this as the recommended path; executor may opt for reuse if a clean shared helper signature emerges (with code-reviewer approval), but the default direction is independence.
 
 **Question:** Should Strcmp95 call `jaroBytes` internally (DRY) or re-derive the match-flag arrays (independence)?
 
