@@ -112,6 +112,18 @@ package fuzzymatch
 //
 // This function operates on bytes. For multi-byte UTF-8 inputs, use
 // LongestCommonSubstringRunes to obtain the rune-aware substring.
+//
+// # Substring escape (shared backing storage)
+//
+// The non-empty return value shares its backing storage with a — it is a
+// slice header into a's underlying bytes, returned without a copy. Callers
+// that retain the result across the lifetime of a will keep a's backing
+// storage alive. For typical small-string usage this is benign. For a
+// consumer that constructs an ephemeral mega-string and extracts a tiny
+// shared segment with LongestCommonSubstring, defensively copy the result
+// (string([]byte(result))) before discarding the source. The phrasing
+// mirrors the Go stdlib convention for substring-returning functions such
+// as strings.SplitN and strings.Index.
 func LongestCommonSubstring(a, b string) string {
 	if a == b {
 		return a // identity short-circuit (covers identical and both-empty=="")
@@ -154,6 +166,10 @@ func LongestCommonSubstring(a, b string) string {
 //
 // The leftmost-in-a tie-break and edge-case conventions are identical to
 // LongestCommonSubstring.
+//
+// The return value is a freshly-allocated string built from a []rune
+// segment of the converted a — unlike the byte path it does NOT share
+// backing storage with the caller's a.
 func LongestCommonSubstringRunes(a, b string) string {
 	if a == b {
 		return a // identity short-circuit — avoids []rune allocations

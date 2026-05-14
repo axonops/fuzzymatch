@@ -1372,8 +1372,8 @@ func TestProp_LongestCommonSubstring_LeftmostTieBreak(t *testing.T) {
 //
 // FIVE standard invariants (RangeBounds, Identity, NoNaN, NoInf, NoNegativeZero)
 // for both byte and rune surfaces — TEN property tests total — PLUS one
-// algorithm-specific hand-curated property
-// (TestProp_RatcliffObershelpScore_AtLeastLevenshtein_HandCurated).
+// algorithm-specific table-driven test
+// (TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment).
 //
 // NB: TestProp_RatcliffObershelpScore_Symmetric is INTENTIONALLY OMITTED per
 //     OQ-1 resolution (LOCKED 2026-05-14). Ratcliff-Obershelp is asymmetric
@@ -1505,19 +1505,21 @@ func TestProp_RatcliffObershelpScoreRunes_NoNegativeZero(t *testing.T) {
 	}
 }
 
-// TestProp_RatcliffObershelpScore_AtLeastLevenshtein_HandCurated checks the
+// TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment checks the
 // "generally" property from RESEARCH.md: on substring-containment inputs
 // the Ratcliff-Obershelp score is typically ≥ the Levenshtein score
 // because RO finds the contiguous match and ignores the deletion cost,
 // while Levenshtein pays for every dropped character.
 //
-// This is HAND-CURATED rather than testing/quick — RESEARCH.md explicitly
-// notes the property is "generally" true, not universal. Quick.Check would
-// produce degenerate inputs (e.g. random non-overlapping strings) where
-// the property either trivially holds or accidentally fails for reasons
-// unrelated to the algorithm. Hand-curated substring-containment cases
-// directly exercise the intended use case.
-func TestProp_RatcliffObershelpScore_AtLeastLevenshtein_HandCurated(t *testing.T) {
+// The symbol name deliberately omits the `TestProp_` prefix used elsewhere
+// in this file: this is a table-driven test over hand-curated inputs, not a
+// testing/quick property over all strings (review IN-05). RESEARCH.md
+// explicitly notes the property is "generally" true, not universal.
+// Quick.Check would produce degenerate inputs (e.g. random non-overlapping
+// strings) where the property either trivially holds or accidentally fails
+// for reasons unrelated to the algorithm. Hand-curated substring-containment
+// cases directly exercise the intended use case.
+func TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment(t *testing.T) {
 	tests := []struct {
 		a, b string
 	}{
