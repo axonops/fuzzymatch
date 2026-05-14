@@ -21,7 +21,9 @@
 //   - ASCII <= 64 bytes (stack path):       target < 2 µs/op, 0 allocs/op
 //   - ASCII Medium (50 bytes, stack path):  target 0 allocs/op
 //   - ASCII Long (> 64 bytes, heap path):   6 allocs/op (six float64 row slices)
-//   - Unicode Short (rune path):            8 allocs/op (2 []rune + 6 row slices)
+//   - Unicode Short (rune path):            8 allocs/op MINIMUM (2 []rune + 6
+//     row slices) — there is no stack fast path for the rune path, so 8 is the
+//     floor for ANY rune input size, not just short.
 //   - WithParams ASCII Short:               same as ASCII Short with custom params
 //   - RawScore ASCII Short:                 exercises the unclamped path
 //
@@ -98,7 +100,9 @@ func BenchmarkSmithWatermanGotohScore_ASCII_Long(b *testing.B) {
 }
 
 // BenchmarkSmithWatermanGotohScore_Unicode_Short exercises the rune path on a
-// short multi-byte UTF-8 pair. Expects 8 allocs/op (2 []rune + 6 row slices).
+// short multi-byte UTF-8 pair. Expects 8 allocs/op as a floor (2 []rune + 6 row
+// slices) — the rune path has no stack fast path, so 8 is the minimum at any
+// rune input size, not just "short". This benchmark is informational.
 func BenchmarkSmithWatermanGotohScore_Unicode_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()

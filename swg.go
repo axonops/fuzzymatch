@@ -62,8 +62,12 @@
 //     n <= maxStackInputLen && isASCII(a) && isASCII(b); a stack-allocated
 //     [(maxStackInputLen+1)*6]float64 buffer (3120 bytes) holds the six rolling
 //     rows (prevM, currM, prevIx, currIx, prevIy, currIy).
-//   - Heap path: six make([]float64, n+1) calls; 6 allocs on ASCII Long, 8 on
-//     the rune path (the two []rune + six rows).
+//     (maxStackInputLen is defined in levenshtein.go — do NOT redeclare.)
+//   - Heap path: six make([]float64, n+1) calls; 6 allocs on ASCII Long.
+//     There is NO stack fast path for the rune path: smithWatermanGotohRawRunes
+//     unconditionally heap-allocates the six rows regardless of input length,
+//     so the rune path's allocation count is 8 (two []rune + six rows) as a
+//     MINIMUM for any rune input — not an achievable target for "short" runes.
 //   - NO init()-time table builds (per docs/requirements.md §5(12) and
 //     .claude/skills/determinism-standards): no var-level side effects.
 //   - NO map iteration on output paths (DET-03).
