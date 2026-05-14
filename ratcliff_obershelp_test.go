@@ -31,6 +31,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -317,6 +318,29 @@ func TestRatcliffObershelp_CrossValidation(t *testing.T) {
 	}
 	if len(c.Entries) == 0 {
 		t.Fatalf("TestRatcliffObershelp_CrossValidation: empty corpus")
+	}
+	// Assert the corpus was generated with a Python that meets the script-
+	// side minimum (3.7) — see scripts/gen-ratcliff-obershelp-cross-
+	// validation.py _check_python_version(). Without this gate (review
+	// WR-04), a corpus regenerated on Python < 3.7 or with a missing
+	// python_version field could silently drift the difflib_ratio values
+	// while the comparison test stays green. The script-side check only
+	// fires at regeneration time; the test-side check fires on every CI
+	// run, catching tampered or stub corpora immediately.
+	if c.PythonVersion == "" {
+		t.Fatalf("TestRatcliffObershelp_CrossValidation: corpus missing python_version field — regenerate with `make regen-ratcliff-obershelp-cross-validation`")
+	}
+	parts := strings.SplitN(c.PythonVersion, ".", 3)
+	if len(parts) < 2 {
+		t.Fatalf("TestRatcliffObershelp_CrossValidation: malformed python_version %q (want major.minor[.patch])", c.PythonVersion)
+	}
+	major, err1 := strconv.Atoi(parts[0])
+	minor, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		t.Fatalf("TestRatcliffObershelp_CrossValidation: non-numeric python_version %q", c.PythonVersion)
+	}
+	if major < 3 || (major == 3 && minor < 7) {
+		t.Fatalf("TestRatcliffObershelp_CrossValidation: corpus generated with Python %s; script minimum is 3.7 (required for dict insertion-order stability — difflib autojunk=False ordering)", c.PythonVersion)
 	}
 	for _, e := range c.Entries {
 		e := e // local copy for the closure
