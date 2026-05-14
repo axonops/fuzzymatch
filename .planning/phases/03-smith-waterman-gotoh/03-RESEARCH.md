@@ -789,26 +789,27 @@ func TestProp_SmithWatermanGotoh_GapSplitInvariance(t *testing.T) {
 
 **Note:** All claims tagged `[VERIFIED: ...]` in the body are not in this table — they have been confirmed against the cited source. Claims tagged `[CITED: ...]` are referenced from official sources but their precise interaction with the implementation is an assumption pending implementation. The six entries above represent the residual assumptions where implementation could surprise.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `RawScore` apply the identity short-circuit `if a == b { return float64(len(a)) * params.Match }`, or fall through to the DP?**
    - What we know: Phase 2 Pitfall 6 (in §Common Pitfalls) raises this. Pattern 4 (identity short-circuit on `*Runes`) saves the 2 `[]rune` allocs and is unambiguous for normalised functions (returns 1.0).
    - What's unclear: for the `Raw*` family, the short-circuit would have to compute `len(a) * params.Match` (or `len(ra) * params.Match` on the rune path). This is correct (the raw alignment score for identical strings is `Match` × length) but obscures the DP path's correctness on this case.
-   - Recommendation: **Fall through to the DP for `Raw*` family on identity input.** Cost is one DP traversal (negligible for the identity-of-short-strings case which is exactly the case Pattern 4 was optimising); benefit is the DP correctness is tested on the identity input. Add a unit test `TestSWG_RawScore_IdentityEqualsMatchTimesLen` that asserts the relationship explicitly.
+   - Earlier recommendation: fall through to the DP for `Raw*` family on identity input (add unit test asserting the relationship).
+   - **RESOLVED (2026-05-14, planner): Identity short-circuit on every `*RawScore` entry point**, returning `params.Match * float64(len(a))` for the byte path and `params.Match * float64(len(ra))` for the rune path (where `ra` is the rune-converted input). Chosen over the fall-through alternative because: (a) consistency with the `*Score` family short-circuit (Pattern 4 is the project-wide locked convention for ASCII fast-paths); (b) avoids the `[]rune(a)`/`[]rune(b)` allocations on the rune-variant identity path; (c) is mathematically correct (raw alignment of identical strings IS `Match × len`). The "DP correctness exercised on identity-shape input" coverage that the fall-through alternative offered is preserved by `TestSmithWatermanGotoh_SubstringContainment` in plan 03-01 Task 2, which asserts `RawScore("http_request", "http_request_header_fields") == 12.0` — strings differ (so short-circuit is bypassed), the local-alignment optimum is a perfect 12-position substring match, and the DP must produce exactly `Match × min(len)` = 12.0. The short-circuit's correctness is covered separately by `TestSmithWatermanGotoh_Identical` which asserts `RawScore("abc", "abc") == 3.0`.
 
 2. **File name: `swg.go` or `smith_waterman_gotoh.go`?**
    - What we know: Phase 2 uses unprefixed short names (`levenshtein.go`, `hamming.go`, `jaro.go`). The dispatch file in Phase 2 is `dispatch_levenshtein.go` (long name).
    - What's unclear: SWG is a longer name; `smith_waterman_gotoh.go` is verbose; `swg.go` is concise but less searchable.
-   - Recommendation: **`swg.go`** for the algorithm file, **`dispatch_swg.go`** for dispatch, to match Phase 2's concise convention. The block-comment header expands "SWG" to the full name on the first reference per `algorithm-correctness-standards`.
+   - **RESOLVED (2026-05-14, planner): `swg.go`** for the algorithm file, **`dispatch_swg.go`** for dispatch, matching Phase 2's concise convention. The block-comment header expands "SWG" to the full "Smith-Waterman-Gotoh" name on the first reference per `algorithm-correctness-standards`. Public function/type names use the full `SmithWatermanGotoh` prefix.
 
 3. **Should the cross-validation JSON `params` field be a flat `{match, mismatch, gap_open, gap_extend}` object, or use the Go field names `{Match, Mismatch, GapOpen, GapExtend}`?**
    - What we know: Python uses snake_case naturally; Go uses CamelCase.
    - What's unclear: which convention to commit to in the JSON.
-   - Recommendation: **snake_case in JSON (`match`, `mismatch`, `gap_open`, `gap_extend`)** — Python writes the file; Go's `encoding/json` tag maps the field at read time. This is also kinder to other-language readers of the corpus.
+   - **RESOLVED (2026-05-14, planner): snake_case in JSON** (`match`, `mismatch`, `gap_open`, `gap_extend`). Python writes the file; Go's `encoding/json` tag maps the field at read time (`json:"match"`, `json:"mismatch"`, `json:"gap_open"`, `json:"gap_extend"` on the internal test-only `crossValidationEntry` struct). This is also kinder to other-language readers of the corpus.
 
 4. **Should `TestSWG_CrossValidation` skip itself if `testdata/cross-validation/swg/vectors.json` is absent (e.g. a fresh clone before regeneration), or fail loud?**
    - What we know: Per CONTEXT.md §1, the JSON is COMMITTED. Absence means the developer deleted it.
-   - Recommendation: **Fail loud (`t.Fatalf("corpus missing: %v", err)`)** so an accidental delete doesn't silently weaken the verification surface.
+   - **RESOLVED (2026-05-14, planner): Fail loud** via `t.Fatalf("cross-validation corpus missing: %v — re-run make regen-swg-cross-validation", err)` so an accidental delete doesn't silently weaken the verification surface.
 
 ## Environment Availability
 

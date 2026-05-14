@@ -258,9 +258,9 @@ func SmithWatermanGotohRawScoreWithParams(a, b string, params SWGParams) float64
 - `TestProp_SmithWatermanGotoh_RawNeverExceedsMatchTimesMinLen` — `RawScore <= Match * min(len(a), len(b))` always (upper bound from "best local alignment has at most min(len) match positions").
 - `TestProp_SmithWatermanGotoh_MonotonicWithMatchReward` — increasing the Match parameter (keeping others fixed) cannot decrease `RawScore` for any input.
 
-## §6. Plan decomposition — single Wave
+## §6. Plan decomposition — sequential, no parallelism
 
-**Structure:** 1-3 plans in a single wave, no parallelism (one algorithm, one set of shared-file extensions to props_test.go / example_test.go / algoid_test.go / tests/bdd/steps/algorithms_steps.go). Files are append-only as in Phase 2.
+**Structure:** 1-3 plans executed sequentially with strict `depends_on` ordering — no concurrent execution (one algorithm, one set of shared-file extensions to props_test.go / example_test.go / algoid_test.go / tests/bdd/steps/algorithms_steps.go). Files are append-only as in Phase 2. The planner is free to assign each plan its own wave number (e.g. waves 1/2/3) provided the `depends_on` chain enforces strict ordering — "single wave" was loose wording for "no parallelism", not a literal wave-1-only constraint.
 
 **Tentative plan boundaries (planner refines):**
 

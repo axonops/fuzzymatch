@@ -100,7 +100,7 @@ Finalise Phase 3 by integrating the SWG implementation into the project-wide inf
 
 (2) **Cross-algorithm consistency**: pin the load-bearing local-vs-global-alignment claim by adding TestCrossAlgorithm_SWG_Levenshtein_SubstringDivergence — SWG on `http_request`/`http_request_header_fields` scores STRICTLY higher than Levenshtein on the same pair (SWG finds the substring; Levenshtein counts every uncovered position as an edit). Extend the existing identity / both-empty / one-empty convergence tests to include SWG in their funcs slices.
 
-(3) **Identifier-similarity example column**: add an `SWG` algorithm column to the existing 7-row × 6-column table; regenerate the `want` constant; the existing TestExample_Output and TestExample_ColumnWidths self-adapt or are updated; the IN-04 line-by-line diff pattern catches drift.
+(3) **Identifier-similarity example column**: add an `SWG` algorithm column to the existing 7-row × 6-algorithm-column table (Phase 2 has 6 algorithm columns; Phase 3 brings it to 7 algorithm columns — the rendered table physically has 8 total columns counting the leftmost pair-label column); regenerate the `want` constant; the existing TestExample_Output and TestExample_ColumnWidths self-adapt or are updated; the IN-04 line-by-line diff pattern catches drift.
 
 (4) **bench.txt + llms.txt + docs/requirements.md §7.1.8**: regenerate bench.txt with the new six SmithWatermanGotoh* benchmark series; append the SWG section to llms.txt listing all 8 new exported symbols; update docs/requirements.md §7.1.8 to record the Raw* surface expansion per CONTEXT.md §4 (the three Raw* functions beyond the original 3-function spec — this is a deliberate scope expansion approved by the project owner on 2026-05-14).
 
