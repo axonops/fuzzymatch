@@ -12,12 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// swg_fuzz_test.go runs native Go fuzzing against SmithWatermanGotohScore.
-// Three properties for any input:
+// swg_fuzz_test.go runs native Go fuzzing against the full SWG public surface.
+// One fuzzer exercises all six public functions per input pair:
+//
+//   - SmithWatermanGotohScore           (byte path, default params, clamped)
+//   - SmithWatermanGotohScoreRunes      (rune path, default params, clamped)
+//   - SmithWatermanGotohScoreWithParams (byte path, custom params, clamped)
+//   - SmithWatermanGotohRawScore        (byte path, default params, unclamped)
+//   - SmithWatermanGotohRawScoreRunes   (rune path, default params, unclamped)
+//   - SmithWatermanGotohRawScoreWithParams (byte path, custom params, unclamped)
+//
+// Properties checked per surface, per input:
 //
 //  1. Never panics (implicit — any panic is reported as a fuzz crash).
-//  2. Score is in [0.0, 1.0]; never NaN; never Inf.
-//  3. The byte path tolerates invalid UTF-8 without panic.
+//  2. Never returns NaN.
+//  3. Never returns +/-Inf.
+//  4. Normalised surfaces (Score / ScoreRunes / ScoreWithParams) return a
+//     value in [0.0, 1.0].
+//  5. The byte path tolerates invalid UTF-8 without panic; the rune path
+//     accepts the resulting utf8.RuneError without panic.
 //
 // Programmatic seeds cover all CONTEXT.md §1 + RESEARCH.md required-case
 // categories: canonical reference vector, substring containment, identity,
@@ -37,8 +50,9 @@ import (
 	"github.com/axonops/fuzzymatch"
 )
 
-// FuzzSmithWatermanGotohScore asserts panic-free + score in [0,1] for all
-// inputs.
+// FuzzSmithWatermanGotohScore asserts panic-free + finite-and-in-range across
+// all six public SWG functions for every input pair (default + custom params,
+// byte + rune paths, normalised + raw surfaces).
 func FuzzSmithWatermanGotohScore(f *testing.F) {
 	// Programmatic seed entries — canonical reference vectors plus the
 	// Phase-3-specific Gotoh-erratum canaries.
@@ -60,20 +74,49 @@ func FuzzSmithWatermanGotohScore(f *testing.F) {
 		f.Add(pair.a, pair.b)
 	}
 
-	f.Fuzz(func(t *testing.T, a, b string) {
-		// Property 1: must not panic. Any panic propagates to the fuzz
-		// harness and is reported as a crash.
-		got := fuzzymatch.SmithWatermanGotohScore(a, b)
+	// custom is a non-default parameter set exercising the *WithParams kernel.
+	// Values mirror the "non_default_params" entry in the cross-validation
+	// corpus so any kernel transcription bug surfaces on the same numerical
+	// gate as the corpus.
+	custom := fuzzymatch.SWGParams{
+		Match:     2.0,
+		Mismatch:  -2.0,
+		GapOpen:   -3.0,
+		GapExtend: -1.0,
+	}
 
-		// Property 2: score must be a finite value in [0.0, 1.0].
-		if math.IsNaN(got) {
-			t.Errorf("SmithWatermanGotohScore(%q, %q) = NaN; want a value in [0,1]", a, b)
+	f.Fuzz(func(t *testing.T, a, b string) {
+		// Property 1: none of the six public surfaces may panic. Any panic
+		// propagates to the fuzz harness and is reported as a crash.
+		surfaces := []struct {
+			name   string
+			val    float64
+			bounded bool // true → must be in [0,1]; false → finite-only
+		}{
+			{"Score", fuzzymatch.SmithWatermanGotohScore(a, b), true},
+			{"ScoreRunes", fuzzymatch.SmithWatermanGotohScoreRunes(a, b), true},
+			{"ScoreWithParams", fuzzymatch.SmithWatermanGotohScoreWithParams(a, b, custom), true},
+			{"RawScore", fuzzymatch.SmithWatermanGotohRawScore(a, b), false},
+			{"RawScoreRunes", fuzzymatch.SmithWatermanGotohRawScoreRunes(a, b), false},
+			{"RawScoreWithParams", fuzzymatch.SmithWatermanGotohRawScoreWithParams(a, b, custom), false},
 		}
-		if math.IsInf(got, 0) {
-			t.Errorf("SmithWatermanGotohScore(%q, %q) = Inf; want a value in [0,1]", a, b)
-		}
-		if got < 0.0 || got > 1.0 {
-			t.Errorf("SmithWatermanGotohScore(%q, %q) = %g; want in [0,1]", a, b, got)
+
+		for _, s := range surfaces {
+			// Property 2: never NaN.
+			if math.IsNaN(s.val) {
+				t.Errorf("%s(%q, %q) = NaN; want a finite value",
+					s.name, a, b)
+			}
+			// Property 3: never Inf.
+			if math.IsInf(s.val, 0) {
+				t.Errorf("%s(%q, %q) = Inf; want a finite value",
+					s.name, a, b)
+			}
+			// Property 4: normalised surfaces must be in [0.0, 1.0].
+			if s.bounded && (s.val < 0.0 || s.val > 1.0) {
+				t.Errorf("%s(%q, %q) = %g; want in [0,1]",
+					s.name, a, b, s.val)
+			}
 		}
 	})
 }
