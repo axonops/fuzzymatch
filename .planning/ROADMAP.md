@@ -79,6 +79,12 @@
   2. `LCSStr` returns the correct longest common substring length normalised to `[0.0, 1.0]` on Wagner-Fischer 1974 reference vectors; uses two-row DP
   3. `RatcliffObershelp` matches Python `difflib.SequenceMatcher.ratio()` outputs on the canonical Dr. Dobb's Journal 1988 reference pairs (proving fuzzymatch ships a true difflib-equivalent); its godoc explicitly contrasts it with the Indel-based token ratios coming in Phase 6
   4. All three algorithms have unit + property + fuzz + benchmark + BDD coverage; `algorithms.json` golden file extended with their entries and diffs byte-identically on the CI matrix
+**Plans**: 5 plans
+  - [ ] 04-01-strcmp95-PLAN.md — Strcmp95 (Winkler 1994): algorithm + similar-character table (`var`, no init()) + dispatch + Census Bureau reference vectors + property/fuzz/bench/BDD + staging golden
+  - [ ] 04-02-lcsstr-PLAN.md — LCSStr (Wagner-Fischer 1974): 4 public functions (LongestCommonSubstring + Runes + LCSStrScore + Runes) + two-row DP with leftmost-tie-break + property/fuzz/bench/BDD + staging golden
+  - [ ] 04-03-ratcliff-obershelp-PLAN.md — Ratcliff-Obershelp (Dr. Dobb's 1988): 2 public functions + recursive LCSubstr decomposition + difflib-equivalence godoc directive + OQ-1-resolved asymmetric-by-design + property (no Symmetric)/fuzz/bench/BDD + staging golden
+  - [ ] 04-04-ratcliff-obershelp-cross-validation-PLAN.md — Python stdlib difflib(autojunk=False) generator + committed 15-18-entry corpus + TestRatcliffObershelp_CrossValidation + Makefile regen target + CONTRIBUTING doc (algorithm-correctness-reviewer gate)
+  - [ ] 04-05-finalisation-PLAN.md — Merge staging goldens into algorithms.json + 4 cross-algorithm consistency tests (incl. OQ-1 asymmetry pin) + identifier-similarity 7-to-10 columns + llms.txt sync + bench.txt baseline
 
 ### Phase 5: Q-gram Algorithms
 **Goal**: Ship the shared q-gram extraction infrastructure (`q_gram.go`) and the four q-gram-based algorithms that consume it — Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky. Cosine is the highest float-determinism risk in the catalogue (compiler-detected `x*y+z` patterns emit FMA on arm64 but typically not on amd64), so its implementation must use explicit `(x*y) + z` parenthesisation, `math.Sqrt` only (NO `math.Pow` for square roots), and left-to-right reduction; cross-platform byte-identical output is the load-bearing acceptance test.
@@ -160,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Foundation & Infrastructure | 0/TBD | Not started | - |
 | 2. Core Character Algorithms (six) | 0/7 | Not started | - |
 | 3. Smith-Waterman-Gotoh | 3/3 | Complete    | 2026-05-14 |
-| 4. Remaining Character & Gestalt | 0/TBD | Not started | - |
+| 4. Remaining Character & Gestalt | 0/5 | Not started | - |
 | 5. Q-gram Algorithms | 0/TBD | Not started | - |
 | 6. Token-based Algorithms | 0/TBD | Not started | - |
 | 7. Phonetic Algorithms | 0/TBD | Not started | - |
