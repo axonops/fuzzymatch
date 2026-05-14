@@ -170,14 +170,14 @@ func LevenshteinDistance(a, b string) int {
     // Make b the shorter string for the inner loop (reduces inner-loop length).
     if m < n { a, b = b, a; m, n = n, m }
 
-    if n <= 64 {
+    if n <= 64 && isASCII(a) && isASCII(b) {
         // Stack-allocate two rows of n+1 ints (max 65*2 = 130 ints = 1040 bytes).
         // The slice headers point into buf; buf itself is on the stack per
         // Go's escape analysis (confirmed via go build -gcflags="-m=2").
         var buf [65 * 2]int
         return levenshteinDP(a, b, m, n, buf[:n+1], buf[n+1:n+n+2])
     }
-    // Heap path for inputs > 64 bytes.
+    // Heap path for inputs > 64 bytes or with non-ASCII bytes.
     return levenshteinDP(a, b, m, n, make([]int, n+1), make([]int, n+1))
 }
 
@@ -206,6 +206,38 @@ func levenshteinDP(a, b string, m, n int, prev, curr []int) int {
 **DL-OSA stack size:** Three rows needed — `var buf [65 * 3]int` (1560 bytes on the stack).
 **DL-Full stack size:** Two DP rows + 256-int aux table — `var dpBuf [65 * 2]int` + `var lastOcc [256]int` (total ~3088 bytes).
 **Jaro stack size:** Two bool arrays — `var matchA [256]bool; var matchB [256]bool` (512 bytes).
+
+**ASCII Fast Path Gate — LOCKED (post-Phase 2 cleanup):**
+
+Every Phase 2+ DP-based algorithm uses the SAME stack-buffer guard:
+
+```go
+if shortDim <= stackThreshold && isASCII(a) && isASCII(b) {
+    // stack path — buffer sized to threshold
+}
+// heap path — handles long inputs and non-ASCII bytes
+```
+
+This is uniform across `levenshtein.go` (n ≤ 64), `damerau_osa.go` (n ≤ 64),
+`jaro.go` (la,lb ≤ 256). Rationale:
+
+1. **Documented invariant:** The "ASCII fast path 0-alloc budget" in every
+   algorithm's benchmark file (`*_bench_test.go`) is documented for ASCII
+   inputs only — benchmark labels are `*_ASCII_Short`, `*_ASCII_Medium`,
+   `*_ASCII_Long`, `*_Unicode_Short`. The gate enforces this contract.
+
+2. **Not a correctness gate:** The byte DP works correctly on any byte
+   content. Non-ASCII bytes go through heap allocation but produce identical
+   results.
+
+3. **Inherits naturally to Phase 3+:** Q-gram, token, and phonetic algorithms
+   that add a stack path MUST adopt this gate to keep the 0-alloc budget
+   coherent across the catalogue.
+
+The post-Phase 2 cleanup commit (see 02-VERIFICATION.md) added `isASCII(a) && isASCII(b)`
+to `levenshtein.go` to bring it in line with `damerau_osa.go` and `jaro.go`.
+`damerau_full.go` does not have a stack-buffer path (uses heap-allocated full
+DP table; PERF-03 deferred to issue #1) so the gate does not apply there.
 
 **Gotcha (escape analysis):** Pass `buf[lo:hi]` slices as function arguments to `levenshteinDP`. The slice header stays on the stack. DO NOT store the slice in a struct field or return it — that causes heap escape. Verify with `go build -gcflags="-m=2" ./... 2>&1 | grep -E "does not escape|escapes to heap"`.
 

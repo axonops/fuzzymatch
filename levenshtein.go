@@ -98,14 +98,24 @@ func LevenshteinDistance(a, b string) int {
 		m, n = n, m
 	}
 	// ASCII fast path: stack-allocate two rows when the shorter dimension
-	// fits within the stack-buffer threshold. The slice headers point into
-	// buf; buf itself stays on the stack per Go's escape analysis (confirmed
-	// via go build -gcflags="-m=2" — buf does not escape).
-	if n <= maxStackInputLen {
+	// fits within the stack-buffer threshold AND both inputs are pure ASCII.
+	// The slice headers point into buf; buf itself stays on the stack per Go's
+	// escape analysis (confirmed via go build -gcflags="-m=2" — buf does not
+	// escape).
+	//
+	// The isASCII gate preserves the documented "ASCII fast path is reserved
+	// for ASCII-only inputs" invariant shared with DamerauLevenshteinOSA and
+	// JaroScore (see 02-PATTERNS.md → Pattern: ASCII Fast Path Gate). The byte
+	// DP works correctly on any byte content, so this is a style/budgeting
+	// invariant, not a correctness one — short non-ASCII inputs go through the
+	// heap path to keep the 0-alloc budget documented per algorithm matching
+	// "ASCII Short/Medium" only.
+	if n <= maxStackInputLen && isASCII(a) && isASCII(b) {
 		var buf [(maxStackInputLen + 1) * 2]int
 		return levenshteinDP(a, b, m, n, buf[:n+1], buf[n+1:2*(n+1)])
 	}
-	// Heap path for inputs whose shorter dimension exceeds the threshold.
+	// Heap path for inputs whose shorter dimension exceeds the threshold or
+	// contain non-ASCII bytes.
 	return levenshteinDP(a, b, m, n, make([]int, n+1), make([]int, n+1))
 }
 
