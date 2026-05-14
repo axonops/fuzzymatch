@@ -204,7 +204,12 @@ func DamerauLevenshteinOSAScoreRunes(a, b string) float64 {
 //
 // After the outer loop completes, the answer is in prev[n]. This is because
 // the final rotation moves the last computed row from curr into prev.
-func damerauOSADP(a, b string, m, n int, prevprev, prev, curr []int) int {
+//
+// The high cyclomatic complexity is inherent to the OSA recurrence: deletion,
+// insertion, substitution, and transposition each require a branch, and the
+// three-way minimum of the first three requires two conditional comparisons.
+// Extracting sub-functions would obscure the recurrence and hurt inlining.
+func damerauOSADP(a, b string, m, n int, prevprev, prev, curr []int) int { //nolint:gocyclo // OSA DP kernel — four-operation recurrence is inherently complex; see godoc above
 	// Initialise prev (row 0): D[0, j] = j (cost of inserting j characters).
 	// prevprev is initialised to zeros (Go zero-value) — row "-1" is notional
 	// and only accessed when i>=2 in the transposition check.
@@ -249,7 +254,12 @@ func damerauOSADP(a, b string, m, n int, prevprev, prev, curr []int) int {
 // slices using the same three-row rolling DP algorithm as the byte variant.
 // It is called by DamerauLevenshteinOSADistanceRunes and
 // DamerauLevenshteinOSAScoreRunes after the []rune(string) conversion.
-func damerauOSADistanceRuneSlices(ra, rb []rune) int {
+//
+// The high cyclomatic complexity mirrors damerauOSADP — the OSA four-operation
+// recurrence (deletion, insertion, substitution, transposition) is inherently
+// branchy. The rune variant is a separate function rather than a generic to
+// avoid the allocation overhead of interface boxing on the hot path.
+func damerauOSADistanceRuneSlices(ra, rb []rune) int { //nolint:gocyclo // OSA DP kernel — four-operation recurrence mirrors damerauOSADP; see godoc above
 	if len(ra) == 0 {
 		return len(rb)
 	}

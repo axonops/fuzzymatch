@@ -40,15 +40,15 @@ import (
 func FuzzDamerauLevenshteinOSAScore(f *testing.F) {
 	// Programmatic seed entries — canonical reference vectors plus edge cases.
 	for _, pair := range []struct{ a, b string }{
-		{"ab", "ba"},        // Boytsov 2011 §3.1 — transposition costs 1
-		{"ca", "abc"},       // Discriminating vector — OSA returns 3 (Full DL returns 2)
-		{"abc", "abc"},      // identical
-		{"", "abc"},         // one-empty
-		{"", ""},            // both-empty
-		{"\xff\xfe", "abc"}, // invalid UTF-8 (high bytes without continuation)
-		{"\xc0\x80", "abc"}, // invalid UTF-8 (overlong NUL encoding)
-		{"Привет", "привет"}, // Cyrillic (multi-byte UTF-8)
-		{"café", "cafe"},    // Latin supplement (é = U+00E9, 2 bytes)
+		{"ab", "ba"},          // Boytsov 2011 §3.1 — transposition costs 1
+		{"ca", "abc"},         // Discriminating vector — OSA returns 3 (Full DL returns 2)
+		{"abc", "abc"},        // identical
+		{"", "abc"},           // one-empty
+		{"", ""},              // both-empty
+		{"\xff\xfe", "abc"},   // invalid UTF-8 (high bytes without continuation)
+		{"\xc0\x80", "abc"},   // invalid UTF-8 (overlong NUL encoding)
+		{"Привет", "привет"},  // Cyrillic (multi-byte UTF-8)
+		{"café", "cafe"},      // Latin supplement (é = U+00E9, 2 bytes)
 		{"kitten", "sitting"}, // Levenshtein canonical pair (cross-check)
 	} {
 		f.Add(pair.a, pair.b)

@@ -271,10 +271,10 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02, plan 02-03, and plan 02-05 respectively;
 	// all others nil.
 	registered := map[int]bool{
-		int(fuzzymatch.AlgoLevenshtein):          true,
+		int(fuzzymatch.AlgoLevenshtein):           true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA): true,
-		int(fuzzymatch.AlgoHamming):              true,
-		int(fuzzymatch.AlgoJaro):                 true,
+		int(fuzzymatch.AlgoHamming):               true,
+		int(fuzzymatch.AlgoJaro):                  true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
