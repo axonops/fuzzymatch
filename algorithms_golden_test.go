@@ -224,3 +224,75 @@ func TestGolden_Hamming_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/hamming.json", file)
 }
+
+// buildJaroStagingEntries returns the six Jaro entries used by
+// TestGolden_Jaro_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output.
+//
+// Six entries (sorted by Name in the test): DIXON_DICKSONX, empty_empty,
+// identical, JELLYFISH_SMELLYFISH, MARTHA_MARHTA, one_empty.
+// These cover the canonical Jaro 1989 / Winkler 1990 reference vectors plus
+// the edge-case identity and empty-string conventions.
+func buildJaroStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "Jaro_DIXON_DICKSONX",
+			Algorithm:     "Jaro",
+			A:             "DIXON",
+			B:             "DICKSONX",
+			ExpectedScore: fuzzymatch.JaroScore("DIXON", "DICKSONX"),
+		},
+		{
+			Name:          "Jaro_empty_empty",
+			Algorithm:     "Jaro",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.JaroScore("", ""),
+		},
+		{
+			Name:          "Jaro_identical",
+			Algorithm:     "Jaro",
+			A:             "ABC",
+			B:             "ABC",
+			ExpectedScore: fuzzymatch.JaroScore("ABC", "ABC"),
+		},
+		{
+			Name:          "Jaro_JELLYFISH_SMELLYFISH",
+			Algorithm:     "Jaro",
+			A:             "JELLYFISH",
+			B:             "SMELLYFISH",
+			ExpectedScore: fuzzymatch.JaroScore("JELLYFISH", "SMELLYFISH"),
+		},
+		{
+			Name:          "Jaro_MARTHA_MARHTA",
+			Algorithm:     "Jaro",
+			A:             "MARTHA",
+			B:             "MARHTA",
+			ExpectedScore: fuzzymatch.JaroScore("MARTHA", "MARHTA"),
+		},
+		{
+			Name:          "Jaro_one_empty",
+			Algorithm:     "Jaro",
+			A:             "",
+			B:             "ABC",
+			ExpectedScore: fuzzymatch.JaroScore("", "ABC"),
+		},
+	}
+}
+
+// TestGolden_Jaro_Staging produces testdata/golden/_staging/jaro.json for
+// plan 02-07's merge step. Entries are sorted alphabetically by Name.
+// Contains the six canonical Jaro cases: DIXON_DICKSONX, empty_empty,
+// identical, JELLYFISH_SMELLYFISH, MARTHA_MARHTA, one_empty.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_Jaro_Staging(t *testing.T) {
+	entries := buildJaroStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/jaro.json", file)
+}
