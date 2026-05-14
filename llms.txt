@@ -77,6 +77,11 @@ scan / Extract (Phases 9–10).
 - func JaroScore(a, b string) float64
 - func JaroScoreRunes(a, b string) float64
 
+### Jaro-Winkler similarity
+
+- func JaroWinklerScore(a, b string) float64
+- func JaroWinklerScoreRunes(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

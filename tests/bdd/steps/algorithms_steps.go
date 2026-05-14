@@ -164,6 +164,46 @@ func (ctx *AlgorithmContext) bothJaroScoresShouldBeEqual() error {
 }
 
 // ---------------------------------------------------------------------------
+// Jaro-Winkler step definitions (plan 02-04)
+// ---------------------------------------------------------------------------
+
+// iComputeTheJaroWinklerScoreBetween computes JaroWinklerScore(a, b) and
+// stores the result in lastScore. JaroWinklerScore delegates to JaroScore
+// and applies the Winkler 1990 prefix boost when Jaro >= 0.7.
+func (ctx *AlgorithmContext) iComputeTheJaroWinklerScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.JaroWinklerScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondJaroWinklerScoreBetween computes JaroWinklerScore(a, b) and
+// stores the result in lastScore2. Used by the symmetry scenario to capture
+// a second score for comparison.
+func (ctx *AlgorithmContext) iComputeTheSecondJaroWinklerScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.JaroWinklerScore(a, b)
+	return nil
+}
+
+// bothJaroWinklerScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothJaroWinklerScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("jaro-winkler scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
+// bothJaroWinklerAndJaroScoresShouldBeEqual asserts that lastScore (the
+// JaroWinklerScore computed in the current scenario) equals lastScore2 (the
+// JaroScore computed in the same scenario). Used by the boost-gate scenario
+// to verify JW == J for below-threshold pairs.
+func (ctx *AlgorithmContext) bothJaroWinklerAndJaroScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("JaroWinklerScore (%f) != JaroScore (%f) for below-threshold pair; boost should not be applied",
+			ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 // Damerau-Levenshtein OSA step definitions (plan 02-05)
 // ---------------------------------------------------------------------------
 
@@ -303,6 +343,24 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both Jaro scores should be equal$`,
 		a.bothJaroScoresShouldBeEqual,
+	)
+
+	// Jaro-Winkler step definitions (plan 02-04).
+	ctx.Step(
+		`^I compute the JaroWinkler score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheJaroWinklerScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second JaroWinkler score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondJaroWinklerScoreBetween,
+	)
+	ctx.Step(
+		`^both JaroWinkler scores should be equal$`,
+		a.bothJaroWinklerScoresShouldBeEqual,
+	)
+	ctx.Step(
+		`^both JaroWinkler and Jaro scores should be equal$`,
+		a.bothJaroWinklerAndJaroScoresShouldBeEqual,
 	)
 
 	// Damerau-Levenshtein OSA step definitions (plan 02-05).
