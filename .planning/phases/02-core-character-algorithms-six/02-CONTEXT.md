@@ -145,30 +145,51 @@ overlap is declared.
 
 ### Hamming unequal-length behaviour — LOCKED
 
-**Decision:** Strict mode. Hamming honours its 1950 definition.
+**Decision:** Silent zero. Hamming behaves like every other algorithm in
+the catalogue — no error path, always returns a number.
 
-- `HammingDistance(a, b string) (int, error)` — returns `(0, ErrInvalidInput)`
-  when `len(a) != len(b)`. **Signature diverges** from the family pattern
-  `XxxDistance(a, b string) int`; this is an intentional divergence justified
-  by the algorithm's mathematical contract.
+- `HammingDistance(a, b string) int` — signature **matches the family
+  pattern** `XxxDistance(a, b string) int`. On unequal length, returns
+  `max(len(a), len(b))`. This value makes the score normalisation invariant
+  `score = 1 - distance / max(len)` resolve cleanly to 0.0.
 - `HammingScore(a, b string) float64` — returns `0.0` silently on unequal
-  length. No error path; the Scorer can safely call `HammingScore` without
-  guarding for length, and a length-mismatch reads as "no similarity".
+  length. No error, no panic, no surprise to the Scorer.
 - Both-empty (`len(a)==0 && len(b)==0`): distance 0, score 1.0.
-- Rune variants follow the same pattern: `HammingDistanceRunes` returns
-  `(0, ErrInvalidInput)` when rune counts differ.
+- Equal-length: counts mismatching positions per Hamming 1950.
+- Rune variants (`HammingDistanceRunes`, `HammingScoreRunes`) follow the
+  same pattern: rune-count mismatch → distance `max(runeCount(a),
+  runeCount(b))`, score `0.0`.
 
-**Impact on the Scorer (Phase 8):** when Hamming is included in a weighted
-composite, the Scorer should warn at construction time if the configuration
-combines Hamming with algorithms that don't share Hamming's length-equality
-preconditions — but this is a Phase 8 concern. Phase 2 ships the algorithm
-with the contract above; Phase 8 plans for the warning.
+**Godoc requirement:** the file-level block comment MUST explicitly state
+that unequal-length inputs return distance = `max(len)` / score = 0.0
+rather than an error, and direct callers wanting strict Hamming-1950
+semantics to length-check upstream:
 
-**API ergonomics review:** the `(int, error)` divergence will be flagged by
-`api-ergonomics-reviewer` at PR time. The reviewer has veto authority — if
-the diverged signature is rejected, the fallback is `HammingDistance(a, b)
-int` that returns `-1` on unequal length (sentinel value, documented). The
-reviewer's call wins; do not relitigate during planning.
+```
+// Inputs of unequal length are not an error: HammingDistance returns
+// max(len(a), len(b)) and HammingScore returns 0.0. Callers wanting
+// strict Hamming-1950 equal-length semantics should length-check
+// before calling.
+```
+
+**Rationale:**
+
+1. Catalogue consistency — every other algorithm in the 23-algorithm
+   catalogue returns `(int, float64)` without an error path. A single
+   algorithm with `(int, error)` would be an API surface wart.
+2. Scorer composability — the Phase 8 Scorer can include Hamming in any
+   weighted composite without special length-guard logic. Mismatched
+   length reads cleanly as "this metric contributed 0".
+3. Precedent — RapidFuzz and FuzzyWuzzy both return silent 0 on unequal
+   length. Aligning with the dominant ecosystem behaviour lowers
+   migration friction.
+4. Mathematical defensibility — `score = 1 - max(len)/max(len) = 0` is
+   the principled normalisation when "all positions disagree" is the
+   worst case. The trailing characters of the longer string are treated
+   as positions that don't match.
+
+**Impact on Phase 8 (Scorer):** no special Hamming handling required.
+The Scorer composes Hamming exactly like any other algorithm.
 
 ### identifier-similarity example scope — LOCKED
 
@@ -218,19 +239,11 @@ algorithms exist. Alternative: a dedicated plan 02-07-identifier-similarity-exam
 
 **Noted for later (Out of scope for Phase 2):**
 
-- **`HammingScore` returning error vs silently 0.0** is a single design
-  decision; if api-ergonomics-reviewer prefers a sentinel `-1` distance
-  instead of `(int, error)`, the discussion lands in the algorithm PR, not
-  here.
 - **Damerau-Levenshtein Full ASCII fast path** is a possible v1.x perf
   follow-up — the algorithm needs an alphabet-sized auxiliary table (256
   entries for ASCII, 65536+ for Unicode), which inflates allocation budget
   for short inputs. The planner should NOT optimise prematurely; ship the
   correct algorithm first, optimise later if benchstat shows it matters.
-- **Hamming-in-Scorer warning** (Phase 8 concern) — when the Scorer
-  composite includes Hamming, warn at construction time if other weighted
-  algorithms in the composite don't require length-equality. Tracked for
-  Phase 8.
 - **examples/extract-demo/, examples/audit-field-similarity/, examples/schema-dedup/** — per DX-05 / Phase 5–10 backlog. Phase 2 ships only
   `examples/identifier-similarity/`.
 - **The 1-alloc-on-ASCII-fast-path follow-up from Normalise** (Phase 1

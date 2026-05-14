@@ -62,12 +62,31 @@ expected shared-artefact merge designs called out for the planner.
 2. Return error / ErrInvalidInput (strict — honour Hamming 1950 definition)
 3. Panic on unequal length (strictest)
 
-**User selected:** Option 2 — strict; ErrInvalidInput on unequal length.
+**User initially selected:** Option 2 — strict; ErrInvalidInput on unequal length.
 
-**Captured in CONTEXT.md:** `<decisions>` → Hamming unequal-length section.
-Locked: `HammingDistance` returns `(int, error)` with `ErrInvalidInput` on
-length mismatch; `HammingScore` silently returns 0.0. Signature divergence
-from family pattern noted; api-ergonomics-reviewer retains veto.
+**Reconsidered mid-write:** User flagged that returning zero rather than
+an error would be more consistent with the rest of the catalogue and the
+Scorer composability story.
+
+**Final decision:** Option 1 — silent zero. Family-pattern signature
+`HammingDistance(a, b) int` returning `max(len)` on length mismatch;
+`HammingScore` returns 0.0 silently. Documented in godoc with explicit
+"length-check upstream if you want strict Hamming-1950 semantics" note.
+
+**Rationale for the reversal:**
+
+1. Catalogue consistency — every other algorithm returns `(int, float64)`
+   with no error path. A single `(int, error)` Hamming would be a wart.
+2. Scorer composability — no special Hamming-aware length guard needed in
+   Phase 8.
+3. Ecosystem precedent — RapidFuzz and FuzzyWuzzy both behave this way.
+4. Mathematical defensibility — `score = 1 - max(len)/max(len) = 0` is
+   the principled normalisation when "all positions disagree" is the
+   worst case.
+
+**Captured in CONTEXT.md:** `<decisions>` → Hamming unequal-length section
+(rewritten). `<deferred>` → Hamming-in-Scorer warning removed (no longer
+needed under the silent-zero contract).
 
 ---
 
