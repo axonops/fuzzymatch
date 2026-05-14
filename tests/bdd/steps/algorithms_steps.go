@@ -135,6 +135,34 @@ func (ctx *AlgorithmContext) theDistanceShouldBe(expected int) error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Jaro step definitions (plan 02-03)
+// ---------------------------------------------------------------------------
+
+// iComputeTheJaroScoreBetween computes JaroScore(a, b) and stores the result
+// in lastScore. The Jaro formula is symmetric and operates on bytes for ASCII
+// inputs (zero allocation on inputs <= 256 bytes).
+func (ctx *AlgorithmContext) iComputeTheJaroScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.JaroScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondJaroScoreBetween computes JaroScore(a, b) and stores the
+// result in lastScore2. Used by the symmetry scenario to capture a second score
+// for comparison.
+func (ctx *AlgorithmContext) iComputeTheSecondJaroScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.JaroScore(a, b)
+	return nil
+}
+
+// bothJaroScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothJaroScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("jaro scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -187,5 +215,19 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^the distance should be (\d+)$`,
 		a.theDistanceShouldBe,
+	)
+
+	// Jaro step definitions (plan 02-03).
+	ctx.Step(
+		`^I compute the Jaro score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheJaroScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second Jaro score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondJaroScoreBetween,
+	)
+	ctx.Step(
+		`^both Jaro scores should be equal$`,
+		a.bothJaroScoresShouldBeEqual,
 	)
 }

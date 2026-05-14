@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Jaro_DIXON_DICKSONX",
+      "algorithm": "Jaro",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "expected_score": 0.7666666666666666
+    },
+    {
+      "name": "Jaro_JELLYFISH_SMELLYFISH",
+      "algorithm": "Jaro",
+      "a": "JELLYFISH",
+      "b": "SMELLYFISH",
+      "expected_score": 0.8962962962962964
+    },
+    {
+      "name": "Jaro_MARTHA_MARHTA",
+      "algorithm": "Jaro",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "expected_score": 0.9444444444444445
+    },
+    {
+      "name": "Jaro_empty_empty",
+      "algorithm": "Jaro",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Jaro_identical",
+      "algorithm": "Jaro",
+      "a": "ABC",
+      "b": "ABC",
+      "expected_score": 1
+    },
+    {
+      "name": "Jaro_one_empty",
+      "algorithm": "Jaro",
+      "a": "",
+      "b": "ABC",
+      "expected_score": 0
+    }
+  ]
+}
