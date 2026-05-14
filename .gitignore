@@ -20,3 +20,9 @@ bench.txt.new
 # Local dev caches
 .idea/
 .vscode/
+
+# Python bytecode caches (scripts/gen-swg-cross-validation.py and any future
+# developer-discretion Python helpers under scripts/)
+__pycache__/
+*.pyc
+*.pyo
