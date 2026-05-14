@@ -84,7 +84,7 @@
   - [x] 04-02-lcsstr-PLAN.md — LCSStr (Wagner-Fischer 1974): 4 public functions (LongestCommonSubstring + Runes + LCSStrScore + Runes) + two-row DP with leftmost-tie-break + property/fuzz/bench/BDD + staging golden
   - [x] 04-03-ratcliff-obershelp-PLAN.md — Ratcliff-Obershelp (Dr. Dobb's 1988): 2 public functions + recursive LCSubstr decomposition + difflib-equivalence godoc directive + OQ-1-resolved asymmetric-by-design + property (no Symmetric)/fuzz/bench/BDD + staging golden
   - [x] 04-04-ratcliff-obershelp-cross-validation-PLAN.md — Python stdlib difflib(autojunk=False) generator + committed 15-18-entry corpus + TestRatcliffObershelp_CrossValidation + Makefile regen target + CONTRIBUTING doc (algorithm-correctness-reviewer gate)
-  - [ ] 04-05-finalisation-PLAN.md — Merge staging goldens into algorithms.json + 4 cross-algorithm consistency tests (incl. OQ-1 asymmetry pin) + identifier-similarity 7-to-10 columns + llms.txt sync + bench.txt baseline
+  - [x] 04-05-finalisation-PLAN.md — Merge staging goldens into algorithms.json + 4 cross-algorithm consistency tests (incl. OQ-1 asymmetry pin) + identifier-similarity 7-to-10 columns + llms.txt sync + bench.txt baseline
 
 ### Phase 5: Q-gram Algorithms
 **Goal**: Ship the shared q-gram extraction infrastructure (`q_gram.go`) and the four q-gram-based algorithms that consume it — Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky. Cosine is the highest float-determinism risk in the catalogue (compiler-detected `x*y+z` patterns emit FMA on arm64 but typically not on amd64), so its implementation must use explicit `(x*y) + z` parenthesisation, `math.Sqrt` only (NO `math.Pow` for square roots), and left-to-right reduction; cross-platform byte-identical output is the load-bearing acceptance test.
