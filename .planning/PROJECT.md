@@ -97,4 +97,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-13 — Phase 1 (Foundation & Infrastructure) complete: 8 plans / 8 SUMMARYs, 38/38 requirements accounted for, `make check` green, coverage 96.7%. Five deferred items captured in `01-HUMAN-UAT.md` for user-driven verification (CI tag-push, 5-platform matrix, branch protection, CLA flow, markdownlint local).*
+*Last updated: 2026-05-14 — Phase 4 (Remaining Character & Gestalt) complete: 5 plans / 5 SUMMARYs, CHAR-07 + CHAR-09 + GESTALT-01 delivered. Strcmp95 (Winkler 1994), LCSStr (Wagner-Fischer 1974), Ratcliff-Obershelp (Dr. Dobb's 1988 — difflib-equivalent, asymmetric per OQ-1) shipped with full unit + property + fuzz + bench + BDD + golden coverage. Cross-validation against Python `difflib.SequenceMatcher(autojunk=False)` corpus committed. `make check` / `make test-bdd` / `make verify-determinism` all green, coverage 97.3%, 24/24 verification must-haves met. Code review: 0 blockers, 4 warnings, 6 info (advisory).*
+
+*Phase 1 (Foundation & Infrastructure) complete: 8 plans / 8 SUMMARYs, 38/38 requirements accounted for, coverage 96.7%, five deferred items in `01-HUMAN-UAT.md`.*
