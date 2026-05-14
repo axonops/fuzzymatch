@@ -1,0 +1,111 @@
+// Copyright 2026 AxonOps Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package main demonstrates all six Phase 2 character-based similarity
+// algorithms from github.com/axonops/fuzzymatch side-by-side on database
+// column-name identifier pairs.
+//
+// The example was designed for axonops/audit, the primary downstream
+// consumer of fuzzymatch, where "semantic equivalence detection" across
+// Cassandra table schemas requires comparing column names that may differ
+// in naming convention (snake_case vs camelCase), casing, separators,
+// or abbreviation style.
+//
+// Each row in the printed table represents a pair of database identifiers;
+// each column represents one of the six Phase 2 algorithms. Cell values
+// are similarity scores in [0.0, 1.0] rounded to 4 decimal places.
+//
+// Note: CONTEXT.md <deferred> identifier-similarity format spec'd
+// `ERR` for Hamming length-mismatch BEFORE the Hamming silent-zero
+// policy was locked (commit 1e25e31). The locked Hamming policy
+// supersedes that earlier illustrative format — the example shows
+// `0.0000` and never `ERR`. This resolution is a documentation
+// supersession, not a scope reduction.
+//
+// Run with:
+//
+//	go run ./examples/identifier-similarity/
+package main
+
+import (
+	"fmt"
+
+	"github.com/axonops/fuzzymatch"
+)
+
+// pairs is the ordered list of database column-name identifier pairs used
+// to demonstrate the six Phase 2 algorithms. The pairs are chosen to cover
+// the full range of similarity scenarios:
+//
+//   - Naming-convention drift (snake_case ↔ camelCase)
+//   - Semantic equivalence with different forms
+//   - Short-token semantic synonyms
+//   - Separator-only differences
+//   - Abbreviation expansion
+//   - Equal-length, content-different (where Hamming is informative)
+//   - Same shape, opposite meaning (a known failure case — teaches limitations)
+var pairs = []struct{ a, b string }{
+	{"user_id", "userId"},
+	{"created_at", "creationTimestamp"},
+	{"status", "state"},
+	{"email", "e_mail"},
+	{"org_id", "organisation_id"},
+	{"latitude", "longitude"},
+	{"is_deleted", "is_active"},
+}
+
+// algorithms is the ordered list of six Phase 2 scoring functions with
+// their display names. The order matches the column layout in the printed
+// table: Levenshtein, DL-OSA, DL-Full, Hamming, Jaro, Jaro-Winkler.
+var algorithms = []struct {
+	name string
+	fn   func(a, b string) float64
+}{
+	{"Levenshtein", fuzzymatch.LevenshteinScore},
+	{"DL-OSA", fuzzymatch.DamerauLevenshteinOSAScore},
+	{"DL-Full", fuzzymatch.DamerauLevenshteinFullScore},
+	{"Hamming", fuzzymatch.HammingScore},
+	{"Jaro", fuzzymatch.JaroScore},
+	{"Jaro-Winkler", fuzzymatch.JaroWinklerScore},
+}
+
+func main() {
+	// Column widths: 32 chars for the pair column, 13 chars per algorithm.
+	const pairWidth = 32
+	const algoWidth = 13
+
+	// Header row.
+	fmt.Printf("%-*s", pairWidth, "Pair (a / b)")
+	for _, algo := range algorithms {
+		fmt.Printf("%*s", algoWidth, algo.name)
+	}
+	fmt.Println()
+
+	// Separator line.
+	for i := 0; i < pairWidth+len(algorithms)*algoWidth; i++ {
+		fmt.Print("-")
+	}
+	fmt.Println()
+
+	// Data rows: one per pair.
+	for _, p := range pairs {
+		label := fmt.Sprintf("%s / %s", p.a, p.b)
+		fmt.Printf("%-*s", pairWidth, label)
+		for _, algo := range algorithms {
+			score := algo.fn(p.a, p.b)
+			fmt.Printf("%*s", algoWidth, fmt.Sprintf("%.4f", score))
+		}
+		fmt.Println()
+	}
+}

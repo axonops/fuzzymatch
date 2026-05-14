@@ -25,15 +25,18 @@
 // normalisation.json: a version field plus an entries array sorted
 // alphabetically by Name (deterministic key order per determinism-standards).
 //
-// Wave 3 (plan 02-07) merges all six per-algorithm staging files into the
-// canonical algorithms.json. Until then, algorithms.json contains only
-// Levenshtein entries (Wave 1 output), and Wave 2 plans each write to
-// testdata/golden/_staging/<algo>.json.
+// Wave 3 (plan 02-07) owns the merge step: TestGolden_Algorithms_Merge reads
+// all six per-algorithm staging files from testdata/golden/_staging/ and
+// produces the canonical testdata/golden/algorithms.json. The per-algorithm
+// TestGolden_<algo>_Staging helpers (Wave 1 + Wave 2) remain for the
+// per-algorithm determinism gate and as the audit trail of each algorithm's
+// contribution.
 
 package fuzzymatch_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sort"
@@ -144,15 +147,49 @@ func buildAlgorithmGoldenEntries(t *testing.T) []goldenAlgorithmEntry {
 	}
 }
 
-// TestGolden_Algorithms pins score outputs across the CI matrix platforms.
+// TestGolden_Algorithms_Merge reads all six per-algorithm staging files from
+// testdata/golden/_staging/ and merges them into the canonical
+// testdata/golden/algorithms.json via CanonicalMarshalForTest.
+//
+// Wave 3 of phase 02 (plan 02-07) owns the merge step — Wave 2 plans each
+// wrote one staging file to avoid algorithms.json merge conflicts during
+// parallel execution. This function supersedes the Wave 1 TestGolden_Algorithms
+// stub (which contained Levenshtein-only entries) and is the canonical merge
+// gate going forward.
+//
 // Run with `-update` to rewrite testdata/golden/algorithms.json.
 // Re-running without `-update` must exit 0 (file is byte-stable).
-func TestGolden_Algorithms(t *testing.T) {
-	entries := buildAlgorithmGoldenEntries(t)
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Name < entries[j].Name
+func TestGolden_Algorithms_Merge(t *testing.T) {
+	stagingFiles := []string{
+		"_staging/damerau_full.json",
+		"_staging/damerau_osa.json",
+		"_staging/hamming.json",
+		"_staging/jaro.json",
+		"_staging/jarowinkler.json",
+		"_staging/levenshtein.json",
+	}
+	var allEntries []goldenAlgorithmEntry
+	for _, f := range stagingFiles {
+		raw, err := os.ReadFile(filepath.Join("testdata", "golden", f)) //nolint:gosec // path is a fixed test-fixture join
+		if err != nil {
+			t.Fatalf("TestGolden_Algorithms_Merge: read %s: %v", f, err)
+		}
+		var staged goldenAlgorithmsFile
+		if err := json.Unmarshal(raw, &staged); err != nil {
+			t.Fatalf("TestGolden_Algorithms_Merge: parse %s: %v", f, err)
+		}
+		allEntries = append(allEntries, staged.Entries...)
+	}
+	sort.Slice(allEntries, func(i, j int) bool {
+		return allEntries[i].Name < allEntries[j].Name
 	})
-	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	// Sanity check: no duplicate Names across staging files.
+	for i := 1; i < len(allEntries); i++ {
+		if allEntries[i].Name == allEntries[i-1].Name {
+			t.Fatalf("TestGolden_Algorithms_Merge: duplicate entry Name across staging files: %q", allEntries[i].Name)
+		}
+	}
+	file := goldenAlgorithmsFile{Version: 1, Entries: allEntries}
 	assertGolden(t, "algorithms.json", file)
 }
 

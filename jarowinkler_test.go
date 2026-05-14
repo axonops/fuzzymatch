@@ -118,9 +118,9 @@ func TestJaroWinkler_ReferenceVectors(t *testing.T) {
 // JaroWinklerScore must equal JaroScore for the same pair.
 func TestJaroWinkler_BoostThresholdGate(t *testing.T) {
 	pairs := [][2]string{
-		{"abc", "xyz"},  // Jaro = 0.0 (no matches)
-		{"aaa", "bbb"},  // Jaro = 0.0 (no matches)
-		{"ab", "yz"},    // Jaro = 0.0 (no matches)
+		{"abc", "xyz"}, // Jaro = 0.0 (no matches)
+		{"aaa", "bbb"}, // Jaro = 0.0 (no matches)
+		{"ab", "yz"},   // Jaro = 0.0 (no matches)
 	}
 	for _, p := range pairs {
 		a, b := p[0], p[1]
@@ -238,5 +238,36 @@ func TestJaroWinklerScoreRunes_MultiByte(t *testing.T) {
 	rev := fuzzymatch.JaroWinklerScoreRunes(b, a)
 	if got != rev {
 		t.Errorf("JaroWinklerScoreRunes not symmetric: %g != %g", got, rev)
+	}
+}
+
+// TestJaroWinklerScoreRunes_BelowBoostThreshold verifies that the rune-aware
+// path returns the raw Jaro score (no prefix bonus) when Jaro < 0.7
+// (winklerBoostThreshold). "abc" vs "xyz" have zero common characters so
+// JaroScore == 0.0, which is below the 0.7 gate — the boost branch is skipped.
+func TestJaroWinklerScoreRunes_BelowBoostThreshold(t *testing.T) {
+	// "abc" vs "xyz": no common characters → Jaro = 0 → below 0.7 gate.
+	got := fuzzymatch.JaroWinklerScoreRunes("abc", "xyz")
+	jaroScore := fuzzymatch.JaroScoreRunes("abc", "xyz")
+	if got != jaroScore {
+		t.Errorf("JaroWinklerScoreRunes(\"abc\",\"xyz\") = %g; expected raw Jaro (%g) because Jaro < 0.7 gate", got, jaroScore)
+	}
+	// Must be exactly 0 since strings share no characters.
+	if got != 0.0 {
+		t.Errorf("JaroWinklerScoreRunes(\"abc\",\"xyz\") = %g; want 0.0 (no matches)", got)
+	}
+}
+
+// TestJaroWinklerScoreRunes_IdentityAndEmpty verifies the rune path on edge
+// cases: identical non-empty strings (score 1.0) and both-empty (score 1.0).
+func TestJaroWinklerScoreRunes_IdentityAndEmpty(t *testing.T) {
+	if got := fuzzymatch.JaroWinklerScoreRunes("ABC", "ABC"); got != 1.0 {
+		t.Errorf("JaroWinklerScoreRunes(\"ABC\",\"ABC\") = %g; want 1.0 (identity)", got)
+	}
+	if got := fuzzymatch.JaroWinklerScoreRunes("", ""); got != 1.0 {
+		t.Errorf("JaroWinklerScoreRunes(\"\",\"\") = %g; want 1.0 (both-empty)", got)
+	}
+	if got := fuzzymatch.JaroWinklerScoreRunes("", "ABC"); got != 0.0 {
+		t.Errorf("JaroWinklerScoreRunes(\"\",\"ABC\") = %g; want 0.0 (one-empty)", got)
 	}
 }

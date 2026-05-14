@@ -284,9 +284,9 @@ func damerauFullDP(a, b string, m, n int) int { //nolint:gocyclo // Lowrance-Wag
 			//                    l-1 paper row → l table row; k-1 paper col → k table col).
 
 			// Three standard Levenshtein options.
-			sub := d[i*stride+j] + cost         // D[i-1,j-1] + cost (substitution)
-			ins := d[(i+1)*stride+j] + 1         // D[i,j-1] + 1 (insertion)
-			del := d[i*stride+(j+1)] + 1         // D[i-1,j] + 1 (deletion)
+			sub := d[i*stride+j] + cost  // D[i-1,j-1] + cost (substitution)
+			ins := d[(i+1)*stride+j] + 1 // D[i,j-1] + 1 (insertion)
+			del := d[i*stride+(j+1)] + 1 // D[i-1,j] + 1 (deletion)
 
 			v := sub
 			if ins < v {
