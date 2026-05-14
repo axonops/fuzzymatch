@@ -344,6 +344,36 @@ func (ctx *AlgorithmContext) bothStrcmp95ScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// LCSStr step definitions (plan 04-02)
+// ---------------------------------------------------------------------------
+
+// iComputeTheLCSStrScoreBetween computes LCSStrScore(a, b) and stores the
+// result in lastScore. LCSStr is the Sørensen-Dice-normalised longest common
+// substring similarity; only the dispatched byte-path score function is
+// exercised via BDD (the substring-returning surface
+// LongestCommonSubstring and the rune variants are covered by unit tests).
+func (ctx *AlgorithmContext) iComputeTheLCSStrScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.LCSStrScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondLCSStrScoreBetween computes LCSStrScore(a, b) and stores
+// the result in lastScore2. Used by symmetry scenarios to capture a second
+// score for comparison.
+func (ctx *AlgorithmContext) iComputeTheSecondLCSStrScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.LCSStrScore(a, b)
+	return nil
+}
+
+// bothLCSStrScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothLCSStrScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("lcsstr scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -495,5 +525,19 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both Strcmp95 scores should be equal$`,
 		a.bothStrcmp95ScoresShouldBeEqual,
+	)
+
+	// LCSStr step definitions (plan 04-02).
+	ctx.Step(
+		`^I compute the LCSStr score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheLCSStrScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second LCSStr score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondLCSStrScoreBetween,
+	)
+	ctx.Step(
+		`^both LCSStr scores should be equal$`,
+		a.bothLCSStrScoresShouldBeEqual,
 	)
 }
