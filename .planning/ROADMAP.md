@@ -66,7 +66,7 @@
   4. Allocation budget enforced via benchmark; two-row DP variant; cross-platform golden file entry added; BDD scenario covers the canonical long-gap reference case
 **Plans**: 3 plans
   - [x] 03-01-swg-implementation-PLAN.md — Implement swg.go + dispatch + tests + property + fuzz + bench + BDD + staging golden (the core SWG surface)
-  - [ ] 03-02-swg-cross-validation-PLAN.md — biopython corpus generator + committed vectors.json + TestSWG_CrossValidation + Makefile regen target (Gotoh-erratum gate)
+  - [x] 03-02-swg-cross-validation-PLAN.md — biopython corpus generator + committed vectors.json + TestSWG_CrossValidation + Makefile regen target (Gotoh-erratum gate)
   - [ ] 03-03-swg-finalisation-PLAN.md — Merge swg.json into algorithms.json + SWG-vs-Levenshtein divergence test + identifier-similarity SWG column + bench.txt + llms.txt + docs/requirements.md §7.1.8 update (Raw* surface)
 
 
@@ -159,7 +159,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Foundation & Infrastructure | 0/TBD | Not started | - |
 | 2. Core Character Algorithms (six) | 0/7 | Not started | - |
-| 3. Smith-Waterman-Gotoh | 1/3 | In Progress|  |
+| 3. Smith-Waterman-Gotoh | 2/3 | In Progress|  |
 | 4. Remaining Character & Gestalt | 0/TBD | Not started | - |
 | 5. Q-gram Algorithms | 0/TBD | Not started | - |
 | 6. Token-based Algorithms | 0/TBD | Not started | - |
