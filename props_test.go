@@ -35,11 +35,32 @@ package fuzzymatch_test
 
 import (
 	"math"
+	"math/rand"
+	"reflect"
 	"testing"
 	"testing/quick"
 
 	"github.com/axonops/fuzzymatch"
 )
+
+// randShortASCII returns a random printable-ASCII string of length in [0, maxLen].
+// Used by property tests that require in-domain inputs (e.g. WR-04: OSA triangle
+// inequality holds only for short ASCII triples). Using a custom generator via
+// quick.Config.Values guarantees every drawn triple actually exercises the
+// property, replacing the prior return-true filter idiom that could silently
+// pass when all generated inputs were out-of-domain.
+func randShortASCII(r *rand.Rand, maxLen int) string {
+	n := r.Intn(maxLen + 1) // 0..maxLen inclusive
+	if n == 0 {
+		return ""
+	}
+	const printableLow, printableHigh = byte(0x20), byte(0x7e)
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = printableLow + byte(r.Intn(int(printableHigh-printableLow)+1))
+	}
+	return string(b)
+}
 
 // ---------------------------------------------------------------------------
 // Levenshtein property tests
@@ -312,10 +333,16 @@ func TestProp_JaroScore_NoNegativeZero(t *testing.T) {
 // Generation strategy: a random base string, b and c are same-length variants
 // produced by XOR-flipping bytes at controlled positions.
 func TestProp_HammingDistance_TriangleInequality_EqualLength(t *testing.T) {
+	// WR-04 companion fix: track that a meaningful number of non-empty bases
+	// were actually exercised. quick.Check defaults to 100 iterations; the
+	// previous "return true on empty" was correct but invisible to readers
+	// inspecting coverage.
+	exercised := 0
 	f := func(base string) bool {
 		if len(base) == 0 {
 			return true // trivially holds for empty strings
 		}
+		exercised++
 		// Build b and c as byte-modified copies of base (same length).
 		bBytes := []byte(base)
 		cBytes := []byte(base)
@@ -332,6 +359,12 @@ func TestProp_HammingDistance_TriangleInequality_EqualLength(t *testing.T) {
 	}
 	if err := quick.Check(f, nil); err != nil {
 		t.Errorf("HammingDistance triangle inequality violated for equal-length inputs: %v", err)
+	}
+	// At least one non-empty base must be drawn for the property to have been
+	// exercised. testing/quick's default generator overwhelmingly produces
+	// non-empty strings; this guard makes the coverage gate explicit.
+	if exercised == 0 {
+		t.Fatalf("HammingDistance triangle inequality: 0 non-empty bases drawn — generator misconfigured")
 	}
 }
 
@@ -440,28 +473,35 @@ func TestProp_DamerauLevenshteinOSAScore_NoNegativeZero(t *testing.T) {
 // Disposition: constrained-input form; see also damerau_osa.go godoc's note
 // that DamerauLevenshteinFull should be used when a strict metric is required.
 func TestProp_DamerauLevenshteinOSADistance_TriangleInequality_Constrained(t *testing.T) {
-	// Generate short ASCII strings by constraining length to ≤ 6 bytes.
-	// testing/quick's default generator can produce arbitrary strings; we filter.
+	// WR-04: Use a custom quick.Config.Values generator that always emits
+	// in-domain inputs (printable ASCII, length ≤ 6). The previous return-true
+	// filter could silently pass when every generated triple was out-of-domain.
+	// A counter records how many triples were actually exercised; the test
+	// fails if zero were drawn (defence against a misconfigured generator).
+	const maxLen = 6
+	exercised := 0
 	f := func(a, b, c string) bool {
-		const maxLen = 6
-		if len(a) > maxLen || len(b) > maxLen || len(c) > maxLen {
-			return true // skip inputs that exceed the constrained domain
-		}
-		// Restrict to printable ASCII to avoid pathological byte sequences.
-		for _, s := range []string{a, b, c} {
-			for i := 0; i < len(s); i++ {
-				if s[i] < 0x20 || s[i] >= 0x7f {
-					return true // skip non-printable / non-ASCII
-				}
-			}
-		}
+		exercised++
 		dAC := fuzzymatch.DamerauLevenshteinOSADistance(a, c)
 		dAB := fuzzymatch.DamerauLevenshteinOSADistance(a, b)
 		dBC := fuzzymatch.DamerauLevenshteinOSADistance(b, c)
 		return dAC <= dAB+dBC
 	}
-	if err := quick.Check(f, nil); err != nil {
+	cfg := &quick.Config{
+		Values: func(args []reflect.Value, r *rand.Rand) {
+			args[0] = reflect.ValueOf(randShortASCII(r, maxLen))
+			args[1] = reflect.ValueOf(randShortASCII(r, maxLen))
+			args[2] = reflect.ValueOf(randShortASCII(r, maxLen))
+		},
+	}
+	if err := quick.Check(f, cfg); err != nil {
 		t.Errorf("DamerauLevenshteinOSADistance triangle inequality violated (constrained short-ASCII): %v", err)
+	}
+	// Guard against silent-pass: quick.Check defaults to 100 iterations. If
+	// zero triples were actually exercised, the test would have passed without
+	// running the property — which is the WR-04 defect being closed.
+	if exercised == 0 {
+		t.Fatalf("DamerauLevenshteinOSADistance triangle inequality: 0 triples exercised — generator misconfigured")
 	}
 }
 
