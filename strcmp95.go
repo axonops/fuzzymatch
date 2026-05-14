@@ -19,7 +19,14 @@
 //     Proceedings of the Section on Survey Research Methods, ASA: 467-472, §3.
 //   - Cross-validation reference: U.S. Census Bureau (1995) strcmp95.c
 //     (public domain — U.S. Government work; consulted ONLY for reference
-//     vectors per .claude/skills/algorithm-licensing-standards).
+//     vectors per .claude/skills/algorithm-licensing-standards). Read via
+//     the richmilne/JaroWinkler GitHub mirror
+//     (https://github.com/richmilne/JaroWinkler/blob/master/jaro/strcmp95.c),
+//     which redistributes the underlying U.S. Government public-domain
+//     strcmp95.c; consulted ONLY for the algorithm structure (step ordering
+//     of the four Winkler 1994 adjustments) and the 36-pair similar-
+//     character table — no code copied, no variable names or comment
+//     phrasing derived.
 //   - OpenRefine Strcmp95.java (Apache-2.0) consulted ONLY for prose-level
 //     tie-breaks in Winkler 1994; no code copied.
 //
@@ -90,7 +97,9 @@
 //
 //   Primary:          Winkler 1994 TR-2 paper.
 //   Cross-validation: Census Bureau strcmp95.c (public domain — U.S.
-//                     Government work).
+//                     Government work), read via the richmilne/JaroWinkler
+//                     GitHub mirror (algorithm structure + 36-pair similar-
+//                     character table only — no code copied).
 //   Tie-break:        OpenRefine Strcmp95.java (Apache-2.0) for prose
 //                     ambiguities in Winkler 1994.
 //   GPL/LGPL:         none consulted.
@@ -348,7 +357,7 @@ func strcmp95Bytes(a, b string, la, lb, w int, matchA, matchB []bool) float64 { 
 			bj++
 		}
 	}
-	t /= 2 // each mismatch was counted in both directions
+	t /= 2 // Jaro transposition count = (mismatched matched-pairs) / 2 — Jaro 1989 canonical T/2 halving
 
 	// ---- Step 3: similar-character credit pass (Winkler 1994 §3) ----
 	// Pair each UNMATCHED position in a with an UNMATCHED position in b (in

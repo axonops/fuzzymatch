@@ -234,7 +234,7 @@ func jaroBytes(a, b string, la, lb, w int, matchA, matchB []bool) float64 { //no
 			j++
 		}
 	}
-	t /= 2 // each mismatch is counted in both directions
+	t /= 2 // Jaro transposition count = (mismatched matched-pairs) / 2 — Jaro 1989 canonical T/2 halving
 
 	// Three-term Jaro formula with explicit parenthesisation and left-to-right
 	// float reduction (determinism-standards DET-06; docs/requirements.md §13).
@@ -308,7 +308,7 @@ func jaroRunes(ra, rb []rune) float64 { //nolint:gocyclo // Jaro match-flag algo
 			j++
 		}
 	}
-	t /= 2
+	t /= 2 // Jaro transposition count = (mismatched matched-pairs) / 2 — Jaro 1989 canonical T/2 halving
 
 	fm := float64(m)
 	return (fm/float64(la) + fm/float64(lb) + float64(m-t)/fm) / 3.0
