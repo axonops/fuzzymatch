@@ -285,6 +285,24 @@ func TestSmithWatermanGotoh_GapSplitCanary(t *testing.T) {
 	}
 }
 
+// TestSmithWatermanGotoh_ScoreWithHighMatch_ClampsUpper verifies that the
+// upper clamp (n > 1 → return 1.0) actually engages when the raw score
+// strictly exceeds min(len(a), len(b)). With Match=10 the local alignment
+// finds enough matches to easily exceed min(6, 7) = 6; the clamp returns
+// 1.0. Direct unit-test exercise of swgClampNormalise's upper branch.
+func TestSmithWatermanGotoh_ScoreWithHighMatch_ClampsUpper(t *testing.T) {
+	custom := fuzzymatch.SWGParams{Match: 10.0, Mismatch: -1.0, GapOpen: -1.5, GapExtend: -0.5}
+	// Non-identical pair so we don't hit the identity short-circuit.
+	got := fuzzymatch.SmithWatermanGotohScoreWithParams("kitten", "sitting", custom)
+	if got != 1.0 {
+		t.Errorf("SmithWatermanGotohScoreWithParams(kitten, sitting, Match=10) = %g; want 1.0 (upper clamp engaged)", got)
+	}
+	rawGot := fuzzymatch.SmithWatermanGotohRawScoreWithParams("kitten", "sitting", custom)
+	if rawGot <= 6.0 {
+		t.Errorf("SmithWatermanGotohRawScoreWithParams(kitten, sitting, Match=10) = %g; want > 6.0 (otherwise the upper clamp isn't being exercised)", rawGot)
+	}
+}
+
 // TestSmithWatermanGotoh_RawScore_UnclampedNegative verifies that the
 // *RawScore surface is NOT clamped to [0, 1] — for inputs where mismatch
 // penalties would dominate, the raw value can be negative (or below the
