@@ -125,15 +125,42 @@ var strcmp95SimilarChars = [...]struct {
 	a, b byte
 	sim  float64
 }{
-	{'A', 'E', strcmp95SimilarCredit}, {'A', 'I', strcmp95SimilarCredit}, {'A', 'O', strcmp95SimilarCredit}, {'A', 'U', strcmp95SimilarCredit},
-	{'B', 'V', strcmp95SimilarCredit}, {'E', 'I', strcmp95SimilarCredit}, {'E', 'O', strcmp95SimilarCredit}, {'E', 'U', strcmp95SimilarCredit},
-	{'I', 'O', strcmp95SimilarCredit}, {'I', 'U', strcmp95SimilarCredit}, {'O', 'U', strcmp95SimilarCredit}, {'I', 'Y', strcmp95SimilarCredit},
-	{'E', 'Y', strcmp95SimilarCredit}, {'C', 'G', strcmp95SimilarCredit}, {'E', 'F', strcmp95SimilarCredit}, {'W', 'U', strcmp95SimilarCredit},
-	{'W', 'V', strcmp95SimilarCredit}, {'X', 'K', strcmp95SimilarCredit}, {'S', 'Z', strcmp95SimilarCredit}, {'X', 'S', strcmp95SimilarCredit},
-	{'Q', 'C', strcmp95SimilarCredit}, {'U', 'V', strcmp95SimilarCredit}, {'M', 'N', strcmp95SimilarCredit}, {'L', 'I', strcmp95SimilarCredit},
-	{'Q', 'O', strcmp95SimilarCredit}, {'P', 'R', strcmp95SimilarCredit}, {'I', 'J', strcmp95SimilarCredit}, {'2', 'Z', strcmp95SimilarCredit},
-	{'5', 'S', strcmp95SimilarCredit}, {'8', 'B', strcmp95SimilarCredit}, {'1', 'I', strcmp95SimilarCredit}, {'1', 'L', strcmp95SimilarCredit},
-	{'0', 'O', strcmp95SimilarCredit}, {'0', 'Q', strcmp95SimilarCredit}, {'C', 'K', strcmp95SimilarCredit}, {'G', 'J', strcmp95SimilarCredit},
+	{'A', 'E', strcmp95SimilarCredit},
+	{'A', 'I', strcmp95SimilarCredit},
+	{'A', 'O', strcmp95SimilarCredit},
+	{'A', 'U', strcmp95SimilarCredit},
+	{'B', 'V', strcmp95SimilarCredit},
+	{'E', 'I', strcmp95SimilarCredit},
+	{'E', 'O', strcmp95SimilarCredit},
+	{'E', 'U', strcmp95SimilarCredit},
+	{'I', 'O', strcmp95SimilarCredit},
+	{'I', 'U', strcmp95SimilarCredit},
+	{'O', 'U', strcmp95SimilarCredit},
+	{'I', 'Y', strcmp95SimilarCredit},
+	{'E', 'Y', strcmp95SimilarCredit},
+	{'C', 'G', strcmp95SimilarCredit},
+	{'E', 'F', strcmp95SimilarCredit},
+	{'W', 'U', strcmp95SimilarCredit},
+	{'W', 'V', strcmp95SimilarCredit},
+	{'X', 'K', strcmp95SimilarCredit},
+	{'S', 'Z', strcmp95SimilarCredit},
+	{'X', 'S', strcmp95SimilarCredit},
+	{'Q', 'C', strcmp95SimilarCredit},
+	{'U', 'V', strcmp95SimilarCredit},
+	{'M', 'N', strcmp95SimilarCredit},
+	{'L', 'I', strcmp95SimilarCredit},
+	{'Q', 'O', strcmp95SimilarCredit},
+	{'P', 'R', strcmp95SimilarCredit},
+	{'I', 'J', strcmp95SimilarCredit},
+	{'2', 'Z', strcmp95SimilarCredit},
+	{'5', 'S', strcmp95SimilarCredit},
+	{'8', 'B', strcmp95SimilarCredit},
+	{'1', 'I', strcmp95SimilarCredit},
+	{'1', 'L', strcmp95SimilarCredit},
+	{'0', 'O', strcmp95SimilarCredit},
+	{'0', 'Q', strcmp95SimilarCredit},
+	{'C', 'K', strcmp95SimilarCredit},
+	{'G', 'J', strcmp95SimilarCredit},
 }
 
 // strcmp95ToUpper returns the upper-case form of b for ASCII letters,
@@ -396,7 +423,7 @@ func strcmp95Bytes(a, b string, la, lb, w int, matchA, matchB []bool) float64 { 
 		for prefix < maxPfx && a[prefix] == b[prefix] {
 			prefix++
 		}
-		j = j + float64(prefix)*winklerPrefixScale*(1.0-j)
+		j += float64(prefix) * winklerPrefixScale * (1.0 - j)
 	}
 
 	// ---- Step 6: long-string adjustment (Winkler 1994 §3) ----
@@ -419,7 +446,7 @@ func strcmp95Bytes(a, b string, la, lb, w int, matchA, matchB []bool) float64 { 
 	if minLen > 4 && m > prefix+1 && 2*m >= minLen+prefix {
 		denom := float64(la+lb-2*prefix) + float64(m)
 		if denom > 0 {
-			j = j + ((1.0 - j) * float64(m-prefix-1) / denom)
+			j += (1.0 - j) * float64(m-prefix-1) / denom
 		}
 	}
 
