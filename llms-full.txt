@@ -92,6 +92,66 @@ func AlgoIDs() []AlgoID
 
 Metaphone 3 (Philips 2009, U.S. Patent 7,440,941) is **explicitly EXCLUDED**. See `docs/faq.md` for the rationale.
 
+### Phase 4 algorithm surface (character + gestalt)
+
+The Phase 4 plans land seven new exported functions across three
+algorithms (Strcmp95 — Winkler 1994; LCSStr — Wagner-Fischer 1974;
+Ratcliff-Obershelp — Dr. Dobb's 1988). One-line rationales:
+
+```go
+// Strcmp95Score returns Winkler 1994's enhanced similarity in [0, 1].
+// Layers similar-character credit + prefix boost + long-string
+// adjustment atop Jaro-Winkler. ASCII-only — no *Runes variant per the
+// Winkler 1994 paper's letter-pair table. Strcmp95Score(a, b) >=
+// JaroWinklerScore(a, b) holds on every input (hierarchy invariant).
+func Strcmp95Score(a, b string) float64
+```
+
+```go
+// LongestCommonSubstring returns the longest contiguous common substring
+// of a and b (byte path; leftmost-in-a on ties). Empty string on no
+// overlap or one-empty input.
+func LongestCommonSubstring(a, b string) string
+```
+
+```go
+// LongestCommonSubstringRunes returns the longest contiguous common
+// substring of a and b under rune semantics (multi-byte UTF-8 safe).
+// Leftmost-in-a on ties.
+func LongestCommonSubstringRunes(a, b string) string
+```
+
+```go
+// LCSStrScore returns the Sørensen-Dice-normalised longest-common-
+// substring similarity in [0, 1]: 2·len(lcs) / (len(a) + len(b)). Byte
+// path; ASCII fast-path zero-alloc on inputs <= 64 bytes.
+func LCSStrScore(a, b string) float64
+```
+
+```go
+// LCSStrScoreRunes returns the LCSStr score under rune semantics. Use
+// for multi-byte UTF-8 input where codepoint-level matching is required.
+func LCSStrScoreRunes(a, b string) float64
+```
+
+```go
+// RatcliffObershelpScore returns the Ratcliff-Obershelp gestalt-
+// pattern-matching similarity in [0, 1], byte-for-byte equivalent to
+// Python's difflib.SequenceMatcher(autojunk=False).ratio() within 1e-9.
+// INTENTIONALLY asymmetric in argument order — mirrors difflib's
+// noncommutative ratio() per CPython bpo-37004 (OQ-1 resolution locked
+// 2026-05-14): RatcliffObershelpScore(a, b) may differ from
+// RatcliffObershelpScore(b, a).
+func RatcliffObershelpScore(a, b string) float64
+```
+
+```go
+// RatcliffObershelpScoreRunes returns the Ratcliff-Obershelp score
+// under rune semantics. Identity short-circuit fires BEFORE []rune
+// allocation; zero-alloc on the identity path.
+func RatcliffObershelpScoreRunes(a, b string) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main demonstrates all seven Phase 2 + 3 character-based similarity
-// algorithms from github.com/axonops/fuzzymatch side-by-side on database
-// column-name identifier pairs.
+// Package main demonstrates all ten Phase 2 + 3 + 4 character-based and
+// gestalt similarity algorithms from github.com/axonops/fuzzymatch
+// side-by-side on database column-name identifier pairs.
 //
 // The example was designed for axonops/audit, the primary downstream
 // consumer of fuzzymatch, where "semantic equivalence detection" across
@@ -23,9 +23,9 @@
 // or abbreviation style.
 //
 // Each row in the printed table represents a pair of database identifiers;
-// each column represents one of the seven algorithms (Phase 2 six +
-// Smith-Waterman-Gotoh). Cell values are similarity scores in [0.0, 1.0]
-// rounded to 4 decimal places.
+// each column represents one of the ten algorithms (Phase 2 six +
+// Smith-Waterman-Gotoh + Strcmp95 + LCSStr + Ratcliff-Obershelp). Cell
+// values are similarity scores in [0.0, 1.0] rounded to 4 decimal places.
 //
 // Note: CONTEXT.md <deferred> identifier-similarity format spec'd
 // `ERR` for Hamming length-mismatch BEFORE the Hamming silent-zero
@@ -66,10 +66,15 @@ var pairs = []struct{ a, b string }{
 	{"is_deleted", "is_active"},
 }
 
-// algorithms is the ordered list of seven Phase 2 + 3 scoring functions
+// algorithms is the ordered list of ten Phase 2 + 3 + 4 scoring functions
 // with their display names. The order matches the column layout in the
 // printed table: Levenshtein, DL-OSA, DL-Full, Hamming, Jaro, Jaro-Winkler,
-// SWG (Smith-Waterman-Gotoh).
+// SWG (Smith-Waterman-Gotoh), Strcmp95, LCSStr, RO (Ratcliff-Obershelp).
+//
+// "RO" is the short label for Ratcliff-Obershelp — the function name
+// "RatcliffObershelpScore" overflows the algoWidth=13 column budget by
+// several characters, so the column header uses the conventional
+// abbreviation. The Go reference (godoc / llms.txt) carries the full name.
 var algorithms = []struct {
 	name string
 	fn   func(a, b string) float64
@@ -81,6 +86,9 @@ var algorithms = []struct {
 	{"Jaro", fuzzymatch.JaroScore},
 	{"Jaro-Winkler", fuzzymatch.JaroWinklerScore},
 	{"SWG", fuzzymatch.SmithWatermanGotohScore},
+	{"Strcmp95", fuzzymatch.Strcmp95Score},
+	{"LCSStr", fuzzymatch.LCSStrScore},
+	{"RO", fuzzymatch.RatcliffObershelpScore}, // RO = Ratcliff-Obershelp (column-width compact label)
 }
 
 func main() {

@@ -166,7 +166,10 @@ func TestGolden_Algorithms_Merge(t *testing.T) {
 		"_staging/hamming.json",
 		"_staging/jaro.json",
 		"_staging/jarowinkler.json",
+		"_staging/lcsstr.json",
 		"_staging/levenshtein.json",
+		"_staging/ratcliff_obershelp.json",
+		"_staging/strcmp95.json",
 		"_staging/swg.json",
 	}
 	var allEntries []goldenAlgorithmEntry

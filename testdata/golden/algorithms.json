@@ -198,6 +198,55 @@
       "expected_score": 0
     },
     {
+      "name": "LCSStr_both_empty",
+      "algorithm": "LCSStr",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "LCSStr_http_request_containment",
+      "algorithm": "LCSStr",
+      "a": "http_request",
+      "b": "http_request_header_fields",
+      "expected_score": 0.631578947368421
+    },
+    {
+      "name": "LCSStr_identical",
+      "algorithm": "LCSStr",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "LCSStr_kitten_sitting",
+      "algorithm": "LCSStr",
+      "a": "kitten",
+      "b": "sitting",
+      "expected_score": 0.46153846153846156
+    },
+    {
+      "name": "LCSStr_leftmost_tie_break",
+      "algorithm": "LCSStr",
+      "a": "abcXYZabc",
+      "b": "abc",
+      "expected_score": 0.5
+    },
+    {
+      "name": "LCSStr_no_overlap",
+      "algorithm": "LCSStr",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "LCSStr_one_empty",
+      "algorithm": "LCSStr",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
+    },
+    {
       "name": "Levenshtein_empty_empty",
       "algorithm": "Levenshtein",
       "a": "",
@@ -224,6 +273,55 @@
       "a": "saturday",
       "b": "sunday",
       "expected_score": 0.625
+    },
+    {
+      "name": "RatcliffObershelp_both_empty",
+      "algorithm": "RatcliffObershelp",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "RatcliffObershelp_gestalt_paper",
+      "algorithm": "RatcliffObershelp",
+      "a": "GESTALT",
+      "b": "GESTALT_PATTERN_MATCHING",
+      "expected_score": 0.45161290322580644
+    },
+    {
+      "name": "RatcliffObershelp_identical",
+      "algorithm": "RatcliffObershelp",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "RatcliffObershelp_one_empty",
+      "algorithm": "RatcliffObershelp",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "RatcliffObershelp_substring_middle",
+      "algorithm": "RatcliffObershelp",
+      "a": "abcdef",
+      "b": "xyzabcdefuvw",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "RatcliffObershelp_tide_diet_asymmetric",
+      "algorithm": "RatcliffObershelp",
+      "a": "tide",
+      "b": "diet",
+      "expected_score": 0.25
+    },
+    {
+      "name": "RatcliffObershelp_wikimedia_wikimania",
+      "algorithm": "RatcliffObershelp",
+      "a": "WIKIMEDIA",
+      "b": "WIKIMANIA",
+      "expected_score": 0.7777777777777778
     },
     {
       "name": "SmithWatermanGotoh_both_empty",
@@ -266,6 +364,55 @@
       "a": "http_request",
       "b": "http_request_header_fields",
       "expected_score": 1
+    },
+    {
+      "name": "Strcmp95_DIXON_DICKSONX",
+      "algorithm": "Strcmp95",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "expected_score": 0.8516923076923077
+    },
+    {
+      "name": "Strcmp95_DWAYNE_DUANE",
+      "algorithm": "Strcmp95",
+      "a": "DWAYNE",
+      "b": "DUANE",
+      "expected_score": 0.8925384615384615
+    },
+    {
+      "name": "Strcmp95_HAMINGTON_HAMMINGTON",
+      "algorithm": "Strcmp95",
+      "a": "HAMINGTON",
+      "b": "HAMMINGTON",
+      "expected_score": 0.9819696969696969
+    },
+    {
+      "name": "Strcmp95_MARTHA_MARHTA",
+      "algorithm": "Strcmp95",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "expected_score": 0.9675925925925926
+    },
+    {
+      "name": "Strcmp95_both_empty",
+      "algorithm": "Strcmp95",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Strcmp95_identical",
+      "algorithm": "Strcmp95",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "Strcmp95_one_empty",
+      "algorithm": "Strcmp95",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
     }
   ]
 }

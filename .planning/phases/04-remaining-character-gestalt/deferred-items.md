@@ -2,6 +2,8 @@
 
 Out-of-scope discoveries logged during execution per gsd-executor.md scope-boundary rule.
 
-## Discovered during Plan 04-04 (Ratcliff-Obershelp cross-validation)
+## Resolved
 
-- **strcmp95.go fails `gofmt -s`** — pre-existing from plan 04-01 (commit 7fb6319). Not touched by plan 04-04. Should be auto-fixed by `make fmt` in a small follow-up `style(04)` commit OR resolved in plan 04-05 finalisation when the file is touched for other reasons. Detection: `make fmt-check` reports `strcmp95.go` needs reformat.
+- **strcmp95.go fails `gofmt -s`** — pre-existing from plan 04-01 (commit 7fb6319). RESOLVED in plan 04-05 finalisation: `gofmt -s -w strcmp95.go` applied; the comment-continuation line under "Strcmp95Score — Jaro-Winkler + ..." was reformatted to the canonical gofmt -s indentation. `make fmt-check` exits 0.
+
+No outstanding items.

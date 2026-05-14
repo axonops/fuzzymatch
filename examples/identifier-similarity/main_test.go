@@ -38,15 +38,15 @@ import (
 // want is the committed, byte-stable expected stdout of the example program.
 // Regenerate by running `go run .` and pasting the output here.
 // Any diff in this constant requires a deliberate, reviewed update.
-const want = `Pair (a / b)                      Levenshtein       DL-OSA      DL-Full      Hamming         Jaro Jaro-Winkler          SWG
----------------------------------------------------------------------------------------------------------------------------
-user_id / userId                       0.7143       0.7143       0.7143       0.0000       0.8492       0.9095       0.6667
-created_at / creationTimestamp         0.4118       0.4118       0.4118       0.0000       0.7152       0.8291       0.5000
-status / state                         0.6667       0.6667       0.6667       0.0000       0.8222       0.8933       0.8000
-email / e_mail                         0.8333       0.8333       0.8333       0.0000       0.9444       0.9500       0.8000
-org_id / organisation_id               0.4000       0.4000       0.4000       0.0000       0.6444       0.6444       0.5000
-latitude / longitude                   0.6667       0.6667       0.6667       0.0000       0.7500       0.7750       0.6250
-is_deleted / is_active                 0.4000       0.4000       0.4000       0.0000       0.6185       0.6185       0.3333
+const want = `Pair (a / b)                      Levenshtein       DL-OSA      DL-Full      Hamming         Jaro Jaro-Winkler          SWG     Strcmp95       LCSStr           RO
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+user_id / userId                       0.7143       0.7143       0.7143       0.0000       0.8492       0.9095       0.6667       0.9095       0.6154       0.7692
+created_at / creationTimestamp         0.4118       0.4118       0.4118       0.0000       0.7152       0.8291       0.5000       0.8481       0.3704       0.5185
+status / state                         0.6667       0.6667       0.6667       0.0000       0.8222       0.8933       0.8000       0.9153       0.7273       0.7273
+email / e_mail                         0.8333       0.8333       0.8333       0.0000       0.9444       0.9500       0.8000       0.9607       0.7273       0.9091
+org_id / organisation_id               0.4000       0.4000       0.4000       0.0000       0.6444       0.6444       0.5000       0.6871       0.2857       0.5714
+latitude / longitude                   0.6667       0.6667       0.6667       0.0000       0.7500       0.7750       0.6250       0.8370       0.5882       0.7059
+is_deleted / is_active                 0.4000       0.4000       0.4000       0.0000       0.6185       0.6185       0.3333       0.7232       0.3158       0.4211
 `
 
 // TestExample_Output captures the example's stdout by redirecting os.Stdout
