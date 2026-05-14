@@ -44,6 +44,13 @@ scan / Extract (Phases 9–10).
 - const AlgoMRA AlgoID
 - const AlgoRatcliffObershelp AlgoID
 
+### Levenshtein edit-distance similarity
+
+- func LevenshteinDistance(a, b string) int
+- func LevenshteinDistanceRunes(a, b string) int
+- func LevenshteinScore(a, b string) float64
+- func LevenshteinScoreRunes(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
