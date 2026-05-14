@@ -30,6 +30,7 @@ package steps
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/cucumber/godog"
 
@@ -345,6 +346,60 @@ func (ctx *AlgorithmContext) bothStrcmp95ScoresShouldBeEqual() error {
 }
 
 // ---------------------------------------------------------------------------
+// Ratcliff-Obershelp step definitions (plan 04-03)
+//
+// Only the single Score step is needed — the symmetry scenario is OMITTED
+// per OQ-1 resolution (LOCKED 2026-05-14), so no "second" / "equal" steps
+// exist. The asymmetric-by-design semantics are verified by unit tests
+// (TestRatcliffObershelp_AsymmetryPin) and cross-algorithm consistency
+// tests in plan 04-05.
+// ---------------------------------------------------------------------------
+
+// roAutojunkA and roAutojunkB are the 205-char constructed inputs used by
+// the autojunk-sensitive BDD scenario. Constructed as:
+//
+//	roAutojunkA = "a"*100 + "x"*5 + "a"*100   (205 chars)
+//	roAutojunkB = "a"*50  + "y"*5 + "a"*150   (205 chars)
+//
+// These trigger Python difflib's autojunk heuristic when len(b) >= 200 and
+// a character appears in >= 1% of positions — both true here. Pinning the
+// expected score (~0.7317 from difflib(autojunk=False).ratio()) proves the
+// Go implementation does NOT have an autojunk-like heuristic enabled
+// (RESEARCH.md Pitfall 2 closure).
+//
+// Computed via strings.Repeat at package-init time so the character counts
+// are arithmetic — no hand-counting required. (The values are package-
+// scoped var bindings, not const, because strings.Repeat is a function call
+// and therefore not a constant expression in Go.)
+var (
+	roAutojunkA = strings.Repeat("a", 100) + strings.Repeat("x", 5) + strings.Repeat("a", 100) // 205 chars
+	roAutojunkB = strings.Repeat("a", 50) + strings.Repeat("y", 5) + strings.Repeat("a", 150)  // 205 chars
+)
+
+// iComputeTheRatcliffObershelpScoreBetween computes RatcliffObershelpScore
+// (a, b) and stores the result in lastScore. Ratcliff-Obershelp is the
+// difflib-equivalent (matches Python difflib.SequenceMatcher(autojunk=False).
+// ratio() within 1e-9). Only the dispatched byte-path score function is
+// exercised via BDD; the rune-path variant RatcliffObershelpScoreRunes is
+// covered by unit tests.
+func (ctx *AlgorithmContext) iComputeTheRatcliffObershelpScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.RatcliffObershelpScore(a, b)
+	return nil
+}
+
+// iComputeTheRatcliffObershelpScoreForTheAutojunkSensitivePair computes
+// RatcliffObershelpScore on the 205-char autojunk-sensitive constructed
+// inputs (roAutojunkA / roAutojunkB) and stores the result in lastScore.
+// Used by the 200+-char autojunk-sensitive scenario in the BDD feature
+// file. The constructed pair lives as a Go constant rather than in the
+// Gherkin file because 205-character literals in Examples tables are
+// hard to read.
+func (ctx *AlgorithmContext) iComputeTheRatcliffObershelpScoreForTheAutojunkSensitivePair() error {
+	ctx.lastScore = fuzzymatch.RatcliffObershelpScore(roAutojunkA, roAutojunkB)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 // LCSStr step definitions (plan 04-02)
 // ---------------------------------------------------------------------------
 
@@ -539,5 +594,19 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both LCSStr scores should be equal$`,
 		a.bothLCSStrScoresShouldBeEqual,
+	)
+
+	// Ratcliff-Obershelp step definitions (plan 04-03). NO "second" / "equal"
+	// steps — the symmetry scenario is OMITTED per OQ-1 (RO is asymmetric
+	// by design). The autojunk-sensitive scenario uses a dedicated step that
+	// references 205-char Go constants rather than embedding the long inputs
+	// in the Gherkin Examples table.
+	ctx.Step(
+		`^I compute the Ratcliff-Obershelp score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheRatcliffObershelpScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the Ratcliff-Obershelp score for the autojunk-sensitive pair$`,
+		a.iComputeTheRatcliffObershelpScoreForTheAutojunkSensitivePair,
 	)
 }
