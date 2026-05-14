@@ -281,14 +281,24 @@ func TestDispatch_JaroWinklerRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_SmithWatermanGotohRegistered asserts that
+// dispatch[AlgoSmithWatermanGotoh] (slot 6) is non-nil after Phase 3 plan
+// 03-01 registers SmithWatermanGotohScore.
+func TestDispatch_SmithWatermanGotohRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoSmithWatermanGotoh)) {
+		t.Errorf("dispatch[AlgoSmithWatermanGotoh] (%d) is nil — dispatch_swg.go must register SmithWatermanGotohScore at package load time",
+			int(fuzzymatch.AlgoSmithWatermanGotoh))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
 // AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
-// (slot 4), and AlgoJaroWinkler (slot 5) are still nil at the Phase 2 Wave
-// 1+02-02+02-03+02-04+02-05+02-06 state.
+// (slot 4), AlgoJaroWinkler (slot 5), and AlgoSmithWatermanGotoh (slot 6 —
+// registered by Phase 3 plan 03-01) are still nil.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05,
-	// and plan 02-06 respectively; all others nil.
+	// plan 02-06, and plan 03-01 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -296,16 +306,17 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoHamming):                true,
 		int(fuzzymatch.AlgoJaro):                   true,
 		int(fuzzymatch.AlgoJaroWinkler):            true,
+		int(fuzzymatch.AlgoSmithWatermanGotoh):     true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05, or plan 02-06)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05, plan 02-06, or plan 03-01)", i)
 			}
 		} else {
 			if !isNil {
-				t.Errorf("dispatch[%d] is non-nil; expected nil until Wave 2 registers slot %d", i, i)
+				t.Errorf("dispatch[%d] is non-nil; expected nil until a later plan registers slot %d", i, i)
 			}
 		}
 	}
