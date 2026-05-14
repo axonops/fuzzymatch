@@ -42,6 +42,7 @@
 package fuzzymatch_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/axonops/fuzzymatch"
@@ -222,5 +223,148 @@ func TestCrossAlgorithm_SWG_Levenshtein_SubstringDivergence(t *testing.T) {
 	if !(gotSWG > gotLev) {
 		t.Errorf("SWG (%v) must score STRICTLY higher than Levenshtein (%v) on substring-containment pair %q/%q (local-vs-global divergence)",
 			gotSWG, gotLev, a, b)
+	}
+}
+
+// TestCrossAlgorithm_Strcmp95_AtLeastJaroWinkler asserts the algorithm-
+// hierarchy invariant from CONTEXT.md §2: Strcmp95 is Jaro-Winkler PLUS
+// similar-character credit, prefix boost, and long-string adjustment. Each
+// adjustment can only ADD to the underlying Jaro-Winkler score — it must
+// never subtract. Therefore Strcmp95(a, b) >= JaroWinkler(a, b) on every
+// input pair.
+//
+// This cross-algorithm test is the catalog-wide counterpart to the
+// in-package property test TestProp_Strcmp95Score_AtLeastJaroWinkler (which
+// uses testing/quick over arbitrary inputs). The hand-pinned cases below
+// fire the adjustments deterministically:
+//   - MARTHA/MARHTA  — Winkler's 1990 canonical pair; prefix boost fires
+//   - DWAYNE/DUANE   — similar-character credit fires (W↔U)
+//   - DIXON/DICKSONX — similar-character credit fires (C↔K) AND
+//     long-string adjustment fires (len > 4 after match)
+//
+// RESEARCH.md Pitfall 1 warning sign #3 closure.
+func TestCrossAlgorithm_Strcmp95_AtLeastJaroWinkler(t *testing.T) {
+	pairs := [][2]string{
+		{"MARTHA", "MARHTA"},
+		{"DWAYNE", "DUANE"},
+		{"DIXON", "DICKSONX"},
+	}
+	for _, p := range pairs {
+		a, b := p[0], p[1]
+		gotStrcmp := fuzzymatch.Strcmp95Score(a, b)
+		gotJW := fuzzymatch.JaroWinklerScore(a, b)
+		if !(gotStrcmp >= gotJW) {
+			t.Errorf("Strcmp95Score(%q, %q) = %v < JaroWinklerScore(%q, %q) = %v (Strcmp95 adjustments must only ADD)",
+				a, b, gotStrcmp, a, b, gotJW)
+		}
+	}
+}
+
+// TestCrossAlgorithm_LCSStr_AtLeastLevenshtein_SubstringContainment asserts
+// the LCSStr-vs-Levenshtein divergence on a substring-containment input:
+// LCSStr finds the contained substring and credits its full length; Levenshtein
+// must pay the deletion cost of every uncovered character.
+//
+//   - LCSStrScore("http_request", "http_request_header_fields") ≈ 0.6316
+//     (2 × 12 contained chars / (12 + 26))
+//   - LevenshteinScore(...) ≈ 0.46  (14 edits over max-length 26)
+//
+// LCSStr therefore scores AT LEAST as high as Levenshtein on inputs where one
+// is a contiguous substring of the other. The relation may not hold on
+// non-containment inputs (Levenshtein can credit interleaved single-character
+// matches that LCSStr ignores), so the assertion is hand-pinned to a
+// containment pair rather than checked via testing/quick.
+func TestCrossAlgorithm_LCSStr_AtLeastLevenshtein_SubstringContainment(t *testing.T) {
+	a, b := "http_request", "http_request_header_fields"
+	gotLCS := fuzzymatch.LCSStrScore(a, b)
+	gotLev := fuzzymatch.LevenshteinScore(a, b)
+	if !(gotLCS >= gotLev) {
+		t.Errorf("LCSStrScore(%q, %q) = %v < LevenshteinScore(%q, %q) = %v (LCSStr must credit substring containment at least as much as Levenshtein)",
+			a, b, gotLCS, a, b, gotLev)
+	}
+}
+
+// TestCrossAlgorithm_RatcliffObershelp_PinnedDrDobbs pins the canonical
+// Dr. Dobb's 1988 reference vector WIKIMEDIA/WIKIMANIA at the
+// difflib(autojunk=False).ratio() value 0.7777777777777778 (= 14/18). This
+// is the Phase 3 WR-03 closure: a numerical-regression pin OUTSIDE the
+// cross-validation corpus, so a regression that silently mutates the corpus
+// alone cannot mask drift.
+func TestCrossAlgorithm_RatcliffObershelp_PinnedDrDobbs(t *testing.T) {
+	const want = 0.7777777777777778 // difflib.SequenceMatcher(autojunk=False, a="WIKIMEDIA", b="WIKIMANIA").ratio()
+	const tol = 1e-9
+	got := fuzzymatch.RatcliffObershelpScore("WIKIMEDIA", "WIKIMANIA")
+	if math.Abs(got-want) > tol {
+		t.Errorf("RatcliffObershelpScore(\"WIKIMEDIA\", \"WIKIMANIA\") = %.17f; want %.17f within %g",
+			got, want, tol)
+	}
+}
+
+// TestCrossAlgorithm_RatcliffObershelp_PinnedAgainstDifflib is the
+// load-bearing divergence-pin: it picks a pair where RatcliffObershelp
+// VISIBLY differs from both Levenshtein AND Jaro-Winkler, then asserts
+// byte-for-byte agreement with difflib(autojunk=False).ratio(). This proves
+// the RO surface is the difflib-equivalent and not a near-clone of another
+// catalogue algorithm.
+//
+// For "GESTALT"/"GESTALT_PATTERN_MATCHING":
+//   - RatcliffObershelpScore ≈ 0.45161290322580644 (= 14/31; matches difflib)
+//   - LevenshteinScore       ≈ 0.29166666666666663 (≈ 17 edits / 24)
+//   - JaroWinklerScore       ≈ 0.85833333333333339 (strong prefix-boost)
+//
+// The divergences are wide (RO differs from Levenshtein by ~0.16 and from
+// Jaro-Winkler by ~0.40), well above any sub-ULP tolerance.
+func TestCrossAlgorithm_RatcliffObershelp_PinnedAgainstDifflib(t *testing.T) {
+	const (
+		// Pinned difflib value: difflib.SequenceMatcher(autojunk=False,
+		//   a="GESTALT", b="GESTALT_PATTERN_MATCHING").ratio() = 14/31.
+		wantDifflib = 0.45161290322580644
+		tolDifflib  = 1e-9
+		tolDiverge  = 1e-6
+	)
+	a, b := "GESTALT", "GESTALT_PATTERN_MATCHING"
+	gotRO := fuzzymatch.RatcliffObershelpScore(a, b)
+	gotLev := fuzzymatch.LevenshteinScore(a, b)
+	gotJW := fuzzymatch.JaroWinklerScore(a, b)
+
+	// 1. Divergence: RO must differ from BOTH Levenshtein and Jaro-Winkler.
+	if math.Abs(gotRO-gotLev) <= tolDiverge {
+		t.Errorf("RatcliffObershelpScore(%q, %q) = %v converges with LevenshteinScore = %v (expected visible divergence)",
+			a, b, gotRO, gotLev)
+	}
+	if math.Abs(gotRO-gotJW) <= tolDiverge {
+		t.Errorf("RatcliffObershelpScore(%q, %q) = %v converges with JaroWinklerScore = %v (expected visible divergence)",
+			a, b, gotRO, gotJW)
+	}
+
+	// 2. difflib equivalence: RO must match the pinned difflib(autojunk=False) value.
+	if math.Abs(gotRO-wantDifflib) > tolDifflib {
+		t.Errorf("RatcliffObershelpScore(%q, %q) = %.17f; want %.17f within %g (difflib(autojunk=False).ratio() byte-for-byte)",
+			a, b, gotRO, wantDifflib, tolDifflib)
+	}
+}
+
+// TestCrossAlgorithm_RatcliffObershelp_AsymmetryPin is the OQ-1 resolution
+// regression guard, locked 2026-05-14 (CONTEXT.md §4). Ratcliff-Obershelp
+// is INTENTIONALLY asymmetric in argument order — it mirrors Python
+// difflib.SequenceMatcher.ratio(), which is noncommutative because the
+// recursive longest-common-substring decomposition is biased toward the
+// first input.
+//
+// This test is the INVERSE-FORM regression guard: it asserts INEQUALITY
+// rather than ordering. If a future refactor accidentally introduces a
+// symmetric workaround (e.g. canonicalising the input order), fwd == rev
+// will trip this test and surface the regression.
+//
+// "tide"/"diet" is the canonical asymmetric pair documented in
+// ratcliff_obershelp.go's godoc:
+//   - RatcliffObershelpScore("tide", "diet") = 0.25
+//   - RatcliffObershelpScore("diet", "tide") = 0.5
+func TestCrossAlgorithm_RatcliffObershelp_AsymmetryPin(t *testing.T) {
+	fwd := fuzzymatch.RatcliffObershelpScore("tide", "diet")
+	rev := fuzzymatch.RatcliffObershelpScore("diet", "tide")
+	if fwd == rev {
+		t.Errorf("RatcliffObershelpScore is INTENTIONALLY asymmetric for tide/diet — got fwd=%g==rev=%g (regression to symmetric behaviour)",
+			fwd, rev)
 	}
 }
