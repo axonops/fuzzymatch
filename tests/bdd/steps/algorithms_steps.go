@@ -315,6 +315,35 @@ func (ctx *AlgorithmContext) bothSmithWatermanGotohScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Strcmp95 step definitions (plan 04-01)
+// ---------------------------------------------------------------------------
+
+// iComputeTheStrcmp95ScoreBetween computes Strcmp95Score(a, b) and stores the
+// result in lastScore. Strcmp95 layers four Winkler 1994 adjustments atop
+// Jaro: similar-character credit, prefix boost, long-string adjustment.
+// ASCII-only; no Runes variant per CONTEXT.md §2.
+func (ctx *AlgorithmContext) iComputeTheStrcmp95ScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.Strcmp95Score(a, b)
+	return nil
+}
+
+// iComputeTheSecondStrcmp95ScoreBetween computes Strcmp95Score(a, b) and
+// stores the result in lastScore2. Used by symmetry scenarios to capture a
+// second score for comparison.
+func (ctx *AlgorithmContext) iComputeTheSecondStrcmp95ScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.Strcmp95Score(a, b)
+	return nil
+}
+
+// bothStrcmp95ScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothStrcmp95ScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("strcmp95 scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -452,5 +481,19 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both SmithWatermanGotoh scores should be equal$`,
 		a.bothSmithWatermanGotohScoresShouldBeEqual,
+	)
+
+	// Strcmp95 step definitions (plan 04-01).
+	ctx.Step(
+		`^I compute the Strcmp95 score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheStrcmp95ScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second Strcmp95 score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondStrcmp95ScoreBetween,
+	)
+	ctx.Step(
+		`^both Strcmp95 scores should be equal$`,
+		a.bothStrcmp95ScoresShouldBeEqual,
 	)
 }
