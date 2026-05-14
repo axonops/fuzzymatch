@@ -87,8 +87,10 @@ func BenchmarkJaroWinklerScore_ASCII_Long(b *testing.B) {
 }
 
 // BenchmarkJaroWinklerScore_Unicode_Short benchmarks the rune-aware path on a
-// short multi-byte UTF-8 pair. JaroWinklerScoreRunes allocates two []rune
-// slices from JaroScoreRunes plus two more for the prefix comparison.
+// short multi-byte UTF-8 pair. JaroWinklerScoreRunes allocates exactly two
+// []rune slices (shared between the Jaro kernel and the prefix scan after the
+// IN-01 consolidation). On short inputs the compiler stack-allocates the two
+// slices via escape analysis, so this benchmark reports 0 B/op, 0 allocs/op.
 func BenchmarkJaroWinklerScore_Unicode_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()

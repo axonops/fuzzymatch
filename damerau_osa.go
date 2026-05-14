@@ -135,6 +135,9 @@ func DamerauLevenshteinOSADistance(a, b string) int {
 // This produces correct results for multi-byte UTF-8 strings. For ASCII
 // inputs, prefer DamerauLevenshteinOSADistance (zero allocations on inputs ≤ 64 bytes).
 func DamerauLevenshteinOSADistanceRunes(a, b string) int {
+	if a == b {
+		return 0 // fast identity — saves two []rune allocations
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	return damerauOSADistanceRuneSlices(ra, rb)
@@ -178,6 +181,9 @@ func DamerauLevenshteinOSAScore(a, b string) float64 {
 // The rune variant allocates two []rune slices. For ASCII inputs, prefer
 // DamerauLevenshteinOSAScore (zero allocations on inputs ≤ 64 bytes).
 func DamerauLevenshteinOSAScoreRunes(a, b string) float64 {
+	if a == b {
+		return 1.0 // fast identity — covers both-empty and identical inputs without []rune alloc
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	maxLen := len(ra)

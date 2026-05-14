@@ -170,6 +170,9 @@ func JaroScore(a, b string) float64 {
 // The rune variant allocates two []rune slices (2 allocs/op). For ASCII
 // inputs, prefer JaroScore (zero allocations on inputs ≤ 256 bytes).
 func JaroScoreRunes(a, b string) float64 {
+	if a == b {
+		return 1.0 // fast identity — covers both-empty and identical inputs without []rune alloc
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	return jaroRunes(ra, rb)

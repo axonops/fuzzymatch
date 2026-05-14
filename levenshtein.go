@@ -131,6 +131,9 @@ func LevenshteinDistance(a, b string) int {
 // The rune variant allocates two []rune slices. For ASCII inputs, prefer
 // LevenshteinDistance (zero allocations on inputs ≤ 64 bytes).
 func LevenshteinDistanceRunes(a, b string) int {
+	if a == b {
+		return 0 // fast identity — saves two []rune allocations
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	return levenshteinDistanceRuneSlices(ra, rb)
@@ -172,6 +175,9 @@ func LevenshteinScore(a, b string) float64 {
 // The rune variant allocates two []rune slices. For ASCII inputs, prefer
 // LevenshteinScore (zero allocations on inputs ≤ 64 bytes).
 func LevenshteinScoreRunes(a, b string) float64 {
+	if a == b {
+		return 1.0 // fast identity — covers both-empty and identical inputs without []rune alloc
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	maxLen := len(ra)

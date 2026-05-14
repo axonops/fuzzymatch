@@ -147,22 +147,27 @@ func JaroWinklerScore(a, b string) float64 {
 // treating each string as a sequence of Unicode code points (runes) rather
 // than bytes.
 //
-// This function delegates to JaroScoreRunes for the underlying Jaro
-// calculation, then applies the Winkler prefix boost on runes. The rune
-// variant allocates two []rune slices (from the underlying JaroScoreRunes
-// call) plus an additional []rune conversion to compute the common prefix on
-// rune boundaries. For ASCII inputs, prefer JaroWinklerScore (zero
-// allocations).
+// This function allocates exactly two []rune slices (one each for a and b)
+// and reuses them for both the underlying Jaro calculation (jaroRunes kernel)
+// and the Winkler prefix boost. For ASCII inputs, prefer JaroWinklerScore
+// (zero allocations).
 func JaroWinklerScoreRunes(a, b string) float64 {
-	j := JaroScoreRunes(a, b)
+	if a == b {
+		return 1.0 // fast identity — covers both-empty and identical inputs without []rune alloc
+	}
+	// Convert to runes ONCE and share between the Jaro kernel and the prefix
+	// boost. Prior implementations delegated to JaroScoreRunes (2 allocs) then
+	// converted to []rune AGAIN for the prefix scan (2 more allocs) — IN-01
+	// from 02-REVIEW.md flagged the 4-alloc cost; this consolidation halves it.
+	ra := []rune(a) // 1 alloc
+	rb := []rune(b) // 1 alloc
+
+	j := jaroRunes(ra, rb)
 	if j < winklerBoostThreshold {
 		return j // boost gate: J < 0.7 → no prefix bonus
 	}
 
 	// Compute L = common-prefix length on runes, capped at winklerMaxPrefix.
-	ra := []rune(a) // 1 alloc (for prefix comparison only)
-	rb := []rune(b) // 1 alloc
-
 	maxPfx := winklerMaxPrefix
 	if len(ra) < maxPfx {
 		maxPfx = len(ra)

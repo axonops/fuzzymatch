@@ -140,6 +140,9 @@ func DamerauLevenshteinFullDistance(a, b string) int {
 // table uses a map[rune]int (heap allocation — unavoidable for Unicode). The
 // map is QUERIED via point lookup only, never iterated to produce output (DET-03).
 func DamerauLevenshteinFullDistanceRunes(a, b string) int {
+	if a == b {
+		return 0 // fast identity — saves two []rune allocations + the map[rune]int alloc inside the DP
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	return damerauFullDistanceRuneSlices(ra, rb)
@@ -185,6 +188,9 @@ func DamerauLevenshteinFullScore(a, b string) float64 {
 // iterated to produce output (DET-03). For ASCII inputs, prefer
 // DamerauLevenshteinFullScore.
 func DamerauLevenshteinFullScoreRunes(a, b string) float64 {
+	if a == b {
+		return 1.0 // fast identity — covers both-empty and identical inputs without []rune alloc or map[rune]int
+	}
 	ra := []rune(a) // 1 alloc
 	rb := []rune(b) // 1 alloc
 	maxLen := len(ra)
