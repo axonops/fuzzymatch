@@ -126,8 +126,17 @@ func (ctx *AlgorithmContext) bothHammingScoresShouldBeEqual() error {
 	return nil
 }
 
-// theDistanceShouldBe asserts lastDistance == expected. Used by the
-// unequal-length distance-equals-max-length contract scenario.
+// theDistanceShouldBe asserts lastDistance == expected.
+//
+// This step is INTENTIONALLY algorithm-agnostic: it matches the value
+// written by whichever *Distance* step ran most recently in the current
+// scenario (HammingDistance, DamerauLevenshteinOSADistance, or
+// DamerauLevenshteinFullDistance). Per-scenario AlgorithmContext isolation
+// means cross-scenario bleed is impossible, but if a single scenario chains
+// two distance computations the assertion applies to the LAST one. If a
+// scenario ever needs to assert on a specific algorithm's distance after a
+// later distance step has run, introduce an algorithm-suffixed step
+// (e.g. theHammingDistanceShouldBe). Closes IN-06 from 02-REVIEW.md.
 func (ctx *AlgorithmContext) theDistanceShouldBe(expected int) error {
 	if ctx.lastDistance != expected {
 		return fmt.Errorf("expected distance %d, got %d", expected, ctx.lastDistance)
@@ -283,7 +292,10 @@ func (ctx *AlgorithmContext) bothDamerauLevenshteinFullScoresShouldBeEqual() err
 //
 // Step regexes use the godog-standard pattern: literal text with capture
 // groups for variable parts. String captures use `([^"]*)` to exclude the
-// surrounding quotes; numeric captures use `(\d+\.\d+)`.
+// surrounding quotes; numeric captures use `(\d+\.?\d*)` which accepts both
+// integer-form (`0`, `1`) and decimal-form (`0.0`, `0.9444`) scores. The
+// fractional part is optional so feature authors can write
+// `the score should be exactly 0` as well as `... 0.0` (IN-03 closure).
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	a := &AlgorithmContext{}
 
@@ -297,11 +309,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		a.iComputeTheSecondLevenshteinScoreBetween,
 	)
 	ctx.Step(
-		`^the score should be approximately (\d+\.\d+) within (\d+\.\d+)$`,
+		`^the score should be approximately (\d+\.?\d*) within (\d+\.?\d*)$`,
 		a.theScoreShouldBeApproximately,
 	)
 	ctx.Step(
-		`^the score should be exactly (\d+\.\d+)$`,
+		`^the score should be exactly (\d+\.?\d*)$`,
 		a.theScoreShouldBeExactly,
 	)
 	ctx.Step(
