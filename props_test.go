@@ -572,3 +572,114 @@ func TestProp_DamerauLevenshteinFullDistance_TriangleInequality(t *testing.T) {
 		t.Errorf("DamerauLevenshteinFullDistance triangle inequality violated: %v (DL-Full IS a true metric — counter-example means implementation is wrong)", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Jaro-Winkler property tests (plan 02-04)
+// ---------------------------------------------------------------------------
+//
+// Triangle inequality is OMITTED — Jaro-Winkler inherits the non-metric
+// property of the underlying Jaro similarity. The triangle inequality does
+// not hold for Jaro-Winkler for arbitrary inputs. See jarowinkler.go's
+// file-level godoc for the definitive statement. The omission is intentional
+// and should not be treated as a coverage gap.
+
+// TestProp_JaroWinklerScore_RangeBounds asserts the score is in [0.0, 1.0]
+// for any pair of strings. This is the DET-04 range-bounds invariant.
+func TestProp_JaroWinklerScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.JaroWinklerScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_JaroWinklerScore_Identity asserts Score(x, x) == 1.0 for any
+// non-empty string x. Both-empty is a special case (also 1.0) tested
+// separately.
+func TestProp_JaroWinklerScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty special case — score is 1.0; covered elsewhere
+		}
+		return fuzzymatch.JaroWinklerScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore identity violated: %v", err)
+	}
+}
+
+// TestProp_JaroWinklerScore_Symmetric asserts Score(a,b) == Score(b,a) for
+// any a, b. The boost formula J + L*p*(1-J) may differ in prefix length
+// depending on argument order only when the common prefix from left differs —
+// but the prefix length is computed identically for (a,b) and (b,a) because
+// common prefix is symmetric by definition.
+func TestProp_JaroWinklerScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.JaroWinklerScore(a, b) == fuzzymatch.JaroWinklerScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_JaroWinklerScore_NoNaN asserts JaroWinklerScore never returns NaN.
+// The underlying JaroScore's division guard prevents 0/0 = NaN. The prefix
+// boost (J + L*p*(1-J)) cannot produce NaN for finite J in [0,1].
+func TestProp_JaroWinklerScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.JaroWinklerScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_JaroWinklerScore_NoInf asserts JaroWinklerScore never returns ±Inf.
+// The Winkler formula J + float64(L)*0.1*(1.0-J) is bounded by J <= 1 and
+// L <= 4, so JW <= J + 4*0.1*(1-0) = J + 0.4 <= 1.4 — well within float64
+// range. In practice JW <= 1.0 since the prefix boost is non-negative only
+// when J >= 0.7.
+func TestProp_JaroWinklerScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.JaroWinklerScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_JaroWinklerScore_NoNegativeZero asserts that when the score is 0.0
+// it is positive zero (+0.0), not negative zero (-0.0). JaroWinklerScore returns
+// 0.0 only from the underlying JaroScore on one-empty or no-match inputs —
+// never from floating-point subtraction that could yield -0.0.
+func TestProp_JaroWinklerScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.JaroWinklerScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_JaroWinklerScore_AtLeastJaro asserts that when the underlying Jaro
+// score is at least the boost threshold (0.7), JaroWinklerScore >= JaroScore.
+// The prefix boost is non-negative: float64(L)*0.1*(1.0-J) >= 0 for J in [0,1].
+// This is the monotonic-boost invariant: JW >= J when the gate is open.
+func TestProp_JaroWinklerScore_AtLeastJaro(t *testing.T) {
+	f := func(a, b string) bool {
+		j := fuzzymatch.JaroScore(a, b)
+		jw := fuzzymatch.JaroWinklerScore(a, b)
+		if j >= 0.7 {
+			// When gate is open, JW must be >= J (boost is non-negative).
+			return jw >= j
+		}
+		// When gate is closed, JW == J exactly.
+		return jw == j
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScore AtLeastJaro invariant violated: %v", err)
+	}
+}

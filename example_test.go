@@ -86,3 +86,13 @@ func ExampleDamerauLevenshteinFullScore() {
 	// 0.3333
 	// 0.5000
 }
+
+// ExampleJaroWinklerScore demonstrates the Jaro-Winkler similarity on the
+// canonical Winkler 1990 reference pair. The underlying Jaro score is 0.9444
+// (MARTHA / MARHTA share a 3-char common prefix "MAR"); JW adds the prefix
+// bonus: 0.9444 + 3 * 0.1 * (1 - 0.9444) ≈ 0.9611.
+func ExampleJaroWinklerScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.JaroWinklerScore("MARTHA", "MARHTA"))
+	// Output:
+	// 0.9611
+}
