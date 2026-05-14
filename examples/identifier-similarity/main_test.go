@@ -30,6 +30,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -78,7 +79,68 @@ func TestExample_Output(t *testing.T) {
 	r.Close()
 
 	got := buf.String()
-	if got != want {
-		t.Errorf("TestExample_Output: stdout mismatch.\n--- got ---\n%s\n--- want ---\n%s\n--- end ---\nUpdate the `want` constant if the change is intentional.", got, want)
+	if got == want {
+		return
+	}
+	// IN-04 closure: report the diff line-by-line rather than as one wall of
+	// text. A score regression touches only the affected row; a column-width
+	// change touches the header. The line-by-line form makes failure
+	// diagnosis trivial without forcing a re-read of the entire stdout.
+	gotLines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	wantLines := strings.Split(strings.TrimRight(want, "\n"), "\n")
+	if len(gotLines) != len(wantLines) {
+		t.Errorf("TestExample_Output: line count mismatch (got %d, want %d).\nFull diff below:\n--- got ---\n%s\n--- want ---\n%s",
+			len(gotLines), len(wantLines), got, want)
+		return
+	}
+	var differing []string
+	for i := range wantLines {
+		if gotLines[i] != wantLines[i] {
+			differing = append(differing,
+				"  line "+itoa(i+1)+":\n    got:  "+gotLines[i]+"\n    want: "+wantLines[i])
+		}
+	}
+	t.Errorf("TestExample_Output: %d line(s) differ. Update the `want` constant if the change is intentional.\n%s",
+		len(differing), strings.Join(differing, "\n"))
+}
+
+// itoa is a minimal int-to-decimal-string helper to avoid importing strconv
+// just for this one call site. Line numbers are always small positive ints.
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var buf [10]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(buf[i:])
+}
+
+// TestExample_ColumnWidths pins the table layout (header and separator widths)
+// separately from the cell values, so a column-width change is diagnosed
+// independently of a score regression. If both drift, the dedicated test
+// makes it clear which is which.
+func TestExample_ColumnWidths(t *testing.T) {
+	wantLines := strings.Split(strings.TrimRight(want, "\n"), "\n")
+	if len(wantLines) < 2 {
+		t.Fatalf("TestExample_ColumnWidths: want has fewer than 2 lines — table structure broken")
+	}
+	header := wantLines[0]
+	separator := wantLines[1]
+	// Header and separator must be the same width (the separator is a row of
+	// dashes spanning the table width).
+	if len(header) != len(separator) {
+		t.Errorf("TestExample_ColumnWidths: header width %d != separator width %d", len(header), len(separator))
+	}
+	// Separator should be all '-' characters.
+	for i, c := range separator {
+		if c != '-' {
+			t.Errorf("TestExample_ColumnWidths: separator[%d] = %q; want '-'", i, c)
+			break
+		}
 	}
 }
