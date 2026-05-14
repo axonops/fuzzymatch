@@ -99,3 +99,24 @@ func ExampleJaroWinklerScore() {
 	// Output:
 	// 0.9611
 }
+
+// ExampleSmithWatermanGotohScore demonstrates the SWG local-alignment
+// similarity on a substring-containment pair. The shorter input is fully
+// contained in the longer; the local alignment finds the full match, so the
+// normalised score clamp(raw / min(len), 0, 1) = clamp(12.0 / 12, 0, 1) =
+// 1.0000.
+func ExampleSmithWatermanGotohScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.SmithWatermanGotohScore("http_request", "http_request_header_fields"))
+	// Output:
+	// 1.0000
+}
+
+// ExampleSmithWatermanGotohRawScore demonstrates the unclamped raw alignment
+// score. For the same substring-containment pair, the raw score equals
+// Match × min(len) = 1.0 × 12 = 12.0 (twelve match positions, no gap
+// penalty). Contrast with the normalised *Score variant which clamps to 1.0.
+func ExampleSmithWatermanGotohRawScore() {
+	fmt.Printf("%.1f\n", fuzzymatch.SmithWatermanGotohRawScore("http_request", "http_request_header_fields"))
+	// Output:
+	// 12.0
+}

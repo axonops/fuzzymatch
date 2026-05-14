@@ -286,6 +286,35 @@ func (ctx *AlgorithmContext) bothDamerauLevenshteinFullScoresShouldBeEqual() err
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Smith-Waterman-Gotoh step definitions (plan 03-01)
+// ---------------------------------------------------------------------------
+
+// iComputeTheSmithWatermanGotohScoreBetween computes
+// SmithWatermanGotohScore(a, b) and stores the result in lastScore.
+// SWG returns the local-alignment similarity in [0, 1] using the documented
+// default params (Match=1.0, Mismatch=-1.0, GapOpen=-1.5, GapExtend=-0.5).
+func (ctx *AlgorithmContext) iComputeTheSmithWatermanGotohScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.SmithWatermanGotohScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondSmithWatermanGotohScoreBetween computes
+// SmithWatermanGotohScore(a, b) and stores the result in lastScore2. Used by
+// symmetry / gap-split-canary scenarios to capture a second score.
+func (ctx *AlgorithmContext) iComputeTheSecondSmithWatermanGotohScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.SmithWatermanGotohScore(a, b)
+	return nil
+}
+
+// bothSmithWatermanGotohScoresShouldBeEqual asserts lastScore == lastScore2.
+func (ctx *AlgorithmContext) bothSmithWatermanGotohScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("swg scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -409,5 +438,19 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both DamerauLevenshteinFull scores should be equal$`,
 		a.bothDamerauLevenshteinFullScoresShouldBeEqual,
+	)
+
+	// Smith-Waterman-Gotoh step definitions (plan 03-01).
+	ctx.Step(
+		`^I compute the SmithWatermanGotoh score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSmithWatermanGotohScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second SmithWatermanGotoh score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondSmithWatermanGotohScoreBetween,
+	)
+	ctx.Step(
+		`^both SmithWatermanGotoh scores should be equal$`,
+		a.bothSmithWatermanGotohScoresShouldBeEqual,
 	)
 }

@@ -579,3 +579,77 @@ func TestGolden_JaroWinkler_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/jarowinkler.json", file)
 }
+
+// buildSWGStagingEntries returns the Smith-Waterman-Gotoh entries used by
+// TestGolden_SmithWatermanGotoh_Staging. ExpectedScore is computed from the
+// current implementation so the staging file stays in sync with actual
+// output. Six entries cover: both-empty (1.0), identical (1.0), one-empty
+// (0.0), substring-containment (1.0), no-overlap (0.0), and the
+// one-long-gap-canary (PITFALLS.md §3 Gotoh-erratum gate).
+//
+// Plan 03-03 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file.
+func buildSWGStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "SmithWatermanGotoh_both_empty",
+			Algorithm:     "SmithWatermanGotoh",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.SmithWatermanGotohScore("", ""),
+		},
+		{
+			Name:          "SmithWatermanGotoh_identical",
+			Algorithm:     "SmithWatermanGotoh",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.SmithWatermanGotohScore("abc", "abc"),
+		},
+		{
+			Name:          "SmithWatermanGotoh_no_overlap",
+			Algorithm:     "SmithWatermanGotoh",
+			A:             "qqqq",
+			B:             "zzzz",
+			ExpectedScore: fuzzymatch.SmithWatermanGotohScore("qqqq", "zzzz"),
+		},
+		{
+			Name:          "SmithWatermanGotoh_one_empty",
+			Algorithm:     "SmithWatermanGotoh",
+			A:             "abc",
+			B:             "",
+			ExpectedScore: fuzzymatch.SmithWatermanGotohScore("abc", ""),
+		},
+		{
+			Name:          "SmithWatermanGotoh_one_long_gap_canary",
+			Algorithm:     "SmithWatermanGotoh",
+			A:             "abc________def",
+			B:             "abcdef",
+			ExpectedScore: fuzzymatch.SmithWatermanGotohScore("abc________def", "abcdef"),
+		},
+		{
+			Name:          "SmithWatermanGotoh_two_substring",
+			Algorithm:     "SmithWatermanGotoh",
+			A:             "http_request",
+			B:             "http_request_header_fields",
+			ExpectedScore: fuzzymatch.SmithWatermanGotohScore("http_request", "http_request_header_fields"),
+		},
+	}
+}
+
+// TestGolden_SmithWatermanGotoh_Staging produces
+// testdata/golden/_staging/swg.json for plan 03-03's merge step. Entries are
+// sorted alphabetically by Name. Six entries covering: both-empty, identical,
+// no-overlap, one-empty, one-long-gap-canary (Gotoh-erratum gate), and the
+// canonical substring-containment pair.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_SmithWatermanGotoh_Staging(t *testing.T) {
+	entries := buildSWGStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/swg.json", file)
+}

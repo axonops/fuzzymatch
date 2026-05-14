@@ -725,6 +725,167 @@ func TestProp_JaroWinklerScore_AtLeastJaro(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Smith-Waterman-Gotoh property tests (plan 03-01)
+// ---------------------------------------------------------------------------
+//
+// Standard Phase 2 invariants (range bounds, identity, symmetric, NoNaN,
+// NoInf, NoNegativeZero) plus three SWG-specific canaries per PITFALLS.md
+// §3 (GapSplitInvariance, RawNeverExceedsMatchTimesMinLen,
+// MonotonicWithMatchReward). Triangle inequality is OMITTED — SWG is not a
+// metric over the full string space.
+
+// TestProp_SmithWatermanGotohScore_RangeBounds asserts the score is in
+// [0.0, 1.0] for any pair of strings. DET-04 range-bounds invariant.
+func TestProp_SmithWatermanGotohScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.SmithWatermanGotohScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotohScore_Identity asserts Score(x, x) == 1.0 for any
+// non-empty string x. Both-empty is also 1.0 but covered by the unit tests.
+func TestProp_SmithWatermanGotohScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty special case — covered elsewhere
+		}
+		return fuzzymatch.SmithWatermanGotohScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScore identity violated: %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotohScore_Symmetric asserts Score(a, b) == Score(b, a)
+// for any a, b. SWG's recurrence is symmetric in the two inputs.
+func TestProp_SmithWatermanGotohScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.SmithWatermanGotohScore(a, b) == fuzzymatch.SmithWatermanGotohScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotohScore_NoNaN asserts the score is never NaN.
+// The min-length zero guard (both-empty → 1.0, one-empty → 0.0) prevents
+// 0/0 = NaN; the kernel uses only +/-/*/comparisons so no other NaN paths
+// exist.
+func TestProp_SmithWatermanGotohScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.SmithWatermanGotohScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotohScore_NoInf asserts the score never returns
+// ±Inf. The DP kernel sums finitely many finite quantities; the clamp/divide
+// step is bounded by definition.
+func TestProp_SmithWatermanGotohScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.SmithWatermanGotohScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotohScore_NoNegativeZero asserts that when the score
+// is 0.0 it is positive zero (+0.0), not negative zero (-0.0). math.Signbit
+// detects -0.0.
+func TestProp_SmithWatermanGotohScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.SmithWatermanGotohScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotoh_GapSplitInvariance is the load-bearing
+// Gotoh-erratum canary (PITFALLS.md §3 warning sign #2). Splitting a single
+// long gap into a shorter gap (by removing some gap characters) must NOT
+// produce a higher score than the original case — affine-gap penalties
+// can only accrue, never improve, as gap length grows. Equivalently: shorter
+// gaps score >= longer gaps for the same target string.
+//
+// Hand-curated triples (per CONTEXT.md §5 — NOT testing/quick); each row is
+// (longGap, shortGap, target) where we assert Score(longGap, target) <=
+// Score(shortGap, target).
+func TestProp_SmithWatermanGotoh_GapSplitInvariance(t *testing.T) {
+	triples := []struct {
+		longGap, shortGap, target string
+	}{
+		{"abc________def", "abc____def", "abcdef"},
+		{"abc____def", "abc__def", "abcdef"},
+		{"aXXXXXXXXb", "aXXXXb", "ab"},
+		{"aXXXXb", "aXXb", "ab"},
+		{"xyz_____abc_____pqr", "xyz_abc_pqr", "xyzabcpqr"},
+	}
+	for _, tr := range triples {
+		long := fuzzymatch.SmithWatermanGotohScore(tr.longGap, tr.target)
+		short := fuzzymatch.SmithWatermanGotohScore(tr.shortGap, tr.target)
+		if long > short {
+			t.Errorf("GapSplitInvariance: Score(%q, %q)=%g > Score(%q, %q)=%g (longer gap improved score — PITFALLS §3 #2)",
+				tr.longGap, tr.target, long, tr.shortGap, tr.target, short)
+		}
+	}
+}
+
+// TestProp_SmithWatermanGotoh_RawNeverExceedsMatchTimesMinLen asserts the
+// upper bound: RawScore(a, b) <= Match * min(len(a), len(b)). The best local
+// alignment has at most min(len) matching positions; with zero or more gap
+// penalties, the raw score cannot exceed Match * min(len). Skips degenerate
+// cases where min == 0.
+func TestProp_SmithWatermanGotoh_RawNeverExceedsMatchTimesMinLen(t *testing.T) {
+	params := fuzzymatch.NewSWGParams()
+	f := func(a, b string) bool {
+		la, lb := len(a), len(b)
+		minLen := lb
+		if la < lb {
+			minLen = la
+		}
+		if minLen == 0 {
+			return true // degenerate
+		}
+		raw := fuzzymatch.SmithWatermanGotohRawScore(a, b)
+		upper := params.Match * float64(minLen)
+		return raw <= upper
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("RawScore exceeded Match * min(len): %v", err)
+	}
+}
+
+// TestProp_SmithWatermanGotoh_MonotonicWithMatchReward asserts that
+// increasing only the Match parameter (keeping Mismatch, GapOpen, GapExtend
+// fixed) cannot decrease the raw alignment score. Higher Match reward can
+// only improve (or hold) the best local alignment.
+func TestProp_SmithWatermanGotoh_MonotonicWithMatchReward(t *testing.T) {
+	f := func(a, b string) bool {
+		if len(a) == 0 || len(b) == 0 {
+			return true // degenerate: raw is 0 regardless
+		}
+		baseParams := fuzzymatch.NewSWGParams()
+		highParams := baseParams
+		highParams.Match = baseParams.Match + 1.0
+		base := fuzzymatch.SmithWatermanGotohRawScoreWithParams(a, b, baseParams)
+		high := fuzzymatch.SmithWatermanGotohRawScoreWithParams(a, b, highParams)
+		return high >= base
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MonotonicWithMatchReward violated: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Rune-path symmetry property tests (WR-03)
 // ---------------------------------------------------------------------------
 //
@@ -789,5 +950,14 @@ func TestProp_DamerauLevenshteinFullScoreRunes_Symmetric(t *testing.T) {
 	}
 	if err := quick.Check(f, nil); err != nil {
 		t.Errorf("DamerauLevenshteinFullScoreRunes not symmetric: %v", err)
+	}
+}
+
+func TestProp_SmithWatermanGotohScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.SmithWatermanGotohScoreRunes(a, b) == fuzzymatch.SmithWatermanGotohScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SmithWatermanGotohScoreRunes not symmetric: %v", err)
 	}
 }

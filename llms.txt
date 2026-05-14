@@ -82,6 +82,17 @@ scan / Extract (Phases 9–10).
 - func JaroWinklerScore(a, b string) float64
 - func JaroWinklerScoreRunes(a, b string) float64
 
+### Smith-Waterman-Gotoh local-alignment similarity
+
+- type SWGParams struct
+- func NewSWGParams() SWGParams
+- func SmithWatermanGotohScore(a, b string) float64
+- func SmithWatermanGotohScoreRunes(a, b string) float64
+- func SmithWatermanGotohScoreWithParams(a, b string, params SWGParams) float64
+- func SmithWatermanGotohRawScore(a, b string) float64
+- func SmithWatermanGotohRawScoreRunes(a, b string) float64
+- func SmithWatermanGotohRawScoreWithParams(a, b string, params SWGParams) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
