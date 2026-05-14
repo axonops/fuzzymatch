@@ -271,3 +271,26 @@ func TestJaroWinklerScoreRunes_IdentityAndEmpty(t *testing.T) {
 		t.Errorf("JaroWinklerScoreRunes(\"\",\"ABC\") = %g; want 0.0 (one-empty)", got)
 	}
 }
+
+// TestJaroWinkler_ShortInput_PrefixClamp exercises the maxPfx clamps for
+// inputs shorter than winklerMaxPrefix=4. This covers the two branches
+//
+//	if len(a) < maxPfx { maxPfx = len(a) }
+//	if len(b) < maxPfx { maxPfx = len(b) }
+//
+// in both JaroWinklerScore (byte) and JaroWinklerScoreRunes (rune). The
+// inputs "abc"/"abd" produce a Jaro score above the 0.7 boost gate (≈0.778)
+// AND have length 3 < 4, so both clamps fire and the prefix scan runs.
+// Closes a coverage gap the IN-02 short-circuit work exposed in jarowinkler.go.
+func TestJaroWinkler_ShortInput_PrefixClamp(t *testing.T) {
+	// Byte path: short ASCII triggers both clamps.
+	got := fuzzymatch.JaroWinklerScore("abc", "abd")
+	if got < 0.78 || got > 0.92 {
+		t.Errorf("JaroWinklerScore(\"abc\",\"abd\") = %g; want roughly in [0.78, 0.92] (Jaro ≈ 0.778 + prefix boost on common 'ab')", got)
+	}
+	// Rune path: same input through the rune kernel.
+	gotRunes := fuzzymatch.JaroWinklerScoreRunes("abc", "abd")
+	if gotRunes != got {
+		t.Errorf("JaroWinklerScoreRunes(\"abc\",\"abd\") = %g; want %g (ASCII rune path must equal byte path)", gotRunes, got)
+	}
+}
