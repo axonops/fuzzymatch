@@ -654,3 +654,91 @@ func TestGolden_SmithWatermanGotoh_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/swg.json", file)
 }
+
+// buildStrcmp95StagingEntries returns the Strcmp95 entries used by
+// TestGolden_Strcmp95_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output.
+// Seven entries cover: both-empty (1.0), identical (1.0), one-empty (0.0),
+// Winkler 1990 / Census Bureau canonical surnames (MARTHA/MARHTA,
+// DWAYNE/DUANE, DIXON/DICKSONX) — the latter two trigger the similar-
+// character table per RESEARCH.md Pitfall 1 — AND the long-string adjustment
+// trigger pair (HAMINGTON/HAMMINGTON).
+//
+// Plan 04-05 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file.
+func buildStrcmp95StagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "Strcmp95_DIXON_DICKSONX",
+			Algorithm:     "Strcmp95",
+			A:             "DIXON",
+			B:             "DICKSONX",
+			ExpectedScore: fuzzymatch.Strcmp95Score("DIXON", "DICKSONX"),
+		},
+		{
+			Name:          "Strcmp95_DWAYNE_DUANE",
+			Algorithm:     "Strcmp95",
+			A:             "DWAYNE",
+			B:             "DUANE",
+			ExpectedScore: fuzzymatch.Strcmp95Score("DWAYNE", "DUANE"),
+		},
+		{
+			Name:          "Strcmp95_HAMINGTON_HAMMINGTON",
+			Algorithm:     "Strcmp95",
+			A:             "HAMINGTON",
+			B:             "HAMMINGTON",
+			ExpectedScore: fuzzymatch.Strcmp95Score("HAMINGTON", "HAMMINGTON"),
+		},
+		{
+			Name:          "Strcmp95_MARTHA_MARHTA",
+			Algorithm:     "Strcmp95",
+			A:             "MARTHA",
+			B:             "MARHTA",
+			ExpectedScore: fuzzymatch.Strcmp95Score("MARTHA", "MARHTA"),
+		},
+		{
+			Name:          "Strcmp95_both_empty",
+			Algorithm:     "Strcmp95",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.Strcmp95Score("", ""),
+		},
+		{
+			Name:          "Strcmp95_identical",
+			Algorithm:     "Strcmp95",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.Strcmp95Score("abc", "abc"),
+		},
+		{
+			Name:          "Strcmp95_one_empty",
+			Algorithm:     "Strcmp95",
+			A:             "abc",
+			B:             "",
+			ExpectedScore: fuzzymatch.Strcmp95Score("abc", ""),
+		},
+	}
+}
+
+// TestGolden_Strcmp95_Staging produces testdata/golden/_staging/strcmp95.json
+// for plan 04-05's merge step. Entries are sorted alphabetically by Name.
+// Seven entries cover: both-empty, identical, one-empty, the three Winkler
+// 1990 / Census Bureau canonical surnames (MARTHA/MARHTA, DWAYNE/DUANE,
+// DIXON/DICKSONX), and the long-string adjustment trigger pair
+// (HAMINGTON/HAMMINGTON).
+//
+// Plan 04-05 owns the canonical algorithms.json merge; this plan only writes
+// the staging file. Do NOT update TestGolden_Algorithms_Merge's stagingFiles
+// slice here — that's plan 04-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_Strcmp95_Staging(t *testing.T) {
+	entries := buildStrcmp95StagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/strcmp95.json", file)
+}

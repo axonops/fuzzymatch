@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Strcmp95_DIXON_DICKSONX",
+      "algorithm": "Strcmp95",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "expected_score": 0.8516923076923077
+    },
+    {
+      "name": "Strcmp95_DWAYNE_DUANE",
+      "algorithm": "Strcmp95",
+      "a": "DWAYNE",
+      "b": "DUANE",
+      "expected_score": 0.8925384615384615
+    },
+    {
+      "name": "Strcmp95_HAMINGTON_HAMMINGTON",
+      "algorithm": "Strcmp95",
+      "a": "HAMINGTON",
+      "b": "HAMMINGTON",
+      "expected_score": 0.9819696969696969
+    },
+    {
+      "name": "Strcmp95_MARTHA_MARHTA",
+      "algorithm": "Strcmp95",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "expected_score": 0.9675925925925926
+    },
+    {
+      "name": "Strcmp95_both_empty",
+      "algorithm": "Strcmp95",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Strcmp95_identical",
+      "algorithm": "Strcmp95",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "Strcmp95_one_empty",
+      "algorithm": "Strcmp95",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
+    }
+  ]
+}

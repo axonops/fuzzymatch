@@ -120,3 +120,15 @@ func ExampleSmithWatermanGotohRawScore() {
 	// Output:
 	// 12.0
 }
+
+// ExampleStrcmp95Score demonstrates Winkler's Strcmp95 similarity on the
+// canonical Winkler 1990 reference pair. Strcmp95 layers four adjustments
+// atop Jaro: similar-character credit (Winkler 1994 §3 table), Winkler
+// prefix boost, and the long-string adjustment. MARTHA/MARHTA contains no
+// similar-character pair (T/H is not in the table) but DOES trigger the
+// long-string adjustment, so the score lifts above JaroWinkler's 0.9611.
+func ExampleStrcmp95Score() {
+	fmt.Printf("%.4f\n", fuzzymatch.Strcmp95Score("MARTHA", "MARHTA"))
+	// Output:
+	// 0.9676
+}

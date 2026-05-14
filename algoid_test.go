@@ -282,7 +282,7 @@ func TestDispatch_JaroWinklerRegistered(t *testing.T) {
 }
 
 // TestDispatch_SmithWatermanGotohRegistered asserts that
-// dispatch[AlgoSmithWatermanGotoh] (slot 6) is non-nil after Phase 3 plan
+// dispatch[AlgoSmithWatermanGotoh] (slot 7) is non-nil after Phase 3 plan
 // 03-01 registers SmithWatermanGotohScore.
 func TestDispatch_SmithWatermanGotohRegistered(t *testing.T) {
 	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoSmithWatermanGotoh)) {
@@ -291,14 +291,24 @@ func TestDispatch_SmithWatermanGotohRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_Strcmp95Registered asserts that dispatch[AlgoStrcmp95]
+// (slot 6) is non-nil after Phase 4 plan 04-01 registers Strcmp95Score.
+func TestDispatch_Strcmp95Registered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoStrcmp95)) {
+		t.Errorf("dispatch[AlgoStrcmp95] (%d) is nil — dispatch_strcmp95.go must register Strcmp95Score at package load time",
+			int(fuzzymatch.AlgoStrcmp95))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
 // AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
-// (slot 4), AlgoJaroWinkler (slot 5), and AlgoSmithWatermanGotoh (slot 6 —
-// registered by Phase 3 plan 03-01) are still nil.
+// (slot 4), AlgoJaroWinkler (slot 5), AlgoStrcmp95 (slot 6 — registered by
+// Phase 4 plan 04-01), and AlgoSmithWatermanGotoh (slot 7 — registered by
+// Phase 3 plan 03-01) are still nil.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05,
-	// plan 02-06, and plan 03-01 respectively; all others nil.
+	// plan 02-06, plan 03-01, and plan 04-01 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -306,13 +316,14 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoHamming):                true,
 		int(fuzzymatch.AlgoJaro):                   true,
 		int(fuzzymatch.AlgoJaroWinkler):            true,
+		int(fuzzymatch.AlgoStrcmp95):               true,
 		int(fuzzymatch.AlgoSmithWatermanGotoh):     true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05, plan 02-06, or plan 03-01)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05, plan 02-06, plan 03-01, or plan 04-01)", i)
 			}
 		} else {
 			if !isNil {

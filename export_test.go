@@ -70,3 +70,28 @@ const WinklerMaxPrefixForTest = winklerMaxPrefix
 // constant to the external test package. Test code asserts the constant is
 // exactly 0.7 (Winkler 1990 p. 357 — the boost gate) against accidental drift.
 const WinklerBoostThresholdForTest = winklerBoostThreshold
+
+// Strcmp95SimilarCharsLenForTest re-exports the count of entries in the
+// strcmp95SimilarChars table to the external test package. Used by
+// TestStrcmp95_TableInvariants to assert the canonical Winkler 1994 TR-2
+// 36-pair count against transcription drift (RESEARCH.md Pitfall 1).
+const Strcmp95SimilarCharsLenForTest = len(strcmp95SimilarChars)
+
+// Strcmp95SimilarCharsEntryForTest returns the (a, b, sim) entry at index i
+// in the strcmp95SimilarChars table. Used by TestStrcmp95_TableInvariants to
+// walk the table and assert every entry has the canonical 0.3 weight AND
+// that no duplicate pair appears (Pitfall 1 transcription-typo gate).
+//
+// Returns (0, 0, 0) for out-of-range i.
+func Strcmp95SimilarCharsEntryForTest(i int) (a, b byte, sim float64) {
+	if i < 0 || i >= len(strcmp95SimilarChars) {
+		return 0, 0, 0
+	}
+	t := strcmp95SimilarChars[i]
+	return t.a, t.b, t.sim
+}
+
+// Strcmp95SimilarCreditForTest re-exports the canonical Winkler 1994 0.3
+// similar-character weight constant to the external test package. Test code
+// asserts every table entry's sim value equals this constant.
+const Strcmp95SimilarCreditForTest = strcmp95SimilarCredit
