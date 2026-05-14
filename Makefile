@@ -25,7 +25,8 @@ COVERAGE_FLOOR   := 95.0
 
 .PHONY: check test test-bdd test-fuzz lint vet fmt fmt-check bench bench-compare \
 	coverage coverage-check tidy tidy-check security verify-deps-allowlist \
-	verify-determinism verify-license-headers release-check clean
+	verify-determinism verify-license-headers regen-swg-cross-validation \
+	release-check clean
 
 # `check` — the canonical pre-PR aggregate gate. CI runs the same target.
 check: fmt-check vet lint verify-license-headers verify-deps-allowlist tidy-check security test coverage coverage-check
@@ -192,6 +193,22 @@ verify-determinism:
 
 verify-license-headers:
 	bash scripts/verify-license-headers.sh
+
+# Regenerates testdata/cross-validation/swg/vectors.json by invoking the
+# biopython-based generator script. Developer-only — NOT included in
+# `make check`. The committed JSON is the verification fixture; CI does
+# NOT require Python at test time. Re-run this target when biopython is
+# bumped or when new test cases are added to
+# scripts/gen-swg-cross-validation.py.
+#
+# Requires: python3 + biopython 1.85+
+#   python3 -m pip install --user biopython
+regen-swg-cross-validation:
+	@if ! command -v python3 >/dev/null 2>&1; then \
+	  echo "python3 not found; install Python 3.x and run: python3 -m pip install --user biopython"; \
+	  exit 1; \
+	fi
+	python3 scripts/gen-swg-cross-validation.py
 
 # Plan 01-03 lands .goreleaser.yml. Until then this is a tolerant no-op.
 release-check:

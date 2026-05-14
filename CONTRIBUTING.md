@@ -89,6 +89,12 @@ removal here.
   current platform; compares against committed fixtures.
 - `make verify-license-headers` — verify every `.go` file carries
   the Apache-2.0 + AxonOps copyright header.
+- `make regen-swg-cross-validation` — developer-only; regenerate
+  `testdata/cross-validation/swg/vectors.json` from biopython's
+  `Bio.Align.PairwiseAligner` via `scripts/gen-swg-cross-validation.py`.
+  Requires `python3 -m pip install --user biopython` (1.85+). NOT
+  part of `make check`; CI consumes the committed JSON via
+  `TestSWG_CrossValidation` and does not require Python.
 - `make release-check` — validate `.goreleaser.yml` parses; never
   invokes a release locally (releases ship via CI only — see below).
 - `make clean` — clear test cache and coverage outputs.
