@@ -36,3 +36,17 @@ func ExampleLevenshteinScore() {
 	// Output:
 	// 0.5714
 }
+
+// ExampleHammingScore demonstrates the Hamming similarity. The first call uses
+// the canonical Hamming 1950 reference pair (equal-length, score ≈ 0.5714).
+// The second call demonstrates the LOCKED unequal-length silent-zero policy:
+// inputs of different lengths return 0.0 silently — no error, no panic.
+func ExampleHammingScore() {
+	// Equal-length: 3 mismatches in 7 positions → 1 - 3/7 ≈ 0.5714.
+	fmt.Printf("%.4f\n", fuzzymatch.HammingScore("karolin", "kathrin"))
+	// Unequal-length: silent-zero policy (max(3,2)=3, score = 1-3/3 = 0.0).
+	fmt.Printf("%.4f\n", fuzzymatch.HammingScore("abc", "ab"))
+	// Output:
+	// 0.5714
+	// 0.0000
+}
