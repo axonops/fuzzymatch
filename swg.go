@@ -349,7 +349,7 @@ func smithWatermanGotohRawByte(a, b string, la, lb int, params SWGParams) float6
 //
 // Best raw score tracked during the fill (no post-pass scan); only M's max
 // is tracked because Ix/Iy contribute to bestRaw only via their feed into M.
-func swgDPRaw(a, b string, m, n int, params SWGParams,
+func swgDPRaw(a, b string, m, n int, params SWGParams, //nolint:gocyclo // SWG three-matrix kernel — match/Ix/Iy recurrence + per-cell max-with-0 + running bestRaw; extraction would obscure the recurrence; see godoc above
 	prevM, currM, prevIx, currIx, prevIy, currIy []float64,
 ) float64 {
 	// Local-alignment zero-init: every border cell is 0 (Flouri et al. 2015).
@@ -447,7 +447,7 @@ func smithWatermanGotohRawRunes(ra, rb []rune, la, lb int, params SWGParams) flo
 // swgDPRawRunes mirrors swgDPRaw but indexes []rune slices instead of string
 // bytes. Same correctness gates (zero-init borders for local alignment, max
 // tracked during fill, three-matrix two-row form).
-func swgDPRawRunes(ra, rb []rune, m, n int, params SWGParams,
+func swgDPRawRunes(ra, rb []rune, m, n int, params SWGParams, //nolint:gocyclo // SWG three-matrix kernel mirrors swgDPRaw on []rune; same recurrence complexity; see godoc above
 	prevM, currM, prevIx, currIx, prevIy, currIy []float64,
 ) float64 {
 	for j := 0; j <= n; j++ {
