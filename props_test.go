@@ -723,3 +723,71 @@ func TestProp_JaroWinklerScore_AtLeastJaro(t *testing.T) {
 		t.Errorf("JaroWinklerScore AtLeastJaro invariant violated: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Rune-path symmetry property tests (WR-03)
+// ---------------------------------------------------------------------------
+//
+// Each *Runes function is a separate code path from its byte-path sibling
+// (e.g. jaroRunes vs jaroBytes, levenshteinDistanceRuneSlices vs levenshteinDP).
+// The byte-path symmetry property tests above do not cover regressions in the
+// rune kernels. These property tests close that gap by quick.Check-ing the
+// symmetry invariant Score(a, b) == Score(b, a) on the rune variants.
+//
+// testing/quick's default string generator routinely produces multi-byte UTF-8
+// (occasionally including invalid sequences), which is exactly the input class
+// the rune paths exist to handle.
+
+func TestProp_LevenshteinScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.LevenshteinScoreRunes(a, b) == fuzzymatch.LevenshteinScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("LevenshteinScoreRunes not symmetric: %v", err)
+	}
+}
+
+func TestProp_HammingScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.HammingScoreRunes(a, b) == fuzzymatch.HammingScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("HammingScoreRunes not symmetric: %v", err)
+	}
+}
+
+func TestProp_JaroScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.JaroScoreRunes(a, b) == fuzzymatch.JaroScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroScoreRunes not symmetric: %v", err)
+	}
+}
+
+func TestProp_JaroWinklerScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.JaroWinklerScoreRunes(a, b) == fuzzymatch.JaroWinklerScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("JaroWinklerScoreRunes not symmetric: %v", err)
+	}
+}
+
+func TestProp_DamerauLevenshteinOSAScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.DamerauLevenshteinOSAScoreRunes(a, b) == fuzzymatch.DamerauLevenshteinOSAScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DamerauLevenshteinOSAScoreRunes not symmetric: %v", err)
+	}
+}
+
+func TestProp_DamerauLevenshteinFullScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.DamerauLevenshteinFullScoreRunes(a, b) == fuzzymatch.DamerauLevenshteinFullScoreRunes(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DamerauLevenshteinFullScoreRunes not symmetric: %v", err)
+	}
+}
