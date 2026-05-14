@@ -95,6 +95,13 @@ removal here.
   Requires `python3 -m pip install --user biopython` (1.85+). NOT
   part of `make check`; CI consumes the committed JSON via
   `TestSWG_CrossValidation` and does not require Python.
+- `make regen-ratcliff-obershelp-cross-validation` — developer-only;
+  regenerate `testdata/cross-validation/ratcliff-obershelp/vectors.json`
+  from Python stdlib `difflib.SequenceMatcher(autojunk=False).ratio()`
+  via `scripts/gen-ratcliff-obershelp-cross-validation.py`. Requires
+  Python 3.7+ (difflib is stdlib — no `pip install` needed). NOT
+  part of `make check`; CI consumes the committed JSON via
+  `TestRatcliffObershelp_CrossValidation` and does not require Python.
 - `make release-check` — validate `.goreleaser.yml` parses; never
   invokes a release locally (releases ship via CI only — see below).
 - `make clean` — clear test cache and coverage outputs.

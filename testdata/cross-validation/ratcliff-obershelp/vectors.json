@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "python_version": "3.12.12",
+  "entries": [
+    {
+      "name": "identity_short",
+      "a": "hello",
+      "b": "hello",
+      "difflib_ratio": 1.0
+    },
+    {
+      "name": "both_empty",
+      "a": "",
+      "b": "",
+      "difflib_ratio": 1.0
+    },
+    {
+      "name": "one_empty_a",
+      "a": "",
+      "b": "abcdef",
+      "difflib_ratio": 0.0
+    },
+    {
+      "name": "one_empty_b",
+      "a": "abcdef",
+      "b": "",
+      "difflib_ratio": 0.0
+    },
+    {
+      "name": "no_overlap",
+      "a": "qqqq",
+      "b": "zzzz",
+      "difflib_ratio": 0.0
+    },
+    {
+      "name": "wikimedia_wikimania",
+      "a": "WIKIMEDIA",
+      "b": "WIKIMANIA",
+      "difflib_ratio": 0.7777777777777778
+    },
+    {
+      "name": "gestalt_paper",
+      "a": "GESTALT",
+      "b": "GESTALT_PATTERN_MATCHING",
+      "difflib_ratio": 0.45161290322580644
+    },
+    {
+      "name": "autojunk_sensitive",
+      "a": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "b": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaayyyyyaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "difflib_ratio": 0.7317073170731707
+    },
+    {
+      "name": "substring_middle",
+      "a": "abcdef",
+      "b": "xyzabcdefuvw",
+      "difflib_ratio": 0.6666666666666666
+    },
+    {
+      "name": "partial_overlap",
+      "a": "kitten",
+      "b": "sitting",
+      "difflib_ratio": 0.6153846153846154
+    },
+    {
+      "name": "unicode_ascii_only",
+      "a": "caf\u00e9",
+      "b": "cafe",
+      "difflib_ratio": 0.6666666666666666
+    },
+    {
+      "name": "longer_identity",
+      "a": "the quick brown fox",
+      "b": "the quick brown fox",
+      "difflib_ratio": 1.0
+    },
+    {
+      "name": "substring_at_start",
+      "a": "hello",
+      "b": "hello_world",
+      "difflib_ratio": 0.625
+    },
+    {
+      "name": "substring_at_end",
+      "a": "world",
+      "b": "hello_world",
+      "difflib_ratio": 0.625
+    },
+    {
+      "name": "single_char_match",
+      "a": "a",
+      "b": "a",
+      "difflib_ratio": 1.0
+    },
+    {
+      "name": "near_identical",
+      "a": "kitten",
+      "b": "kittin",
+      "difflib_ratio": 0.8333333333333334
+    }
+  ]
+}
