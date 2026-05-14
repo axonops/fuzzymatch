@@ -217,31 +217,22 @@ func DamerauLevenshteinFullScoreRunes(a, b string) float64 {
 // substitution, insertion, deletion, and transposition each require a
 // branch, and the transposition term involves two additional range guards
 // (l > 0 && k > 0). Extraction would obscure the recurrence.
-func damerauFullDP(a, b string, m, n int) int { //nolint:gocyclo // Lowrance-Wagner recurrence — four-operation DP with transposition guards; see godoc
-	// bigVal is large enough to prevent phantom-sentinel transpositions from
-	// being selected: any transposition involving a "never seen" row (da[c]==0)
-	// or column (db==0) will produce a cost ≥ bigVal, which exceeds any real
-	// edit distance ≤ m+n.
-	bigVal := m + n
-
+func damerauFullDP(a, b string, m, n int) int { //nolint:gocyclo // Lowrance-Wagner recurrence — four-operation DP with transposition guard; see godoc
 	// Allocate the full (m+2)×(n+2) DP table as a flat slice for cache
 	// locality. Index [i][j] is at d[i*(n+2)+j].
-	// Row 0 is the phantom sentinel row (D[-1,*] in the paper).
-	// Column 0 is the phantom sentinel column (D[*,-1] in the paper).
-	// Row 1 corresponds to D[0,*] (initial costs for 0 characters of a processed).
-	// Column 1 corresponds to D[*,0].
+	// Row 0 and column 0 are unused (left at zero-value); they correspond to
+	// the paper's D[-1,*] and D[*,-1] phantom rows. The transposition lookup
+	// d[l*stride+k] only happens inside the `l > 0 && k > 0` guard below, so
+	// the unused row/column cells are never read — no sentinel value is
+	// required. (WR-02 cleanup: previously this function filled rows/columns
+	// 0 with bigVal=m+n AND used the guard; either alone is sufficient. The
+	// explicit guard is retained for paper-verifiability since Lowrance-Wagner
+	// 1975 expresses the condition as "l > 0 && k > 0".)
+	// Row 1 corresponds to D[0,*]; column 1 corresponds to D[*,0].
 	size := (m + 2) * (n + 2)
 	d := make([]int, size)
 	stride := n + 2
 
-	// Initialise phantom sentinel row (row 0): all bigVal.
-	for j := 0; j <= n+1; j++ {
-		d[0*stride+j] = bigVal
-	}
-	// Initialise phantom sentinel column (col 0): all bigVal.
-	for i := 0; i <= m+1; i++ {
-		d[i*stride+0] = bigVal
-	}
 	// Initialise row 1 (D[0,*]): D[0,j] = j (cost of inserting j characters).
 	// In the table, row index 1 ↔ D[0,*], column index j+1 ↔ D[*,j].
 	for j := 0; j <= n; j++ {
@@ -343,20 +334,14 @@ func damerauFullDistanceRuneSlices(ra, rb []rune) int { //nolint:gocyclo // Lowr
 		return len(ra)
 	}
 	m, n := len(ra), len(rb)
-	bigVal := m + n
 
+	// Row 0 / column 0 are unused (left at zero-value). Transposition lookup
+	// d[l*stride+k] is gated by `l > 0 && k > 0` below, so no sentinel value
+	// is required. (WR-02 cleanup — mirrors the byte path's simplification.)
 	size := (m + 2) * (n + 2)
 	d := make([]int, size)
 	stride := n + 2
 
-	// Phantom sentinel row (row 0): all bigVal.
-	for j := 0; j <= n+1; j++ {
-		d[0*stride+j] = bigVal
-	}
-	// Phantom sentinel column (col 0): all bigVal.
-	for i := 0; i <= m+1; i++ {
-		d[i*stride+0] = bigVal
-	}
 	// Row 1: D[0,j] = j.
 	for j := 0; j <= n; j++ {
 		d[1*stride+(j+1)] = j
