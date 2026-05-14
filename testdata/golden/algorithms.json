@@ -2,6 +2,202 @@
   "version": 1,
   "entries": [
     {
+      "name": "DamerauLevenshteinFull_ab_ba",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "ab",
+      "b": "ba",
+      "expected_score": 0.5
+    },
+    {
+      "name": "DamerauLevenshteinFull_ca_abc",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "ca",
+      "b": "abc",
+      "expected_score": 0.33333333333333337
+    },
+    {
+      "name": "DamerauLevenshteinFull_empty_empty",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinFull_identical",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinFull_one_empty",
+      "algorithm": "DamerauLevenshteinFull",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "DamerauLevenshteinOSA_ab_ba",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "ab",
+      "b": "ba",
+      "expected_score": 0.5
+    },
+    {
+      "name": "DamerauLevenshteinOSA_ca_abc",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "ca",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "DamerauLevenshteinOSA_empty_empty",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinOSA_identical",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "DamerauLevenshteinOSA_one_empty",
+      "algorithm": "DamerauLevenshteinOSA",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "Hamming_empty_empty",
+      "algorithm": "Hamming",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Hamming_identical",
+      "algorithm": "Hamming",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "Hamming_karolin_kathrin",
+      "algorithm": "Hamming",
+      "a": "karolin",
+      "b": "kathrin",
+      "expected_score": 0.5714285714285714
+    },
+    {
+      "name": "Hamming_unequal_length",
+      "algorithm": "Hamming",
+      "a": "abc",
+      "b": "ab",
+      "expected_score": 0
+    },
+    {
+      "name": "JaroWinkler_DIXON_DICKSONX",
+      "algorithm": "JaroWinkler",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "expected_score": 0.8133333333333332
+    },
+    {
+      "name": "JaroWinkler_DWAYNE_DUANE",
+      "algorithm": "JaroWinkler",
+      "a": "DWAYNE",
+      "b": "DUANE",
+      "expected_score": 0.8400000000000001
+    },
+    {
+      "name": "JaroWinkler_MARTHA_MARHTA",
+      "algorithm": "JaroWinkler",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "expected_score": 0.9611111111111111
+    },
+    {
+      "name": "JaroWinkler_below_threshold",
+      "algorithm": "JaroWinkler",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "JaroWinkler_empty_empty",
+      "algorithm": "JaroWinkler",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "JaroWinkler_identical",
+      "algorithm": "JaroWinkler",
+      "a": "ABC",
+      "b": "ABC",
+      "expected_score": 1
+    },
+    {
+      "name": "JaroWinkler_one_empty",
+      "algorithm": "JaroWinkler",
+      "a": "",
+      "b": "ABC",
+      "expected_score": 0
+    },
+    {
+      "name": "JaroWinkler_prefix_cap",
+      "algorithm": "JaroWinkler",
+      "a": "TESTABCD",
+      "b": "TESTABCE",
+      "expected_score": 0.95
+    },
+    {
+      "name": "Jaro_DIXON_DICKSONX",
+      "algorithm": "Jaro",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "expected_score": 0.7666666666666666
+    },
+    {
+      "name": "Jaro_JELLYFISH_SMELLYFISH",
+      "algorithm": "Jaro",
+      "a": "JELLYFISH",
+      "b": "SMELLYFISH",
+      "expected_score": 0.8962962962962964
+    },
+    {
+      "name": "Jaro_MARTHA_MARHTA",
+      "algorithm": "Jaro",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "expected_score": 0.9444444444444445
+    },
+    {
+      "name": "Jaro_empty_empty",
+      "algorithm": "Jaro",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Jaro_identical",
+      "algorithm": "Jaro",
+      "a": "ABC",
+      "b": "ABC",
+      "expected_score": 1
+    },
+    {
+      "name": "Jaro_one_empty",
+      "algorithm": "Jaro",
+      "a": "",
+      "b": "ABC",
+      "expected_score": 0
+    },
+    {
       "name": "Levenshtein_empty_empty",
       "algorithm": "Levenshtein",
       "a": "",
