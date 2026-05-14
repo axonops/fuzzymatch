@@ -80,7 +80,7 @@
   3. `RatcliffObershelp` matches Python `difflib.SequenceMatcher.ratio()` outputs on the canonical Dr. Dobb's Journal 1988 reference pairs (proving fuzzymatch ships a true difflib-equivalent); its godoc explicitly contrasts it with the Indel-based token ratios coming in Phase 6
   4. All three algorithms have unit + property + fuzz + benchmark + BDD coverage; `algorithms.json` golden file extended with their entries and diffs byte-identically on the CI matrix
 **Plans**: 5 plans
-  - [ ] 04-01-strcmp95-PLAN.md — Strcmp95 (Winkler 1994): algorithm + similar-character table (`var`, no init()) + dispatch + Census Bureau reference vectors + property/fuzz/bench/BDD + staging golden
+  - [x] 04-01-strcmp95-PLAN.md — Strcmp95 (Winkler 1994): algorithm + similar-character table (`var`, no init()) + dispatch + Census Bureau reference vectors + property/fuzz/bench/BDD + staging golden
   - [ ] 04-02-lcsstr-PLAN.md — LCSStr (Wagner-Fischer 1974): 4 public functions (LongestCommonSubstring + Runes + LCSStrScore + Runes) + two-row DP with leftmost-tie-break + property/fuzz/bench/BDD + staging golden
   - [ ] 04-03-ratcliff-obershelp-PLAN.md — Ratcliff-Obershelp (Dr. Dobb's 1988): 2 public functions + recursive LCSubstr decomposition + difflib-equivalence godoc directive + OQ-1-resolved asymmetric-by-design + property (no Symmetric)/fuzz/bench/BDD + staging golden
   - [ ] 04-04-ratcliff-obershelp-cross-validation-PLAN.md — Python stdlib difflib(autojunk=False) generator + committed 15-18-entry corpus + TestRatcliffObershelp_CrossValidation + Makefile regen target + CONTRIBUTING doc (algorithm-correctness-reviewer gate)
