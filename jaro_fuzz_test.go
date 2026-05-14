@@ -40,16 +40,16 @@ import (
 func FuzzJaroScore(f *testing.F) {
 	// Programmatic seed entries — canonical reference vectors plus edge cases.
 	for _, pair := range []struct{ a, b string }{
-		{"MARTHA", "MARHTA"},                // Winkler 1990 reference pair
-		{"DIXON", "DICKSONX"},               // Winkler 1990 reference pair
-		{"JELLYFISH", "SMELLYFISH"},         // Jaro 1989 reference pair
-		{"ABC", "ABC"},                      // identical
-		{"", "ABC"},                         // one-empty
-		{"", ""},                            // both-empty
-		{"\xff\xfe", "abc"},                 // invalid UTF-8 (high bytes without continuation)
-		{"\xc0\x80", "abc"},                 // invalid UTF-8 (overlong NUL encoding)
-		{"hello world", "hello"},            // common prefix, length mismatch
-		{"MARTHA", "MARHTA EXTRA PADDING"},  // length mismatch
+		{"MARTHA", "MARHTA"},               // Winkler 1990 reference pair
+		{"DIXON", "DICKSONX"},              // Winkler 1990 reference pair
+		{"JELLYFISH", "SMELLYFISH"},        // Jaro 1989 reference pair
+		{"ABC", "ABC"},                     // identical
+		{"", "ABC"},                        // one-empty
+		{"", ""},                           // both-empty
+		{"\xff\xfe", "abc"},                // invalid UTF-8 (high bytes without continuation)
+		{"\xc0\x80", "abc"},                // invalid UTF-8 (overlong NUL encoding)
+		{"hello world", "hello"},           // common prefix, length mismatch
+		{"MARTHA", "MARHTA EXTRA PADDING"}, // length mismatch
 	} {
 		f.Add(pair.a, pair.b)
 	}

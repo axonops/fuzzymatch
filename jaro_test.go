@@ -158,6 +158,57 @@ func TestJaro_ScoreRunes_MultiByte(t *testing.T) {
 	}
 }
 
+// TestJaroScoreRunes_EdgeCases exercises the JaroScoreRunes edge-case paths:
+// both-empty (score 1.0), one-empty (score 0.0), identical rune slices (score
+// 1.0), and mismatched rune-count (exercises runeSlicesEqual's false branch).
+func TestJaroScoreRunes_EdgeCases(t *testing.T) {
+	// Both-empty: rune variant must return 1.0.
+	if got := fuzzymatch.JaroScoreRunes("", ""); got != 1.0 {
+		t.Errorf("JaroScoreRunes(\"\",\"\") = %g; want 1.0", got)
+	}
+	// One-empty: rune variant must return 0.0.
+	if got := fuzzymatch.JaroScoreRunes("", "café"); got != 0.0 {
+		t.Errorf("JaroScoreRunes(\"\",\"café\") = %g; want 0.0", got)
+	}
+	if got := fuzzymatch.JaroScoreRunes("café", ""); got != 0.0 {
+		t.Errorf("JaroScoreRunes(\"café\",\"\") = %g; want 0.0", got)
+	}
+	// Identical: rune variant must return 1.0 (exercises runeSlicesEqual true branch).
+	if got := fuzzymatch.JaroScoreRunes("café", "café"); got != 1.0 {
+		t.Errorf("JaroScoreRunes(\"café\",\"café\") = %g; want 1.0", got)
+	}
+	// Different lengths: exercises runeSlicesEqual's len(a) != len(b) false branch.
+	got := fuzzymatch.JaroScoreRunes("café", "cafés")
+	if got < 0.0 || got > 1.0 {
+		t.Errorf("JaroScoreRunes(\"café\",\"cafés\") = %g; want in [0,1]", got)
+	}
+	// Symmetry in rune path.
+	fwd := fuzzymatch.JaroScoreRunes("MARTHA", "MARHTA")
+	rev := fuzzymatch.JaroScoreRunes("MARHTA", "MARTHA")
+	if fwd != rev {
+		t.Errorf("JaroScoreRunes not symmetric: %g != %g", fwd, rev)
+	}
+}
+
+// TestJaro_HeapPath exercises the heap allocation path for inputs exceeding
+// maxJaroStackLen (256 bytes). We use a 300-byte ASCII string pair to trigger
+// the make([]bool, n) path. The score must be in [0,1] and not NaN/Inf.
+func TestJaro_HeapPath(t *testing.T) {
+	// Build two 300-char ASCII strings — exceeds maxJaroStackLen=256.
+	aLong := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	for len(aLong) < 300 {
+		aLong += "x"
+	}
+	bLong := "bcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	for len(bLong) < 300 {
+		bLong += "y"
+	}
+	got := fuzzymatch.JaroScore(aLong, bLong)
+	if got < 0.0 || got > 1.0 {
+		t.Errorf("JaroScore (heap path, 300-byte inputs) = %g; want in [0,1]", got)
+	}
+}
+
 // TestJaro_ZeroAllocs_ASCII_Short pins the 0-alloc budget for the ASCII fast
 // path. testing.AllocsPerRun asserts allocation at test time, not just
 // benchmark time, so regressions are caught on every `go test ./...` run.

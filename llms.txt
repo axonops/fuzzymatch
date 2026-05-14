@@ -58,6 +58,11 @@ scan / Extract (Phases 9–10).
 - func HammingScore(a, b string) float64
 - func HammingScoreRunes(a, b string) float64
 
+### Jaro similarity
+
+- func JaroScore(a, b string) float64
+- func JaroScoreRunes(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
