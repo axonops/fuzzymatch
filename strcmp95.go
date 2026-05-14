@@ -235,6 +235,18 @@ func strcmp95SimilarLookup(a, b byte) float64 {
 //   - Strcmp95Score(a, b)       == Strcmp95Score(b, a) (symmetric)
 //   - Strcmp95Score(a, b)       >= JaroWinklerScore(a, b) (adjustments only add)
 //
+// # m == 0 short-circuit (no exact byte matches in the Jaro window)
+//
+// When the Jaro matching pass finds zero exact-byte matches (m == 0),
+// Strcmp95Score returns 0.0 exactly — the early return fires BEFORE the
+// similar-character credit pass. This matches the Census Bureau strcmp95.c
+// reference behaviour and the third Jaro term's division-by-zero guard,
+// but it means that an input pair where every position would qualify for
+// the similar-character table (e.g. "WO" / "UE" — W~U and O~E are both in
+// the Winkler 1994 table, but no exact byte matches exist) still scores
+// 0.0. The behaviour is pinned by TestStrcmp95_AllSimilarNoMatches_ScoresZero
+// in strcmp95_test.go.
+//
 // # Reference vectors (Winkler 1990 / Census Bureau strcmp95.c)
 //
 //   - Strcmp95Score("MARTHA",    "MARHTA")    ≈ 0.9611

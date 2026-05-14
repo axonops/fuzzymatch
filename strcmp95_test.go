@@ -115,9 +115,24 @@ func TestStrcmp95_ReferenceVectors_CensusBureau(t *testing.T) {
 		// O, N, X) layout exercises the similar pass. C/K is in the table
 		// (entry {'C','K',0.3}).
 		{"DIXON", "DICKSONX", 0.8517},
+		// HAMINGTON/HAMMINGTON: load-bearing long-string-adjustment pin
+		// (review IN-02). min(9,10)=9>4, m=9, prefix=3, 2·m=18>=9+3=12 —
+		// the Winkler 1994 §3 long-string correction fires. This pair is
+		// covered by the BDD scenario and the algorithms.json golden; the
+		// unit-test pin is the canonical place to detect denominator-
+		// arithmetic drift (e.g. accidentally substituting numCom for m).
+		// The exact value comes from the staging golden, so the tolerance
+		// here is tight relative to the other rows.
+		{"HAMINGTON", "HAMMINGTON", 0.9819696969696969},
 	}
-	const tol = 1e-3
 	for _, tt := range tests {
+		// HAMINGTON pair pins the exact long-string-adjustment arithmetic
+		// at 1e-9 (deterministic value); the Census Bureau rows above use
+		// a wider 1e-3 to absorb cross-fork algorithm variance.
+		tol := 1e-3
+		if tt.a == "HAMINGTON" {
+			tol = 1e-9
+		}
 		t.Run(tt.a+"_"+tt.b, func(t *testing.T) {
 			got := fuzzymatch.Strcmp95Score(tt.a, tt.b)
 			if d := got - tt.want; d > tol || d < -tol {
@@ -153,6 +168,29 @@ func TestStrcmp95_SimilarCharTableFires(t *testing.T) {
 					tt.a, tt.b, s, jw)
 			}
 		})
+	}
+}
+
+// TestStrcmp95_AllSimilarNoMatches_ScoresZero pins the m == 0 short-circuit
+// behaviour (review WR-03): when the Jaro pass finds no exact byte matches,
+// the early return fires BEFORE the similar-character credit pass. Result:
+// "WO" / "UE" scores exactly 0.0 even though both W~U and O~E appear in the
+// Winkler 1994 §3 similar-character table. This matches Census Bureau
+// strcmp95.c reference behaviour and is documented in Strcmp95Score's godoc.
+// Any future refactor that moves the similar-credit pass before the early
+// return must update the godoc and replace this test value.
+func TestStrcmp95_AllSimilarNoMatches_ScoresZero(t *testing.T) {
+	got := fuzzymatch.Strcmp95Score("WO", "UE")
+	if got != 0.0 {
+		t.Errorf("Strcmp95Score(%q, %q) = %g; want exactly 0.0 (m==0 short-circuit precedes similar-credit per godoc)",
+			"WO", "UE", got)
+	}
+	// Symmetric pin — confirms the early-return path is identical in both
+	// directions (the symmetry property test covers this generally; pinning
+	// it here documents the chosen behaviour next to its rationale).
+	if rev := fuzzymatch.Strcmp95Score("UE", "WO"); rev != 0.0 {
+		t.Errorf("Strcmp95Score(%q, %q) = %g; want exactly 0.0 (symmetric m==0 short-circuit)",
+			"UE", "WO", rev)
 	}
 }
 
