@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main demonstrates all six Phase 2 character-based similarity
+// Package main demonstrates all seven Phase 2 + 3 character-based similarity
 // algorithms from github.com/axonops/fuzzymatch side-by-side on database
 // column-name identifier pairs.
 //
@@ -23,8 +23,9 @@
 // or abbreviation style.
 //
 // Each row in the printed table represents a pair of database identifiers;
-// each column represents one of the six Phase 2 algorithms. Cell values
-// are similarity scores in [0.0, 1.0] rounded to 4 decimal places.
+// each column represents one of the seven algorithms (Phase 2 six +
+// Smith-Waterman-Gotoh). Cell values are similarity scores in [0.0, 1.0]
+// rounded to 4 decimal places.
 //
 // Note: CONTEXT.md <deferred> identifier-similarity format spec'd
 // `ERR` for Hamming length-mismatch BEFORE the Hamming silent-zero
@@ -65,9 +66,10 @@ var pairs = []struct{ a, b string }{
 	{"is_deleted", "is_active"},
 }
 
-// algorithms is the ordered list of six Phase 2 scoring functions with
-// their display names. The order matches the column layout in the printed
-// table: Levenshtein, DL-OSA, DL-Full, Hamming, Jaro, Jaro-Winkler.
+// algorithms is the ordered list of seven Phase 2 + 3 scoring functions
+// with their display names. The order matches the column layout in the
+// printed table: Levenshtein, DL-OSA, DL-Full, Hamming, Jaro, Jaro-Winkler,
+// SWG (Smith-Waterman-Gotoh).
 var algorithms = []struct {
 	name string
 	fn   func(a, b string) float64
@@ -78,6 +80,7 @@ var algorithms = []struct {
 	{"Hamming", fuzzymatch.HammingScore},
 	{"Jaro", fuzzymatch.JaroScore},
 	{"Jaro-Winkler", fuzzymatch.JaroWinklerScore},
+	{"SWG", fuzzymatch.SmithWatermanGotohScore},
 }
 
 func main() {
