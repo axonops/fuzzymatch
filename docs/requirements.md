@@ -430,19 +430,34 @@ Every algorithm implementation file (e.g. `levenshtein.go`) MUST begin (after th
 - **Primary sources:**
   - Smith, T. F., Waterman, M. S. (1981). "Identification of common molecular subsequences." *Journal of Molecular Biology*, 147(1):195–197.
   - Gotoh, O. (1982). "An improved algorithm for matching biological sequences." *Journal of Molecular Biology*, 162(3):705–708.
+  - Flouri, T. et al. (2015). "Are all global alignment algorithms and implementations correct?" *bioRxiv* 031500 — documents the Gotoh 1982 initialisation erratum and the corrected formulation transcribed in the implementation.
 - **AlgoID:** `AlgoSmithWatermanGotoh`
-- **Public functions:**
+- **Public types:**
+  - `type SWGParams struct { Match, Mismatch, GapOpen, GapExtend float64 }`
+- **Public constructors:**
+  - `NewSWGParams() SWGParams` — returns a value populated with the documented defaults (Match=1.0, Mismatch=-1.0, GapOpen=-1.5, GapExtend=-0.5). Callers may override individual fields after construction.
+- **Public functions (normalised, clamped to [0.0, 1.0]):**
   - `SmithWatermanGotohScore(a, b string) float64`
   - `SmithWatermanGotohScoreRunes(a, b string) float64`
   - `SmithWatermanGotohScoreWithParams(a, b string, params SWGParams) float64`
+- **Public functions (raw, unclamped):**
+  - `SmithWatermanGotohRawScore(a, b string) float64`
+  - `SmithWatermanGotohRawScoreRunes(a, b string) float64`
+  - `SmithWatermanGotohRawScoreWithParams(a, b string, params SWGParams) float64`
+- **Raw\* surface rationale:** the `*RawScore*` variants return the UNCLAMPED raw alignment score, which may be negative (two unrelated strings dominated by mismatch/gap penalties) or exceed `min(len(a), len(b))` when custom params produce `Match > 1.0`. Advanced consumers (bioinformatics, schema-similarity research) who want absolute alignment quality unaffected by the normalisation choice should use the `*RawScore*` variants; consumers who want a comparable [0.0, 1.0] similarity should use the `*Score*` variants (which apply `clamp(raw / min(len(a), len(b)), 0, 1)`). Surface expansion approved by the project owner on 2026-05-14 per `.planning/phases/03-smith-waterman-gotoh/03-CONTEXT.md` §4.
 - **Description:** local sequence alignment with affine gap penalty. Unlike global-alignment algorithms (Needleman-Wunsch), Smith-Waterman finds the best-matching subsequence anywhere in the two strings without insisting on end-to-end alignment. Gotoh's improvement makes the affine gap penalty model (gap-open cost separate from gap-extend cost) efficient.
-- **Default parameters:** match reward = 1.0, mismatch penalty = -1.0, gap-open penalty = -1.5, gap-extend penalty = -0.5. Documented as `SWGDefaultParams`. Customisable via `SmithWatermanGotohScoreWithParams`.
-- **SWGParams struct:** `{Match, Mismatch, GapOpen, GapExtend float64}`.
-- **Complexity:** O(m·n) time, O(m·n) space.
-- **Score normalisation:** `score = best local alignment score / min(len(a), len(b))` clamped to [0.0, 1.0]. Identical inputs return 1.0; both empty return 1.0; one empty returns 0.0.
-- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality.
+- **Default parameters:** match reward = 1.0, mismatch penalty = -1.0, gap-open penalty = -1.5, gap-extend penalty = -0.5. Obtained via `NewSWGParams()`. Customisable via `SmithWatermanGotohScoreWithParams` / `SmithWatermanGotohRawScoreWithParams`. There is intentionally no exported `SWGDefaultParams` package-level variable — callers construct fresh values via `NewSWGParams()` to avoid a "is this read-only?" footgun.
+- **Parameter validation:** none in `*Score` / `*RawScore` functions; nonsense params (e.g. `GapOpen > 0`, NaN, +Inf) produce deterministic-but-meaningless results with no errors and no panics. The `SWGParams` godoc documents expected ranges: `Match >= 0`, `Mismatch <= 0`, `GapOpen <= GapExtend <= 0`. The Scorer layer (Phase 8) may add validation at composition time.
+- **Complexity:** O(m·n) time. Space: O(min(m,n)) via the two-row three-matrix DP form (six rolling rows of length `min(m,n)+1` — `prevM`/`currM`/`prevIx`/`currIx`/`prevIy`/`currIy`). Stack-allocated on a single `[(maxStackInputLen+1)*6]float64` buffer (3120 bytes) when both inputs are ASCII and the shorter dimension is ≤ 64; heap-allocated otherwise.
+- **Score normalisation:** `score = clamp(best_local_score / min(len(a), len(b)), 0, 1)`. Identical inputs return 1.0; both empty return 1.0; one empty returns 0.0.
+- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality (SWG is not a metric over the full string space).
+- **SWG-specific invariants (property-tested):**
+  - Gap-split invariance — splitting a single long gap into two halves with intervening match characters that don't affect the local alignment must NOT improve the score (canonical Gotoh-erratum canary per `.planning/research/PITFALLS.md` §3).
+  - Raw upper bound — `RawScore(a, b) <= Match × min(len(a), len(b))` always (best local alignment has at most `min(len)` match positions).
+  - Monotonic with Match reward — increasing the `Match` parameter (keeping others fixed) cannot decrease `RawScore` for any input pair.
 - **Edge cases:** as above.
-- **Implementation notes:** the affine gap penalty requires three DP matrices in the Gotoh formulation (or a clever single-matrix variant). Implementation follows Gotoh 1982 directly.
+- **Implementation notes:** the affine gap penalty requires three DP matrices (M, Ix, Iy) in the Gotoh formulation, implemented here as a two-row rolling form. The Gotoh 1982 paper contains a known initialisation erratum (the global-alignment border setup that textbook treatments often blur into local alignment); this implementation uses the corrected Flouri et al. 2015 formulation where every border cell of M, Ix, Iy initialises to 0 for local alignment (NOT −∞, NOT the global-alignment gap-open ladder).
+- **Cross-validation:** the implementation is cross-validated against biopython's `Bio.Align.PairwiseAligner` (mode=`"local"`) via a committed JSON corpus at `testdata/cross-validation/swg/vectors.json` (16 entries including the load-bearing `one_long_gap_canary` Gotoh-erratum gate at biopython_normalised=0.5). Tolerance: `|our_score − biopython_normalised| <= 1e-9`. Regeneration is developer-only (`make regen-swg-cross-validation`); CI consumes the committed JSON via `TestSWG_CrossValidation` without requiring Python.
 - **Intended use:** detecting that one name is a substring or near-substring of another (`http_request` vs `http_request_header_fields`), or that two names share a long common middle section despite different prefixes/suffixes.
 
 #### 7.1.9 LCSStr (Longest Common Substring)
