@@ -984,3 +984,141 @@ func TestProp_SmithWatermanGotohScoreRunes_Symmetric(t *testing.T) {
 		t.Errorf("SmithWatermanGotohScoreRunes not symmetric: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Strcmp95 property tests (plan 04-01)
+// ---------------------------------------------------------------------------
+//
+// Standard Phase 2 invariants (range bounds, identity, symmetric, NoNaN, NoInf,
+// NoNegativeZero) plus two algorithm-specific properties:
+//
+//   - AtLeastJaroWinkler — Strcmp95 = Jaro-Winkler + (similar-char credit) +
+//     (long-string adjustment); both adjustments only ADD, so
+//     Strcmp95Score(a, b) >= JaroWinklerScore(a, b) for every (a, b).
+//   - DeterministicAcrossRuns — same input produces byte-identical output
+//     across 1000 sequential calls (PITFALLS §14 closure: confirms the
+//     `var`-level similar-character table is not mutated mid-process).
+//
+// There is no *Runes variant per CONTEXT.md §2 — no rune-path symmetry test.
+
+// TestProp_Strcmp95Score_RangeBounds asserts the score is in [0.0, 1.0] for
+// any pair of strings. DET-04 range-bounds invariant.
+func TestProp_Strcmp95Score_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.Strcmp95Score(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_Identity asserts Score(x, x) == 1.0 for any non-empty
+// string x. Both-empty is also 1.0 but covered by the unit tests.
+func TestProp_Strcmp95Score_Identity(t *testing.T) {
+	f := func(x string) bool {
+		if x == "" {
+			return true // both-empty special case — covered elsewhere
+		}
+		return fuzzymatch.Strcmp95Score(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score identity violated: %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_Symmetric asserts Score(a, b) == Score(b, a) for any
+// a, b. Strcmp95's match-flag derivation, transposition pass, and
+// similar-character pass are all symmetric in argument order — the recurrence
+// is structurally symmetric.
+func TestProp_Strcmp95Score_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.Strcmp95Score(a, b) == fuzzymatch.Strcmp95Score(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score not symmetric: %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_NoNaN asserts the score is never NaN. The empty-
+// input guard (both-empty → 1.0, one-empty → 0.0) and the m == 0 guard
+// (returns 0.0 before any division) together prevent 0/0 = NaN; the
+// algorithm uses only +/-/*/comparisons so no other NaN paths exist.
+func TestProp_Strcmp95Score_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.Strcmp95Score(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score produced NaN: %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_NoInf asserts the score never returns ±Inf. The
+// algorithm sums finitely many finite quantities; the clamp at function exit
+// caps the final value at 1.0.
+func TestProp_Strcmp95Score_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.Strcmp95Score(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score produced Inf: %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_NoNegativeZero asserts that when the score is 0.0 it
+// is positive zero (+0.0), not negative zero (-0.0). math.Signbit detects
+// -0.0.
+func TestProp_Strcmp95Score_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.Strcmp95Score(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score produced -0.0: %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_AtLeastJaroWinkler is the load-bearing hierarchy
+// invariant: Strcmp95Score(a, b) >= JaroWinklerScore(a, b) for every (a, b).
+// The Winkler 1994 adjustments (similar-character credit, long-string
+// adjustment) only ADD to the base Jaro/Jaro-Winkler score; they never
+// subtract. Violation indicates either the similar-character credit pass
+// decreases the Jaro denominator/numerator in the wrong direction, OR the
+// long-string adjustment formula has a sign error.
+//
+// RESEARCH.md Pitfall 1 warning sign #3 closure.
+//
+// Uses an absolute-precision epsilon of 1e-12 to absorb ULP-level float
+// imprecision in the parallel kernel runs — the algorithm is float-stable
+// per DET-06, but downstream floating-point reductions in the Jaro and
+// Strcmp95 paths can differ by sub-ULP amounts without violating the
+// hierarchy invariant.
+func TestProp_Strcmp95Score_AtLeastJaroWinkler(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.Strcmp95Score(a, b)
+		jw := fuzzymatch.JaroWinklerScore(a, b)
+		return s+1e-12 >= jw
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("Strcmp95Score < JaroWinklerScore (hierarchy violated): %v", err)
+	}
+}
+
+// TestProp_Strcmp95Score_DeterministicAcrossRuns asserts that the same input
+// produces byte-identical output across 1000 sequential calls. This is the
+// PITFALLS §14 closure: confirms the `var`-level similar-character table is
+// not mutated mid-process AND that no init-order non-determinism affects the
+// score.
+//
+// The pair MARTHA/MARHTA is chosen because it exercises the long-string
+// adjustment AND the prefix boost without firing the similar-character pass
+// — a representative non-trivial input.
+func TestProp_Strcmp95Score_DeterministicAcrossRuns(t *testing.T) {
+	const a, b = "MARTHA", "MARHTA"
+	want := fuzzymatch.Strcmp95Score(a, b)
+	for i := 0; i < 1000; i++ {
+		if got := fuzzymatch.Strcmp95Score(a, b); got != want {
+			t.Fatalf("Strcmp95Score non-deterministic at iteration %d: got %g; want %g", i, got, want)
+		}
+	}
+}
