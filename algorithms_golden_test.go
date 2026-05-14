@@ -833,3 +833,94 @@ func TestGolden_LCSStr_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/lcsstr.json", file)
 }
+
+// buildRatcliffObershelpStagingEntries returns the Ratcliff-Obershelp entries
+// used by TestGolden_RatcliffObershelp_Staging. ExpectedScore is computed
+// from the current implementation so the staging file stays in sync with
+// actual output. Seven entries cover: both-empty (1.0), identical (1.0),
+// one-empty (0.0), substring-middle (abcdef inside xyzabcdefuvw),
+// asymmetric tide/diet (ONE direction — the cross-algorithm asymmetry-pin
+// test in plan 04-05 verifies fwd != rev), Dr. Dobb's 1988 canonical
+// reference pair WIKIMEDIA/WIKIMANIA, and the GESTALT/GESTALT_PATTERN_MATCHING
+// paper-cited pair.
+//
+// Plan 04-05 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file.
+func buildRatcliffObershelpStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "RatcliffObershelp_both_empty",
+			Algorithm:     "RatcliffObershelp",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("", ""),
+		},
+		{
+			Name:          "RatcliffObershelp_gestalt_paper",
+			Algorithm:     "RatcliffObershelp",
+			A:             "GESTALT",
+			B:             "GESTALT_PATTERN_MATCHING",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("GESTALT", "GESTALT_PATTERN_MATCHING"),
+		},
+		{
+			Name:          "RatcliffObershelp_identical",
+			Algorithm:     "RatcliffObershelp",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("abc", "abc"),
+		},
+		{
+			Name:          "RatcliffObershelp_one_empty",
+			Algorithm:     "RatcliffObershelp",
+			A:             "abc",
+			B:             "",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("abc", ""),
+		},
+		{
+			Name:          "RatcliffObershelp_substring_middle",
+			Algorithm:     "RatcliffObershelp",
+			A:             "abcdef",
+			B:             "xyzabcdefuvw",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("abcdef", "xyzabcdefuvw"),
+		},
+		{
+			Name:          "RatcliffObershelp_tide_diet_asymmetric",
+			Algorithm:     "RatcliffObershelp",
+			A:             "tide",
+			B:             "diet",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("tide", "diet"),
+		},
+		{
+			Name:          "RatcliffObershelp_wikimedia_wikimania",
+			Algorithm:     "RatcliffObershelp",
+			A:             "WIKIMEDIA",
+			B:             "WIKIMANIA",
+			ExpectedScore: fuzzymatch.RatcliffObershelpScore("WIKIMEDIA", "WIKIMANIA"),
+		},
+	}
+}
+
+// TestGolden_RatcliffObershelp_Staging produces
+// testdata/golden/_staging/ratcliff_obershelp.json for plan 04-05's merge
+// step. Entries are sorted alphabetically by Name. Seven entries cover:
+// both-empty, GESTALT (Dr. Dobb's paper-cited), identical, one-empty,
+// substring middle, asymmetric tide/diet pair (ONE direction; asymmetry
+// itself is verified by TestRatcliffObershelp_AsymmetryPin and by the
+// cross-algorithm consistency test in plan 04-05), and the canonical
+// WIKIMEDIA/WIKIMANIA pair.
+//
+// Plan 04-05 owns the canonical algorithms.json merge; this plan only
+// writes the staging file. Do NOT update TestGolden_Algorithms_Merge's
+// stagingFiles slice here — that's plan 04-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_RatcliffObershelp_Staging(t *testing.T) {
+	entries := buildRatcliffObershelpStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/ratcliff_obershelp.json", file)
+}

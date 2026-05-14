@@ -169,3 +169,26 @@ func ExampleLCSStrScoreRunes() {
 	// Output:
 	// 0.7500
 }
+
+// ExampleRatcliffObershelpScore demonstrates the Ratcliff-Obershelp
+// gestalt-pattern-matching similarity on the canonical Dr. Dobb's Journal
+// 1988 reference pair WIKIMEDIA/WIKIMANIA. The recursive longest-common-
+// substring decomposition matches 7 characters (W, I, K, I, M, the
+// L-shared prefix); score = 2·7/(9+9) = 14/18 ≈ 0.7778. This matches
+// Python difflib.SequenceMatcher(autojunk=False).ratio() byte-for-byte.
+func ExampleRatcliffObershelpScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.RatcliffObershelpScore("WIKIMEDIA", "WIKIMANIA"))
+	// Output:
+	// 0.7778
+}
+
+// ExampleRatcliffObershelpScoreRunes demonstrates the rune-path variant on
+// café/cafe. The rune-level matched substring is "caf" (3 runes); score =
+// 2·3/(4+4) = 0.7500. The byte path would treat "café" as 5 bytes (due to
+// UTF-8 encoding of é) and produce a different score; the rune variant
+// guarantees rune-boundary alignment for any input.
+func ExampleRatcliffObershelpScoreRunes() {
+	fmt.Printf("%.4f\n", fuzzymatch.RatcliffObershelpScoreRunes("café", "cafe"))
+	// Output:
+	// 0.7500
+}

@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "RatcliffObershelp_both_empty",
+      "algorithm": "RatcliffObershelp",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "RatcliffObershelp_gestalt_paper",
+      "algorithm": "RatcliffObershelp",
+      "a": "GESTALT",
+      "b": "GESTALT_PATTERN_MATCHING",
+      "expected_score": 0.45161290322580644
+    },
+    {
+      "name": "RatcliffObershelp_identical",
+      "algorithm": "RatcliffObershelp",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "RatcliffObershelp_one_empty",
+      "algorithm": "RatcliffObershelp",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "RatcliffObershelp_substring_middle",
+      "algorithm": "RatcliffObershelp",
+      "a": "abcdef",
+      "b": "xyzabcdefuvw",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "RatcliffObershelp_tide_diet_asymmetric",
+      "algorithm": "RatcliffObershelp",
+      "a": "tide",
+      "b": "diet",
+      "expected_score": 0.25
+    },
+    {
+      "name": "RatcliffObershelp_wikimedia_wikimania",
+      "algorithm": "RatcliffObershelp",
+      "a": "WIKIMEDIA",
+      "b": "WIKIMANIA",
+      "expected_score": 0.7777777777777778
+    }
+  ]
+}

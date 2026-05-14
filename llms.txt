@@ -104,6 +104,11 @@ scan / Extract (Phases 9–10).
 - func LCSStrScore(a, b string) float64
 - func LCSStrScoreRunes(a, b string) float64
 
+### Ratcliff-Obershelp (Dr. Dobb's 1988) gestalt-pattern-matching similarity
+
+- func RatcliffObershelpScore(a, b string) float64
+- func RatcliffObershelpScoreRunes(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
