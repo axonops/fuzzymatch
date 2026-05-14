@@ -1,6 +1,7 @@
 ---
 phase: 03-smith-waterman-gotoh
 reviewed: 2026-05-14T12:00:00Z
+resolved: 2026-05-14T13:30:00Z
 depth: standard
 files_reviewed: 21
 files_reviewed_list:
@@ -29,7 +30,17 @@ findings:
   warning: 4
   info: 7
   total: 11
-status: issues_found
+findings_resolved:
+  warning: 4
+  info: 7  # IN-06 assessed as no-op (formatting already matches convention)
+  total: 11
+status: resolved
+resolution_commits:
+  - 0b14699  # docs(03): clarify rune-path 8-allocs is floor, not target (WR-01, IN-02)
+  - b492af8  # test(03): extend FuzzSmithWatermanGotohScore to cover all 6 public surfaces (WR-02)
+  - 2b533d1  # test(03): pin exact raw + normalised values in WithCustomParams test (WR-03)
+  - b6d9e33  # test(03): make example stdout test panic-safe + drop hand-rolled itoa (WR-04, IN-01)
+  - 547b8ea  # test(03): close remaining IN-tier review findings (IN-03, IN-04, IN-05, IN-06, IN-07)
 ---
 
 # Phase 3: Code Review Report — Smith-Waterman-Gotoh
