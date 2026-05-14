@@ -224,6 +224,48 @@
       "a": "saturday",
       "b": "sunday",
       "expected_score": 0.625
+    },
+    {
+      "name": "SmithWatermanGotoh_both_empty",
+      "algorithm": "SmithWatermanGotoh",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "SmithWatermanGotoh_identical",
+      "algorithm": "SmithWatermanGotoh",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "SmithWatermanGotoh_no_overlap",
+      "algorithm": "SmithWatermanGotoh",
+      "a": "qqqq",
+      "b": "zzzz",
+      "expected_score": 0
+    },
+    {
+      "name": "SmithWatermanGotoh_one_empty",
+      "algorithm": "SmithWatermanGotoh",
+      "a": "abc",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "SmithWatermanGotoh_one_long_gap_canary",
+      "algorithm": "SmithWatermanGotoh",
+      "a": "abc________def",
+      "b": "abcdef",
+      "expected_score": 0.5
+    },
+    {
+      "name": "SmithWatermanGotoh_two_substring",
+      "algorithm": "SmithWatermanGotoh",
+      "a": "http_request",
+      "b": "http_request_header_fields",
+      "expected_score": 1
     }
   ]
 }

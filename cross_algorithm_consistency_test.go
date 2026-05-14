@@ -12,21 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// cross_algorithm_consistency_test.go pins relationships across the six
-// Phase 2 character-based algorithms:
+// cross_algorithm_consistency_test.go pins relationships across the seven
+// Phase 2 + Phase 3 character-based algorithms:
 //
 //   - DIVERGENCE: DL-OSA and DL-Full produce DIFFERENT distances for
 //     the canonical discriminating vector "ca"/"abc" (3 vs 2). This
-//     is a load-bearing claim of the phase (ROADMAP success criterion #2);
-//     the file pins it cross-algorithm rather than only inside each
-//     algorithm's own _test.go file.
+//     is a load-bearing claim of the phase (Phase 2 ROADMAP success
+//     criterion #2); the file pins it cross-algorithm rather than only
+//     inside each algorithm's own _test.go file.
+//
+//   - LOCAL-VS-GLOBAL DIVERGENCE: Smith-Waterman-Gotoh (local
+//     alignment) scores STRICTLY HIGHER than Levenshtein (global edit
+//     distance) on a substring-containment input. This is the
+//     load-bearing Phase 3 claim: SWG finds the substring while
+//     Levenshtein counts every uncovered position as an edit.
 //
 //   - CONVERGENCE: every algorithm's score on identical inputs is
-//     exactly 1.0 (identity).
+//     exactly 1.0 (identity); on both-empty inputs is 1.0; on one-empty
+//     inputs is 0.0. Pinned across all seven algorithms.
 //
 //   - SINGLE-SUBSTITUTION AGREEMENT: Levenshtein, DL-OSA, DL-Full,
 //     and Hamming all return distance == 1 for a single-character
-//     substitution between equal-length strings (e.g. "a"/"b").
+//     substitution between equal-length strings (e.g. "a"/"b"). SWG
+//     is excluded — it has no Distance variant (CONTEXT.md §7 / IN-06).
 //
 // Stdlib `testing` only — no testify in root tests, per
 // .claude/skills/go-coding-standards.
@@ -74,7 +82,7 @@ func TestCrossAlgorithm_OSA_Full_Divergence(t *testing.T) {
 	}
 }
 
-// TestCrossAlgorithm_IdentityConvergence asserts that all six Phase 2
+// TestCrossAlgorithm_IdentityConvergence asserts that all seven Phase 2 + 3
 // algorithms return Score(input, input) == 1.0 for a non-empty identical
 // input. This is the identity invariant — a fundamental requirement of any
 // correct similarity function.
@@ -91,6 +99,7 @@ func TestCrossAlgorithm_IdentityConvergence(t *testing.T) {
 		{"HammingScore", fuzzymatch.HammingScore},
 		{"JaroScore", fuzzymatch.JaroScore},
 		{"JaroWinklerScore", fuzzymatch.JaroWinklerScore},
+		{"SmithWatermanGotohScore", fuzzymatch.SmithWatermanGotohScore},
 	}
 
 	input := "abc"
@@ -104,7 +113,7 @@ func TestCrossAlgorithm_IdentityConvergence(t *testing.T) {
 	}
 }
 
-// TestCrossAlgorithm_BothEmptyConvergence asserts that all six Phase 2
+// TestCrossAlgorithm_BothEmptyConvergence asserts that all seven Phase 2 + 3
 // algorithms return Score("", "") == 1.0. Both-empty identity is the
 // project-wide convention documented in RESEARCH.md §Score Normalisation:
 // two equal strings (even if empty) have similarity 1.0.
@@ -121,6 +130,7 @@ func TestCrossAlgorithm_BothEmptyConvergence(t *testing.T) {
 		{"HammingScore", fuzzymatch.HammingScore},
 		{"JaroScore", fuzzymatch.JaroScore},
 		{"JaroWinklerScore", fuzzymatch.JaroWinklerScore},
+		{"SmithWatermanGotohScore", fuzzymatch.SmithWatermanGotohScore},
 	}
 
 	for _, f := range funcs {
@@ -163,7 +173,7 @@ func TestCrossAlgorithm_SingleSubstitution_DistanceAgreement(t *testing.T) {
 	}
 }
 
-// TestCrossAlgorithm_OneEmpty_ScoreAgreement asserts that all six Phase 2
+// TestCrossAlgorithm_OneEmpty_ScoreAgreement asserts that all seven Phase 2 + 3
 // algorithms return Score("", "abc") == 0.0. A non-empty string has zero
 // similarity to the empty string — maximally dissimilar.
 func TestCrossAlgorithm_OneEmpty_ScoreAgreement(t *testing.T) {
@@ -179,6 +189,7 @@ func TestCrossAlgorithm_OneEmpty_ScoreAgreement(t *testing.T) {
 		{"HammingScore", fuzzymatch.HammingScore},
 		{"JaroScore", fuzzymatch.JaroScore},
 		{"JaroWinklerScore", fuzzymatch.JaroWinklerScore},
+		{"SmithWatermanGotohScore", fuzzymatch.SmithWatermanGotohScore},
 	}
 
 	for _, f := range funcs {
@@ -188,5 +199,28 @@ func TestCrossAlgorithm_OneEmpty_ScoreAgreement(t *testing.T) {
 				t.Errorf("%s(\"\", \"abc\") = %v, want 0.0 (one-empty convention)", f.name, got)
 			}
 		})
+	}
+}
+
+// TestCrossAlgorithm_SWG_Levenshtein_SubstringDivergence asserts the
+// load-bearing local-vs-global-alignment claim: on a substring-
+// containment input, Smith-Waterman-Gotoh (LOCAL alignment) scores
+// STRICTLY HIGHER than Levenshtein (GLOBAL edit distance), because SWG
+// finds the substring while Levenshtein counts every uncovered position
+// as an edit.
+//
+// "http_request" is fully contained in "http_request_header_fields":
+//   - SmithWatermanGotohScore = 1.0   (full local match found; clamp
+//     returns 1 because raw == min(len))
+//   - LevenshteinScore        ≈ 0.46  (≈ 14 edits over max-length 26)
+//
+// This test will fail if either algorithm regresses on this contract.
+func TestCrossAlgorithm_SWG_Levenshtein_SubstringDivergence(t *testing.T) {
+	a, b := "http_request", "http_request_header_fields"
+	gotSWG := fuzzymatch.SmithWatermanGotohScore(a, b)
+	gotLev := fuzzymatch.LevenshteinScore(a, b)
+	if !(gotSWG > gotLev) {
+		t.Errorf("SWG (%v) must score STRICTLY higher than Levenshtein (%v) on substring-containment pair %q/%q (local-vs-global divergence)",
+			gotSWG, gotLev, a, b)
 	}
 }
