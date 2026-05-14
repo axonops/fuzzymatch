@@ -182,7 +182,7 @@ func strcmp95SimilarLookup(a, b byte) float64 {
 //   - JaroScore        — base similarity.
 //   - JaroWinklerScore — Jaro + prefix boost (shared-prefix bias).
 //   - Strcmp95Score    — Jaro-Winkler + similar-character credit + long-string
-//                        adjustment (record-linkage / surname matching).
+//     adjustment (record-linkage / surname matching).
 //
 // # ASCII-only
 //
