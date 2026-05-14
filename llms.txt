@@ -97,6 +97,13 @@ scan / Extract (Phases 9–10).
 - func SmithWatermanGotohRawScoreRunes(a, b string) float64
 - func SmithWatermanGotohRawScoreWithParams(a, b string, params SWGParams) float64
 
+### Longest Common Substring (LCSStr) similarity
+
+- func LongestCommonSubstring(a, b string) string
+- func LongestCommonSubstringRunes(a, b string) string
+- func LCSStrScore(a, b string) float64
+- func LCSStrScoreRunes(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

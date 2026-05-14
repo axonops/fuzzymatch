@@ -300,15 +300,28 @@ func TestDispatch_Strcmp95Registered(t *testing.T) {
 	}
 }
 
+// TestDispatch_LCSStrRegistered asserts that dispatch[AlgoLCSStr] (slot 8)
+// is non-nil after Phase 4 plan 04-02 registers LCSStrScore. Only the
+// score-returning byte path is dispatched — LongestCommonSubstring*,
+// LCSStrScoreRunes are public but not dispatched (the dispatch table maps
+// AlgoID to (a, b string) float64).
+func TestDispatch_LCSStrRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoLCSStr)) {
+		t.Errorf("dispatch[AlgoLCSStr] (%d) is nil — dispatch_lcsstr.go must register LCSStrScore at package load time",
+			int(fuzzymatch.AlgoLCSStr))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
 // AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
 // (slot 4), AlgoJaroWinkler (slot 5), AlgoStrcmp95 (slot 6 — registered by
-// Phase 4 plan 04-01), and AlgoSmithWatermanGotoh (slot 7 — registered by
-// Phase 3 plan 03-01) are still nil.
+// Phase 4 plan 04-01), AlgoSmithWatermanGotoh (slot 7 — registered by Phase
+// 3 plan 03-01), and AlgoLCSStr (slot 8 — registered by Phase 4 plan 04-02)
+// are still nil.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
-	// Registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05,
-	// plan 02-06, plan 03-01, and plan 04-01 respectively; all others nil.
+	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, and
+	// plan 04-02 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -318,12 +331,13 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoJaroWinkler):            true,
 		int(fuzzymatch.AlgoStrcmp95):               true,
 		int(fuzzymatch.AlgoSmithWatermanGotoh):     true,
+		int(fuzzymatch.AlgoLCSStr):                 true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02, plan 02-03, plan 02-04, plan 02-05, plan 02-06, plan 03-01, or plan 04-01)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, or plan 04-02)", i)
 			}
 		} else {
 			if !isNil {

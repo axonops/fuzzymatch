@@ -742,3 +742,94 @@ func TestGolden_Strcmp95_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/strcmp95.json", file)
 }
+
+// buildLCSStrStagingEntries returns the LCSStr entries used by
+// TestGolden_LCSStr_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output. Seven
+// byte-path entries cover: both-empty (1.0), identical (1.0), one-empty (0.0),
+// canonical Wagner-Fischer 1974 reference vectors (kitten/sitting,
+// http_request/http_request_header_fields), no-overlap (0.0 — RESEARCH.md
+// Pitfall 6 disambiguation), AND the leftmost-tie-break load-bearing pin
+// (abcXYZabc/abc — RESEARCH.md Pitfall 4).
+//
+// All entries record LCSStrScore on byte-string inputs (the Phase 2 staging-
+// golden convention — rune-path coverage stays in unit tests; the golden
+// records the dispatched byte-path score for cross-platform determinism).
+//
+// Plan 04-05 owns the merge into testdata/golden/algorithms.json — this plan
+// only writes the staging file.
+func buildLCSStrStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "LCSStr_both_empty",
+			Algorithm:     "LCSStr",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.LCSStrScore("", ""),
+		},
+		{
+			Name:          "LCSStr_http_request_containment",
+			Algorithm:     "LCSStr",
+			A:             "http_request",
+			B:             "http_request_header_fields",
+			ExpectedScore: fuzzymatch.LCSStrScore("http_request", "http_request_header_fields"),
+		},
+		{
+			Name:          "LCSStr_identical",
+			Algorithm:     "LCSStr",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.LCSStrScore("abc", "abc"),
+		},
+		{
+			Name:          "LCSStr_kitten_sitting",
+			Algorithm:     "LCSStr",
+			A:             "kitten",
+			B:             "sitting",
+			ExpectedScore: fuzzymatch.LCSStrScore("kitten", "sitting"),
+		},
+		{
+			Name:          "LCSStr_leftmost_tie_break",
+			Algorithm:     "LCSStr",
+			A:             "abcXYZabc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.LCSStrScore("abcXYZabc", "abc"),
+		},
+		{
+			Name:          "LCSStr_no_overlap",
+			Algorithm:     "LCSStr",
+			A:             "abc",
+			B:             "xyz",
+			ExpectedScore: fuzzymatch.LCSStrScore("abc", "xyz"),
+		},
+		{
+			Name:          "LCSStr_one_empty",
+			Algorithm:     "LCSStr",
+			A:             "abc",
+			B:             "",
+			ExpectedScore: fuzzymatch.LCSStrScore("abc", ""),
+		},
+	}
+}
+
+// TestGolden_LCSStr_Staging produces testdata/golden/_staging/lcsstr.json for
+// plan 04-05's merge step. Entries are sorted alphabetically by Name. Seven
+// entries cover: both-empty, http_request substring containment, identical,
+// kitten/sitting, leftmost-tie-break (the load-bearing strict-`>` pin),
+// no-overlap (Pitfall 6 disambiguation), and one-empty.
+//
+// Plan 04-05 owns the canonical algorithms.json merge; this plan only writes
+// the staging file. Do NOT update TestGolden_Algorithms_Merge's stagingFiles
+// slice here — that's plan 04-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_LCSStr_Staging(t *testing.T) {
+	entries := buildLCSStrStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/lcsstr.json", file)
+}
