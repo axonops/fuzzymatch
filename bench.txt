@@ -1,10 +1,102 @@
-# benchstat baseline for github.com/axonops/fuzzymatch
-#
-# Populated by `make bench` from a local workstation per CONTRIBUTING (D-09).
-# Empty until the first algorithm benchmark lands in Phase 2.
-#
-# Format: standard `go test -bench=. -benchmem -count=10` output. benchstat
-# reads it as the A side of an A/B comparison against bench.txt.new (the
-# fresh output of `make bench`). CI runs `make bench-compare`
-# informationally (continue-on-error: true) per D-09 — no PR-blocking
-# regression gate until a self-hosted bench runner is available.
+goos: darwin
+goarch: arm64
+pkg: github.com/axonops/fuzzymatch
+cpu: Apple M2
+BenchmarkAlgoID_String-8                               	453770691	         2.644 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	453106540	         2.617 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	454079550	         2.649 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	454730260	         2.648 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	451607157	         2.794 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	452927113	         2.637 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	456785258	         2.649 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	452520182	         2.654 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	449512489	         2.650 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAlgoID_String-8                               	453221912	         2.649 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18917547	        63.27 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18785136	        63.41 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	19012786	        63.12 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18889766	        63.68 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	19154310	        63.51 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	19074880	        63.56 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18670588	        63.38 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18668688	        63.51 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18701200	        63.74 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Short-8     	18910356	        63.50 ns/op	     128 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  145527	      8203 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  146101	      8214 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  141528	      8193 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  144735	      8209 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  148653	      8185 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  146571	      8183 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  147907	      8248 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  146390	      8216 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  144886	      8233 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Medium-8    	  146985	      8245 ns/op	   21760 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1255	    948415 ns/op	 2023428 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1246	    961267 ns/op	 2023427 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1263	    948867 ns/op	 2023428 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1268	    946963 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1275	    946568 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1263	    945965 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1255	    946758 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1274	    948689 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1263	    951125 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_ASCII_Long-8      	    1254	    948474 ns/op	 2023429 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7197414	       166.5 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7246404	       166.6 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7135359	       167.2 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7211659	       166.9 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7185644	       166.9 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7143452	       166.6 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7249550	       166.7 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7222374	       166.5 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7175643	       166.5 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinFullScore_Unicode_Short-8   	 7234605	       166.6 ns/op	     288 B/op	       1 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32199745	        37.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	31974490	        37.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32004016	        37.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32120737	        37.53 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32208892	        37.57 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32021061	        37.54 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32063626	        37.49 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	32134464	        37.57 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	31658996	        37.52 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Short-8      	31643864	        37.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  170485	      7036 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  167074	      7027 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  170049	      7027 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  170982	      7025 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  171609	      7020 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  170589	      7012 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  170829	      6999 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  171978	      7032 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  172174	      6993 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Medium-8     	  171439	      7001 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1552	    770915 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1569	    766039 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1573	    769350 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1561	    773924 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1548	    771114 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1562	    766911 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1558	    767203 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1544	    767870 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1564	    768988 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_ASCII_Long-8       	    1576	    765197 ns/op	   12288 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12605941	        96.51 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12385897	        96.58 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12427280	        96.52 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12430203	        96.37 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12278538	        96.88 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12285216	        96.59 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12396432	        96.81 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12498008	        97.14 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12312758	        96.66 ns/op	     144 B/op	       3 allocs/op
+BenchmarkDamerauLevenshteinOSAScore_Unicode_Short-8    	12417175	        96.56 ns/op	     144 B/op	       3 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	198163764	         6.042 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	199660590	         6.011 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	183345937	         5.997 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	199101002	         6.055 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	198845755	         6.021 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	199793754	         6.052 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	198498700	         6.024 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHammingScore_ASCII_Short-8                    	

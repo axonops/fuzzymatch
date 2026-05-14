@@ -49,7 +49,7 @@ func BenchmarkJaroWinklerScore_ASCII_Short(b *testing.B) {
 // identifier pair. Both inputs are within maxJaroStackLen (256 bytes) so
 // the ASCII fast path is used — 0 allocs expected.
 func BenchmarkJaroWinklerScore_ASCII_Medium(b *testing.B) {
-	a := strings.Repeat("abcdefghij", 5) // 50 bytes
+	a := strings.Repeat("abcdefghij", 5)    // 50 bytes
 	bStr := strings.Repeat("abcdeXghij", 5) // 50 bytes, differs at position 5 of each repeat
 	b.ReportAllocs()
 	b.ResetTimer()

@@ -203,7 +203,7 @@ func TestDamerauLevenshteinFull_DistanceRunes_MultiByte(t *testing.T) {
 	}{
 		{"café", "cafe", 1, 0.75},
 		{"naïve", "naive", 1, 1.0 - 1.0/5.0},
-		{"ab", "ba", 1, 0.5},   // rune path, same as byte path for ASCII
+		{"ab", "ba", 1, 0.5}, // rune path, same as byte path for ASCII
 		{"", "", 0, 1.0},
 	}
 	const tol = 1e-9
