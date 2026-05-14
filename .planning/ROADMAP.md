@@ -49,7 +49,7 @@
 **Plans**: 7 plans
   - [x] 02-01-levenshtein-PLAN.md — Implement Levenshtein and lock the canonical Phase 2 pattern (algorithm + dispatch + tests + golden + BDD + example)
   - [x] 02-02-hamming-PLAN.md — Implement Hamming with the LOCKED silent-zero unequal-length policy
-  - [ ] 02-03-jaro-PLAN.md — Implement Jaro (match-flag arrays; not a metric) with Winkler-1990-traceable reference vectors
+  - [x] 02-03-jaro-PLAN.md — Implement Jaro (match-flag arrays; not a metric) with Winkler-1990-traceable reference vectors
   - [ ] 02-04-jaro-winkler-PLAN.md — Implement Jaro-Winkler as Jaro + prefix boost; pin three Winkler-1990 constants
   - [ ] 02-05-damerau-levenshtein-osa-PLAN.md — Implement Damerau-Levenshtein OSA (three-row DP) with discriminating vector ca/abc → 3
   - [ ] 02-06-damerau-levenshtein-full-PLAN.md — Implement Damerau-Levenshtein Full (Lowrance-Wagner) with discriminating vector ca/abc → 2
