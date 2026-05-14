@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "biopython_version": "1.87",
+  "entries": [
+    {
+      "name": "identity_short",
+      "a": "hello",
+      "b": "hello",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 5.0,
+      "biopython_normalised": 1.0
+    },
+    {
+      "name": "both_empty",
+      "a": "",
+      "b": "",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 0.0,
+      "biopython_normalised": 1.0
+    },
+    {
+      "name": "one_empty_a",
+      "a": "",
+      "b": "abcdef",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 0.0,
+      "biopython_normalised": 0.0
+    },
+    {
+      "name": "one_empty_b",
+      "a": "abcdef",
+      "b": "",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 0.0,
+      "biopython_normalised": 0.0
+    },
+    {
+      "name": "two_substring",
+      "a": "http_request",
+      "b": "http_request_header_fields",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 12.0,
+      "biopython_normalised": 1.0
+    },
+    {
+      "name": "no_overlap",
+      "a": "qqqq",
+      "b": "zzzz",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 0.0,
+      "biopython_normalised": 0.0
+    },
+    {
+      "name": "one_long_gap_canary",
+      "a": "abc________def",
+      "b": "abcdef",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 3.0,
+      "biopython_normalised": 0.5
+    },
+    {
+      "name": "non_default_params",
+      "a": "hello",
+      "b": "hallo",
+      "params": {
+        "match": 2.0,
+        "mismatch": -2.0,
+        "gap_open": -3.0,
+        "gap_extend": -1.0
+      },
+      "biopython_score": 6.0,
+      "biopython_normalised": 1.0
+    },
+    {
+      "name": "single_char_match",
+      "a": "a",
+      "b": "a",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 1.0,
+      "biopython_normalised": 1.0
+    },
+    {
+      "name": "single_char_diff",
+      "a": "a",
+      "b": "b",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 0.0,
+      "biopython_normalised": 0.0
+    },
+    {
+      "name": "partial_middle_match",
+      "a": "xxabcyy",
+      "b": "zzabczz",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 3.0,
+      "biopython_normalised": 0.42857142857142855
+    },
+    {
+      "name": "all_mismatch",
+      "a": "abcd",
+      "b": "wxyz",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 0.0,
+      "biopython_normalised": 0.0
+    },
+    {
+      "name": "unicode_ascii_only",
+      "a": "caf\u00e9",
+      "b": "cafe",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 3.0,
+      "biopython_normalised": 0.75
+    },
+    {
+      "name": "identity_long",
+      "a": "the quick brown fox",
+      "b": "the quick brown fox",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 19.0,
+      "biopython_normalised": 1.0
+    },
+    {
+      "name": "near_identical",
+      "a": "kitten",
+      "b": "sitting",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 3.0,
+      "biopython_normalised": 0.5
+    },
+    {
+      "name": "substring_at_end",
+      "a": "ending",
+      "b": "the long ending",
+      "params": {
+        "match": 1.0,
+        "mismatch": -1.0,
+        "gap_open": -1.5,
+        "gap_extend": -0.5
+      },
+      "biopython_score": 6.0,
+      "biopython_normalised": 1.0
+    }
+  ]
+}
