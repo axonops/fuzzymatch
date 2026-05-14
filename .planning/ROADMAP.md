@@ -53,7 +53,7 @@
   - [x] 02-04-jaro-winkler-PLAN.md — Implement Jaro-Winkler as Jaro + prefix boost; pin three Winkler-1990 constants
   - [x] 02-05-damerau-levenshtein-osa-PLAN.md — Implement Damerau-Levenshtein OSA (three-row DP) with discriminating vector ca/abc → 3
   - [x] 02-06-damerau-levenshtein-full-PLAN.md — Implement Damerau-Levenshtein Full (Lowrance-Wagner) with discriminating vector ca/abc → 2
-  - [ ] 02-07-finalisation-PLAN.md — Merge per-algorithm staging files into algorithms.json; identifier-similarity example + meta-test; cross-algorithm consistency tests; first bench.txt baseline
+  - [x] 02-07-finalisation-PLAN.md — Merge per-algorithm staging files into algorithms.json; identifier-similarity example + meta-test; cross-algorithm consistency tests; first bench.txt baseline
 
 ### Phase 3: Smith-Waterman-Gotoh
 **Goal**: Implement Smith-Waterman-Gotoh local alignment with configurable affine gap penalty, **isolated into its own phase** because the published Gotoh 1982 affine-gap recurrence contains a known erratum (initialisation step and an indexing flip — a biorxiv survey found 8 of 31 lecture-slide reproductions inherit the bug) and primary-source citation alone is insufficient. The implementation must cross-validate against EMBOSS or biopython reference vectors, the erratum must be called out explicitly in the file's block comment, and `algorithm-correctness-reviewer` review is gated on the cross-validation evidence appearing in the PR description.
