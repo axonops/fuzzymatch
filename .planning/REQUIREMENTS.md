@@ -31,11 +31,11 @@
 
 ### Q-gram / N-gram algorithms (QGRAM)
 
-- [ ] **QGRAM-01**: Shared q-gram extraction infrastructure (`q_gram.go`) consumed by Jaccard / Sørensen-Dice / Cosine / Tversky (`docs/requirements.md` §7.10)
-- [ ] **QGRAM-02**: **Q-Gram Jaccard** similarity (`docs/requirements.md` §7.11)
-- [ ] **QGRAM-03**: **Sørensen-Dice** similarity (`docs/requirements.md` §7.12)
-- [ ] **QGRAM-04**: **Cosine** similarity — explicit `(x*y) + z` parenthesisation, `math.Sqrt` only (no `math.Pow`), to guarantee cross-platform float determinism (`docs/requirements.md` §7.13, research/PITFALLS.md #9)
-- [ ] **QGRAM-05**: **Tversky** asymmetric similarity with configurable alpha/beta (`docs/requirements.md` §7.14)
+- [x] **QGRAM-01**: Shared q-gram extraction infrastructure (`q_gram.go`) consumed by Jaccard / Sørensen-Dice / Cosine / Tversky (`docs/requirements.md` §7.10)
+- [x] **QGRAM-02**: **Q-Gram Jaccard** similarity (`docs/requirements.md` §7.11)
+- [x] **QGRAM-03**: **Sørensen-Dice** similarity (`docs/requirements.md` §7.12)
+- [x] **QGRAM-04**: **Cosine** similarity — explicit `(x*y) + z` parenthesisation, `math.Sqrt` only (no `math.Pow`), to guarantee cross-platform float determinism (`docs/requirements.md` §7.13, research/PITFALLS.md #9)
+- [x] **QGRAM-05**: **Tversky** asymmetric similarity with configurable alpha/beta (`docs/requirements.md` §7.14)
 
 ### Token-based algorithms (TOKEN)
 
@@ -211,11 +211,11 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | CHAR-07 | Phase 4 | Pending |
 | CHAR-08 | Phase 3 | Pending |
 | CHAR-09 | Phase 4 | Pending |
-| QGRAM-01 | Phase 5 | Pending |
-| QGRAM-02 | Phase 5 | Pending |
-| QGRAM-03 | Phase 5 | Pending |
-| QGRAM-04 | Phase 5 | Pending |
-| QGRAM-05 | Phase 5 | Pending |
+| QGRAM-01 | Phase 5 | Complete |
+| QGRAM-02 | Phase 5 | Complete |
+| QGRAM-03 | Phase 5 | Complete |
+| QGRAM-04 | Phase 5 | Complete |
+| QGRAM-05 | Phase 5 | Complete |
 | TOKEN-01 | Phase 6 | Pending |
 | TOKEN-02 | Phase 6 | Pending |
 | TOKEN-03 | Phase 6 | Pending |
