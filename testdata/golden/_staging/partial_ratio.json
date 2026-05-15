@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "PartialRatio_identity",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1,
+      "derivation_note": "a == b identity short-circuit → 1.0"
+    },
+    {
+      "name": "PartialRatio_both_empty",
+      "algorithm": "PartialRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 1,
+      "derivation_note": "both-empty / identity short-circuit → 1.0 (PartialRatio does NOT inherit TokenSetRatio's RapidFuzz issue #110 deviation)"
+    },
+    {
+      "name": "PartialRatio_one_empty_a",
+      "algorithm": "PartialRatio",
+      "a": "",
+      "b": "hello",
+      "expected_score": 0,
+      "derivation_note": "one-empty → 0.0"
+    },
+    {
+      "name": "PartialRatio_one_empty_b",
+      "algorithm": "PartialRatio",
+      "a": "hello",
+      "b": "",
+      "expected_score": 0,
+      "derivation_note": "one-empty → 0.0"
+    },
+    {
+      "name": "PartialRatio_region_2_middle_wins",
+      "algorithm": "PartialRatio",
+      "a": "YANKEES",
+      "b": "NEW YORK YANKEES",
+      "expected_score": 1,
+      "derivation_note": "Region 2 at i=9 → indelRatio(\"YANKEES\",\"YANKEES\")=1.0 — RapidFuzz canonical reference"
+    },
+    {
+      "name": "PartialRatio_region_1_left_tail_pitfall_3",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "ab",
+      "expected_score": 1,
+      "derivation_note": "06-RESEARCH.md Pitfall 3 KEYSTONE — Region 2 at i=0 → indelRatio(\"ab\",\"ab\")=1.0 (regression: naive single-loop missing Region 1 would fail this)"
+    },
+    {
+      "name": "PartialRatio_region_3_right_tail_pitfall_3",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "bc",
+      "expected_score": 1,
+      "derivation_note": "06-RESEARCH.md Pitfall 3 KEYSTONE — Region 2 at i=1 → indelRatio(\"bc\",\"bc\")=1.0 (regression: naive single-loop missing Region 3 would fail this)"
+    },
+    {
+      "name": "PartialRatio_partial_overlap",
+      "algorithm": "PartialRatio",
+      "a": "abcd",
+      "b": "xabcy",
+      "expected_score": 0.75,
+      "derivation_note": "Region 2 at i=0 → indelRatio(\"abcd\",\"xabc\")=2*3/8=0.75"
+    },
+    {
+      "name": "PartialRatio_disjoint_no_overlap",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "xyzzz",
+      "expected_score": 0,
+      "derivation_note": "charSet={'a','b','c'}; longer=\"xyzzz\" has no matching bytes; all alignments skipped → best=0.0"
+    },
+    {
+      "name": "PartialRatio_subset_short_at_end",
+      "algorithm": "PartialRatio",
+      "a": "world",
+      "b": "hello world",
+      "expected_score": 1,
+      "derivation_note": "Region 2 at i=6 → indelRatio(\"world\",\"world\")=1.0"
+    }
+  ]
+}

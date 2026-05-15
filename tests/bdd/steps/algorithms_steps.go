@@ -698,6 +698,67 @@ func (ctx *AlgorithmContext) bothTverskyScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// PartialRatio step methods (plan 06-03)
+//
+// Partial Ratio is parameter-free (no n, no α/β) and ships BOTH byte
+// (PartialRatioScore — dispatched) and rune (PartialRatioScoreRunes —
+// public but NOT dispatched) surfaces per 06-CONTEXT.md §6 LOCKED.
+// Each surface gets its own step verb so feature authors can target
+// the byte path with `PartialRatio` and the rune path with
+// `PartialRatioRunes`.
+// ---------------------------------------------------------------------------
+
+// iComputeThePartialRatioScoreBetween computes PartialRatioScore(a, b)
+// (byte path) and stores the result in lastScore.
+func (ctx *AlgorithmContext) iComputeThePartialRatioScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.PartialRatioScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondPartialRatioScoreBetween computes
+// PartialRatioScore(a, b) and stores the result in lastScore2. Used
+// by the symmetry scenario to capture a second score for
+// PR(A, B) == PR(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondPartialRatioScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.PartialRatioScore(a, b)
+	return nil
+}
+
+// bothPartialRatioScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetry scenario after computing PR(A, B) and PR(B, A).
+func (ctx *AlgorithmContext) bothPartialRatioScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("partial ratio scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
+// iComputeThePartialRatioRunesScoreBetween computes
+// PartialRatioScoreRunes(a, b) (rune path) and stores the result in
+// lastScore.
+func (ctx *AlgorithmContext) iComputeThePartialRatioRunesScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.PartialRatioScoreRunes(a, b)
+	return nil
+}
+
+// iComputeTheSecondPartialRatioRunesScoreBetween computes
+// PartialRatioScoreRunes(a, b) and stores the result in lastScore2.
+// Used by the rune-path symmetry scenario.
+func (ctx *AlgorithmContext) iComputeTheSecondPartialRatioRunesScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.PartialRatioScoreRunes(a, b)
+	return nil
+}
+
+// bothPartialRatioRunesScoresShouldBeEqual asserts lastScore ==
+// lastScore2 on the rune-path symmetry scenario.
+func (ctx *AlgorithmContext) bothPartialRatioRunesScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("partial ratio runes scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -1009,5 +1070,35 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both TokenSetRatio scores should be equal$`,
 		a.bothTokenSetRatioScoresShouldBeEqual,
+	)
+
+	// PartialRatio step definitions (plan 06-03) — BOTH byte and rune
+	// surfaces. Parameter-free shape (no `with n …` suffix). Per
+	// CONTEXT.md §6 LOCKED, PartialRatio ships both surfaces; the BDD
+	// feature covers both with distinct step verbs (`PartialRatio` for
+	// the byte path, `PartialRatioRunes` for the rune path).
+	ctx.Step(
+		`^I compute the PartialRatio score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeThePartialRatioScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second PartialRatio score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondPartialRatioScoreBetween,
+	)
+	ctx.Step(
+		`^both PartialRatio scores should be equal$`,
+		a.bothPartialRatioScoresShouldBeEqual,
+	)
+	ctx.Step(
+		`^I compute the PartialRatioRunes score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeThePartialRatioRunesScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second PartialRatioRunes score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondPartialRatioRunesScoreBetween,
+	)
+	ctx.Step(
+		`^both PartialRatioRunes scores should be equal$`,
+		a.bothPartialRatioRunesScoresShouldBeEqual,
 	)
 }
