@@ -53,19 +53,19 @@ func FuzzSorensenDiceScore(f *testing.F) {
 		a, b string
 		n    int
 	}{
-		{"night", "nacht", 2},                                    // RV-D1 canonical
-		{"abcdef", "bcdefg", 2},                                  // RV-D2 high-overlap
-		{"abcdef", "abcXef", 3},                                  // RV-D3 trigram
-		{"hello", "hello", 2},                                    // RV-D4 identity
-		{"", "", 2},                                              // both-empty
-		{"abc", "", 2},                                           // one-empty
-		{"abc", "xyz", 2},                                        // orthogonal
-		{"\xff\xfe", "abc", 2},                                   // invalid UTF-8
-		{"\xc0\x80", "abc", 2},                                   // overlong NUL
-		{"café", "cafe", 2},                                      // multi-byte UTF-8
+		{"night", "nacht", 2},   // RV-D1 canonical
+		{"abcdef", "bcdefg", 2}, // RV-D2 high-overlap
+		{"abcdef", "abcXef", 3}, // RV-D3 trigram
+		{"hello", "hello", 2},   // RV-D4 identity
+		{"", "", 2},             // both-empty
+		{"abc", "", 2},          // one-empty
+		{"abc", "xyz", 2},       // orthogonal
+		{"\xff\xfe", "abc", 2},  // invalid UTF-8
+		{"\xc0\x80", "abc", 2},  // overlong NUL
+		{"café", "cafe", 2},     // multi-byte UTF-8
 		{strings.Repeat("a", 200), strings.Repeat("ab", 100), 3}, // long input
-		{"x", "x", 1},                                            // n=1 unigram
-		{"abcdefgh", "abcdefgi", 8},                              // n=8 max
+		{"x", "x", 1},               // n=1 unigram
+		{"abcdefgh", "abcdefgi", 8}, // n=8 max
 	} {
 		f.Add(seed.a, seed.b, seed.n)
 	}
@@ -94,18 +94,18 @@ func FuzzSorensenDiceScoreRunes(f *testing.F) {
 		a, b string
 		n    int
 	}{
-		{"night", "nacht", 2},                                    // RV-D1 (ASCII; both paths align)
-		{"abcdef", "bcdefg", 2},                                  // RV-D2 (ASCII)
-		{"hello", "hello", 2},                                    // RV-D4 identity
-		{"", "", 2},                                              // both-empty
-		{"abc", "", 2},                                           // one-empty
-		{"abc", "xyz", 2},                                        // orthogonal
-		{"café", "cafe", 2},                                      // load-bearing rune-path canary
-		{"Привет", "привет", 2},                                  // Cyrillic
-		{"\xff\xfe", "abc", 2},                                   // invalid UTF-8 (FFFD-replaced)
+		{"night", "nacht", 2},   // RV-D1 (ASCII; both paths align)
+		{"abcdef", "bcdefg", 2}, // RV-D2 (ASCII)
+		{"hello", "hello", 2},   // RV-D4 identity
+		{"", "", 2},             // both-empty
+		{"abc", "", 2},          // one-empty
+		{"abc", "xyz", 2},       // orthogonal
+		{"café", "cafe", 2},     // load-bearing rune-path canary
+		{"Привет", "привет", 2}, // Cyrillic
+		{"\xff\xfe", "abc", 2},  // invalid UTF-8 (FFFD-replaced)
 		{strings.Repeat("a", 200), strings.Repeat("ab", 100), 3}, // long input
-		{"x", "x", 1},                                            // n=1
-		{"abcdefgh", "abcdefgi", 8},                              // n=8
+		{"x", "x", 1},               // n=1
+		{"abcdefgh", "abcdefgi", 8}, // n=8
 	} {
 		f.Add(seed.a, seed.b, seed.n)
 	}

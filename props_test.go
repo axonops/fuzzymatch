@@ -2376,9 +2376,9 @@ func TestProp_TverskyScoreRunes_SymmetricWhenAlphaEqBeta(t *testing.T) {
 // conditional property test. With fixed α=0.8, β=0.2 (the LOAD-BEARING
 // asymmetric configuration), the implication is:
 //
-//   IF the multiset residuals differ (|A−B| ≠ |B−A|) on the q-gram
-//   extraction THEN swapping inputs MUST produce a different score
-//   (T(a, b, ...) ≠ T(b, a, ...)).
+//	IF the multiset residuals differ (|A−B| ≠ |B−A|) on the q-gram
+//	extraction THEN swapping inputs MUST produce a different score
+//	(T(a, b, ...) ≠ T(b, a, ...)).
 //
 // Detecting whether residuals differ from inside the property body
 // without re-implementing extraction: the multiset total cardinality

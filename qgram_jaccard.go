@@ -140,7 +140,7 @@ package fuzzymatch
 //
 // Reference vector (Ukkonen 1992 §3 worked example):
 //
-//   QGramJaccardScore("AGCT", "AGCTAGCT", 2) = 3/7 ≈ 0.42857142857142855
+//	QGramJaccardScore("AGCT", "AGCTAGCT", 2) = 3/7 ≈ 0.42857142857142855
 func QGramJaccardScore(a, b string, n int) float64 {
 	if n < 1 {
 		panic("fuzzymatch: invalid q-gram size")
@@ -173,12 +173,12 @@ func QGramJaccardScore(a, b string, n int) float64 {
 //
 // Reference vector:
 //
-//   QGramJaccardScoreRunes("café", "cafe", 2) = 0.5
+//	QGramJaccardScoreRunes("café", "cafe", 2) = 0.5
 //
-//   QA = rune-bigrams("café") = {"ca":1, "af":1, "fé":1}
-//   QB = rune-bigrams("cafe") = {"ca":1, "af":1, "fe":1}
-//   intersection = 2 (ca + af); union = 4 (ca + af + fé + fe);
-//   J = 2/4 = 0.5
+//	QA = rune-bigrams("café") = {"ca":1, "af":1, "fé":1}
+//	QB = rune-bigrams("cafe") = {"ca":1, "af":1, "fe":1}
+//	intersection = 2 (ca + af); union = 4 (ca + af + fé + fe);
+//	J = 2/4 = 0.5
 func QGramJaccardScoreRunes(a, b string, n int) float64 {
 	if n < 1 {
 		panic("fuzzymatch: invalid q-gram size")
@@ -197,10 +197,10 @@ func QGramJaccardScoreRunes(a, b string, n int) float64 {
 // jaccardFromQGramMaps computes J(A, B) = |QA ∩ QB| / |QA ∪ QB| from
 // two pre-extracted q-gram multisets. The multiset cardinalities are:
 //
-//   totalA       = Σ countA[k]            (sum of map values for QA)
-//   totalB       = Σ countB[k]
-//   intersection = Σ_{k ∈ keys(QA) ∩ keys(QB)} min(countA[k], countB[k])
-//   union        = totalA + totalB - intersection
+//	totalA       = Σ countA[k]            (sum of map values for QA)
+//	totalB       = Σ countB[k]
+//	intersection = Σ_{k ∈ keys(QA) ∩ keys(QB)} min(countA[k], countB[k])
+//	union        = totalA + totalB - intersection
 //
 // Helper invariant: the OUTPUT is a single float64 derived from
 // integer cardinalities. The internal map iterations to compute

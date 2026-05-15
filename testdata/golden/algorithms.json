@@ -2,6 +2,69 @@
   "version": 1,
   "entries": [
     {
+      "name": "Cosine_ascii_n2_irrational",
+      "algorithm": "Cosine",
+      "a": "abc",
+      "b": "abcd",
+      "expected_score": 0.8164965809277259
+    },
+    {
+      "name": "Cosine_ascii_n3_large_intersection",
+      "algorithm": "Cosine",
+      "a": "abcdefgh",
+      "b": "abcdefgi",
+      "expected_score": 0.8333333333333335
+    },
+    {
+      "name": "Cosine_ascii_n4_exact",
+      "algorithm": "Cosine",
+      "a": "abcde",
+      "b": "abcdf",
+      "expected_score": 0.4999999999999999
+    },
+    {
+      "name": "Cosine_both_empty",
+      "algorithm": "Cosine",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Cosine_identical",
+      "algorithm": "Cosine",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "Cosine_one_empty",
+      "algorithm": "Cosine",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "Cosine_orthogonal",
+      "algorithm": "Cosine",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "Cosine_unicode_n2_runes",
+      "algorithm": "Cosine",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.6666666666666667
+    },
+    {
+      "name": "Cosine_unicode_n3_runes",
+      "algorithm": "Cosine",
+      "a": "héllo",
+      "b": "hello",
+      "expected_score": 0.33333333333333337
+    },
+    {
       "name": "DamerauLevenshteinFull_ab_ba",
       "algorithm": "DamerauLevenshteinFull",
       "a": "ab",
@@ -275,6 +338,62 @@
       "expected_score": 0.625
     },
     {
+      "name": "QGramJaccard_AGCT_AGCTAGCT",
+      "algorithm": "QGramJaccard",
+      "a": "AGCT",
+      "b": "AGCTAGCT",
+      "expected_score": 0.42857142857142855
+    },
+    {
+      "name": "QGramJaccard_abcd_abxy",
+      "algorithm": "QGramJaccard",
+      "a": "abcd",
+      "b": "abxy",
+      "expected_score": 0.2
+    },
+    {
+      "name": "QGramJaccard_both_empty",
+      "algorithm": "QGramJaccard",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "QGramJaccard_cafe_runes",
+      "algorithm": "QGramJaccard",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.5
+    },
+    {
+      "name": "QGramJaccard_identical",
+      "algorithm": "QGramJaccard",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "QGramJaccard_n_too_large",
+      "algorithm": "QGramJaccard",
+      "a": "ab",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "QGramJaccard_no_overlap",
+      "algorithm": "QGramJaccard",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "QGramJaccard_one_empty",
+      "algorithm": "QGramJaccard",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
       "name": "RatcliffObershelp_both_empty",
       "algorithm": "RatcliffObershelp",
       "a": "",
@@ -366,6 +485,62 @@
       "expected_score": 1
     },
     {
+      "name": "SorensenDice_abcdef_abcXef_n3",
+      "algorithm": "SorensenDice",
+      "a": "abcdef",
+      "b": "abcXef",
+      "expected_score": 0.25
+    },
+    {
+      "name": "SorensenDice_abcdef_bcdefg",
+      "algorithm": "SorensenDice",
+      "a": "abcdef",
+      "b": "bcdefg",
+      "expected_score": 0.8
+    },
+    {
+      "name": "SorensenDice_both_empty",
+      "algorithm": "SorensenDice",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "SorensenDice_cafe_runes",
+      "algorithm": "SorensenDice",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "SorensenDice_identical",
+      "algorithm": "SorensenDice",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "SorensenDice_night_nacht",
+      "algorithm": "SorensenDice",
+      "a": "night",
+      "b": "nacht",
+      "expected_score": 0.25
+    },
+    {
+      "name": "SorensenDice_no_overlap",
+      "algorithm": "SorensenDice",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "SorensenDice_one_empty",
+      "algorithm": "SorensenDice",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
       "name": "Strcmp95_DIXON_DICKSONX",
       "algorithm": "Strcmp95",
       "a": "DIXON",
@@ -412,6 +587,62 @@
       "algorithm": "Strcmp95",
       "a": "abc",
       "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "Tversky_abcd_abcdef_asym",
+      "algorithm": "Tversky",
+      "a": "abcd",
+      "b": "abcdef",
+      "expected_score": 0.8823529411764706
+    },
+    {
+      "name": "Tversky_abcd_abce_dice_eq",
+      "algorithm": "Tversky",
+      "a": "abcd",
+      "b": "abce",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "Tversky_abcd_abce_jaccard_eq",
+      "algorithm": "Tversky",
+      "a": "abcd",
+      "b": "abce",
+      "expected_score": 0.5
+    },
+    {
+      "name": "Tversky_abcdef_abcd_asym_swap",
+      "algorithm": "Tversky",
+      "a": "abcdef",
+      "b": "abcd",
+      "expected_score": 0.6521739130434783
+    },
+    {
+      "name": "Tversky_both_empty",
+      "algorithm": "Tversky",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Tversky_cafe_runes",
+      "algorithm": "Tversky",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "Tversky_identical",
+      "algorithm": "Tversky",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "Tversky_one_empty",
+      "algorithm": "Tversky",
+      "a": "",
+      "b": "abc",
       "expected_score": 0
     }
   ]

@@ -151,10 +151,10 @@ package fuzzymatch
 // Reference vector (RV-D1 — load-bearing canonical NLP-textbook
 // bigram pair):
 //
-//   SorensenDiceScore("night", "nacht", 2) = 0.25
+//	SorensenDiceScore("night", "nacht", 2) = 0.25
 //
-//   QA = {ni:1, ig:1, gh:1, ht:1}; QB = {na:1, ac:1, ch:1, ht:1};
-//   |∩| = 1; DSC = 2·1/(4+4) = 0.25.
+//	QA = {ni:1, ig:1, gh:1, ht:1}; QB = {na:1, ac:1, ch:1, ht:1};
+//	|∩| = 1; DSC = 2·1/(4+4) = 0.25.
 func SorensenDiceScore(a, b string, n int) float64 {
 	if n < 1 {
 		panic("fuzzymatch: invalid q-gram size")
@@ -188,11 +188,11 @@ func SorensenDiceScore(a, b string, n int) float64 {
 //
 // Reference vector:
 //
-//   SorensenDiceScoreRunes("café", "cafe", 2) = 4/6 ≈ 0.6666666666666666
+//	SorensenDiceScoreRunes("café", "cafe", 2) = 4/6 ≈ 0.6666666666666666
 //
-//   QA = rune-bigrams("café") = {"ca":1, "af":1, "fé":1}
-//   QB = rune-bigrams("cafe") = {"ca":1, "af":1, "fe":1}
-//   |∩| = 2 (ca + af); DSC = 2·2/(3+3) = 4/6 ≈ 0.6666...
+//	QA = rune-bigrams("café") = {"ca":1, "af":1, "fé":1}
+//	QB = rune-bigrams("cafe") = {"ca":1, "af":1, "fe":1}
+//	|∩| = 2 (ca + af); DSC = 2·2/(3+3) = 4/6 ≈ 0.6666...
 func SorensenDiceScoreRunes(a, b string, n int) float64 {
 	if n < 1 {
 		panic("fuzzymatch: invalid q-gram size")
@@ -212,9 +212,9 @@ func SorensenDiceScoreRunes(a, b string, n int) float64 {
 // from two pre-extracted q-gram multisets. The multiset cardinalities
 // are:
 //
-//   lenA         = Σ countA[k]            (sum of map values for QA)
-//   lenB         = Σ countB[k]
-//   intersection = Σ_{k ∈ keys(QA) ∩ keys(QB)} min(countA[k], countB[k])
+//	lenA         = Σ countA[k]            (sum of map values for QA)
+//	lenB         = Σ countB[k]
+//	intersection = Σ_{k ∈ keys(QA) ∩ keys(QB)} min(countA[k], countB[k])
 //
 // Helper invariant: the OUTPUT is a single float64 derived from
 // integer cardinalities. The internal map iterations to compute

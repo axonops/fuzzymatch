@@ -105,11 +105,11 @@ func TestQGramJaccard_Identical(t *testing.T) {
 // Ukkonen 1992 §3 in under a minute.
 func TestQGramJaccard_ReferenceVectors(t *testing.T) {
 	tests := []struct {
-		name      string
-		a, b      string
-		n         int
-		want      float64
-		exact     bool // exact equality (rational) vs. epsilon (irrational)
+		name       string
+		a, b       string
+		n          int
+		want       float64
+		exact      bool // exact equality (rational) vs. epsilon (irrational)
 		derivation string
 	}{
 		{
@@ -298,4 +298,3 @@ func TestQGramJaccard_AllocsBudget(t *testing.T) {
 		t.Errorf("QGramJaccardScore allocs/op = %g; want <= %g (RESEARCH.md §4.1 budget)", got, ceiling)
 	}
 }
-

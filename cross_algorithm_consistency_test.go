@@ -368,3 +368,214 @@ func TestCrossAlgorithm_RatcliffObershelp_AsymmetryPin(t *testing.T) {
 			fwd, rev)
 	}
 }
+
+// TestCrossAlgorithm_Tversky_JaccardEquivalence is the Phase 5 cross-algorithm
+// pin for the Tversky → Jaccard degenerate case. At α = β = 1.0 the Tversky
+// formula reduces to the multiset Jaccard coefficient — see Tversky 1977 §2 and
+// the RV-T3 reference vector in Phase 5 RESEARCH.md §1.4 / §2.4.
+//
+// Algebra (multiset, |A∩B| = c, |A\B| = a, |B\A| = b):
+//
+//	tversky = c / (c + α·a + β·b)
+//	         = c / (c + 1·a + 1·b)        // α = β = 1.0
+//	         = c / (c + a + b)
+//	         = |A∩B| / |A∪B|              // = Jaccard
+//
+// The assertion is BIT-EXACT (math.Float64bits equality) — any non-equality
+// indicates a divergent reduction order between the Tversky and Jaccard hot
+// paths, which would also threaten the Cosine cross-platform determinism gate.
+//
+// Cross-algorithm defence-in-depth layered atop the unit test in tversky_test.go
+// and the property test in props_test.go.
+func TestCrossAlgorithm_Tversky_JaccardEquivalence(t *testing.T) {
+	pairs := []struct {
+		a, b string
+		n    int
+	}{
+		{"abcd", "abce", 2},     // RV-T3 canonical
+		{"AGCT", "AGCTAGCT", 2}, // RV-J1 from Ukkonen 1992
+		{"hello", "world", 2},   // no-overlap edge case
+		{"café", "cafe", 2},     // multi-byte input (byte path)
+		{"abcdef", "bcdefg", 3}, // larger overlap, n=3
+	}
+	for _, p := range pairs {
+		gotTversky := fuzzymatch.TverskyScore(p.a, p.b, p.n, 1.0, 1.0)
+		gotJaccard := fuzzymatch.QGramJaccardScore(p.a, p.b, p.n)
+		if math.Float64bits(gotTversky) != math.Float64bits(gotJaccard) {
+			t.Errorf("Tversky/Jaccard equivalence broke for (%q,%q,n=%d):\n  Tversky(α=β=1.0) = %.17g (bits=0x%016x)\n  Jaccard          = %.17g (bits=0x%016x)",
+				p.a, p.b, p.n,
+				gotTversky, math.Float64bits(gotTversky),
+				gotJaccard, math.Float64bits(gotJaccard))
+		}
+	}
+}
+
+// TestCrossAlgorithm_Tversky_DiceEquivalence is the Phase 5 cross-algorithm
+// pin for the Tversky → Sørensen-Dice degenerate case. At α = β = 0.5 the
+// Tversky formula reduces to the Dice coefficient — see Tversky 1977 §2 and
+// the RV-T4 reference vector in Phase 5 RESEARCH.md §1.4 / §2.4.
+//
+// Algebra (multiset, |A∩B| = c, |A\B| = a, |B\A| = b):
+//
+//	tversky = c / (c + α·a + β·b)
+//	         = c / (c + 0.5·a + 0.5·b)            // α = β = 0.5
+//	         = c / (c + 0.5·(a + b))
+//	         = 2c / (2c + a + b)
+//	         = 2·|A∩B| / (|A| + |B|)              // = Sørensen-Dice
+//
+// The assertion is BIT-EXACT — defence-in-depth layered atop the unit test
+// and the property test for Tversky's Dice-equivalence regime.
+func TestCrossAlgorithm_Tversky_DiceEquivalence(t *testing.T) {
+	pairs := []struct {
+		a, b string
+		n    int
+	}{
+		{"abcd", "abce", 2}, // RV-T4 canonical
+		{"AGCT", "AGCTAGCT", 2},
+		{"hello", "world", 2},
+		{"café", "cafe", 2},
+		{"abcdef", "bcdefg", 3},
+	}
+	for _, p := range pairs {
+		gotTversky := fuzzymatch.TverskyScore(p.a, p.b, p.n, 0.5, 0.5)
+		gotDice := fuzzymatch.SorensenDiceScore(p.a, p.b, p.n)
+		if math.Float64bits(gotTversky) != math.Float64bits(gotDice) {
+			t.Errorf("Tversky/Dice equivalence broke for (%q,%q,n=%d):\n  Tversky(α=β=0.5) = %.17g (bits=0x%016x)\n  Dice             = %.17g (bits=0x%016x)",
+				p.a, p.b, p.n,
+				gotTversky, math.Float64bits(gotTversky),
+				gotDice, math.Float64bits(gotDice))
+		}
+	}
+}
+
+// TestCrossAlgorithm_QGramJaccard_AtMostSorensenDice asserts the algebraic
+// hierarchy invariant: for every input pair, QGramJaccardScore ≤ SorensenDiceScore.
+//
+// Derivation: Sørensen-Dice and Jaccard are related by DSC = 2·J / (1 + J).
+// For J ∈ [0, 1] we have DSC ≥ J because:
+//
+//	DSC ≥ J  ⟺  2·J / (1 + J) ≥ J        // (1 + J) > 0 throughout [0, 1]
+//	         ⟺  2·J ≥ J·(1 + J)
+//	         ⟺  2·J ≥ J + J²
+//	         ⟺  J ≥ J²
+//	         ⟺  J·(1 − J) ≥ 0             // true for J ∈ [0, 1] ✓
+//
+// Equality holds iff J ∈ {0, 1}. The hand-pinned table covers RV-J1..J4 and
+// RV-D1..D4 plus boundary cases; if a regression silently swaps the two
+// algorithms or applies the wrong normalisation, this test fires.
+func TestCrossAlgorithm_QGramJaccard_AtMostSorensenDice(t *testing.T) {
+	pairs := []struct {
+		a, b string
+		n    int
+	}{
+		{"AGCT", "AGCTAGCT", 2}, // RV-J1
+		{"abcd", "abxy", 2},     // partial overlap
+		{"hello", "world", 2},   // no overlap → J = D = 0 (boundary)
+		{"hello", "hello", 2},   // identical → J = D = 1.0 (boundary)
+		{"abcdef", "bcdefg", 3}, // RV-D-style overlap, n=3
+		{"night", "nacht", 2},   // canonical Dice example
+		{"café", "cafe", 2},     // multi-byte (byte path)
+		{"abcdef", "abcXef", 3}, // RV-D3 single-substitution, n=3
+	}
+	for _, p := range pairs {
+		gotJ := fuzzymatch.QGramJaccardScore(p.a, p.b, p.n)
+		gotD := fuzzymatch.SorensenDiceScore(p.a, p.b, p.n)
+		if !(gotJ <= gotD) {
+			t.Errorf("Algorithm-hierarchy invariant violated for (%q,%q,n=%d): QGramJaccard = %.17g > SorensenDice = %.17g (DSC = 2·J/(1+J) ≥ J for J ∈ [0,1])",
+				p.a, p.b, p.n, gotJ, gotD)
+		}
+	}
+}
+
+// TestCrossAlgorithm_Cosine_GeometricMeanBound is a defence-in-depth sanity
+// test for Cosine. It asserts:
+//
+//   - all hand-pinned pairs return values in [0.0, 1.0]
+//   - identity pairs return BIT-EXACT 1.0 (math.Float64bits comparison)
+//   - orthogonal pairs return BIT-EXACT 0.0
+//
+// The LOAD-BEARING gate for Cosine determinism is the cross-platform CI matrix
+// running `make verify-determinism` against testdata/golden/algorithms.json (per
+// Phase 5 CONTEXT.md §1). This in-package test catches local regressions earlier
+// in the dev loop without depending on the multi-platform CI surface.
+//
+// Inputs span ASCII + Unicode at multiple n values to exercise the sorted-key
+// dot-product loop on multiple intersection sizes.
+func TestCrossAlgorithm_Cosine_GeometricMeanBound(t *testing.T) {
+	type cosCase struct {
+		a, b string
+		n    int
+		// kind discriminates the assertion class.
+		kind string // "range" | "identity" | "orthogonal"
+	}
+	cases := []cosCase{
+		{"abc", "abcd", 2, "range"},          // RV-C1 irrational
+		{"abcdefgh", "abcdefgi", 3, "range"}, // RV-C2 large intersection
+		{"abcde", "abcdf", 4, "range"},       // RV-C3 n=4
+		{"café", "cafe", 2, "range"},         // RV-C4 multi-byte
+		{"héllo", "hello", 3, "range"},       // RV-C5 multi-byte
+		{"hello", "hello", 2, "identity"},    // identity (byte)
+		{"abcdef", "abcdef", 3, "identity"},  // identity (longer)
+		{"abc", "xyz", 2, "orthogonal"},      // orthogonal
+		{"hello", "world", 2, "orthogonal"},  // orthogonal
+	}
+	for _, c := range cases {
+		got := fuzzymatch.CosineScore(c.a, c.b, c.n)
+		// Range invariant fires for every case.
+		if !(got >= 0.0 && got <= 1.0) {
+			t.Errorf("CosineScore(%q,%q,n=%d) = %.17g; want value in [0.0, 1.0]",
+				c.a, c.b, c.n, got)
+		}
+		switch c.kind {
+		case "identity":
+			if math.Float64bits(got) != math.Float64bits(1.0) {
+				t.Errorf("CosineScore(%q,%q,n=%d) identity = %.17g (bits=0x%016x); want 1.0 bit-exact",
+					c.a, c.b, c.n, got, math.Float64bits(got))
+			}
+		case "orthogonal":
+			if math.Float64bits(got) != math.Float64bits(0.0) {
+				t.Errorf("CosineScore(%q,%q,n=%d) orthogonal = %.17g (bits=0x%016x); want 0.0 bit-exact",
+					c.a, c.b, c.n, got, math.Float64bits(got))
+			}
+		}
+	}
+}
+
+// TestCrossAlgorithm_Tversky_AsymmetryPin is the Phase 5 INVERSE-FORM
+// regression guard for Tversky's intentional asymmetry. Tversky 1977 §2
+// defines tversky(a, b) = |A∩B| / (|A∩B| + α·|A\B| + β·|B\A|); at α ≠ β the
+// formula is direction-sensitive — swapping the operands yields a different
+// score because the α-weighted and β-weighted set differences trade roles.
+//
+// Hand-pinned canonical pair (matches the RV-T1 / RV-T2 staging-golden entries
+// in testdata/golden/_staging/tversky.json):
+//
+//	TverskyScore("abcd",   "abcdef", 2, 0.8, 0.2) = 0.8823529411764706
+//	TverskyScore("abcdef", "abcd",   2, 0.8, 0.2) = 0.6521739130434783
+//	|fwd − rev| ≈ 0.2302
+//
+// This is the FOURTH layer of asymmetry coverage (after the unit test, the
+// property test, and the BDD scenario added in Phase 5 plan 05-04). If a
+// future refactor accidentally:
+//
+//   - canonicalises argument order (silent symmetry workaround)
+//   - swaps the α and β parameters internally
+//   - halves both α and β to preserve their sum
+//
+// the fwd != rev assertion fails. The 0.1 magnitude floor surfaces near-
+// equality regressions early.
+func TestCrossAlgorithm_Tversky_AsymmetryPin(t *testing.T) {
+	const a, b = "abcd", "abcdef"
+	const n = 2
+	const alpha, beta = 0.8, 0.2
+	fwd := fuzzymatch.TverskyScore(a, b, n, alpha, beta)
+	rev := fuzzymatch.TverskyScore(b, a, n, alpha, beta)
+	if fwd == rev {
+		t.Errorf("TverskyScore is INTENTIONALLY asymmetric for %q/%q with α=%v, β=%v — got fwd=%g == rev=%g (regression to symmetric behaviour or silent α/β swap)",
+			a, b, alpha, beta, fwd, rev)
+	}
+	if math.Abs(fwd-rev) <= 0.1 {
+		t.Errorf("TverskyScore asymmetry magnitude collapsed for %q/%q with α=%v, β=%v — |fwd − rev| = %g ≤ 0.1 (expected ≈ 0.2302; near-equality regression)",
+			a, b, alpha, beta, math.Abs(fwd-rev))
+	}
+}
