@@ -150,3 +150,107 @@ CI does NOT regenerate the corpus. The committed JSON is the fixture;
 CI runs `go test ./...` against it directly. This keeps Python out of
 the CI hot path and ensures cross-validation results are reproducible
 across runners.
+
+## Phonetic cross-validation
+
+Phase 7 introduces a new cross-validation corpus for the four phonetic
+algorithms: `testdata/cross-validation/phonetic/vectors.json`. The
+generator script and Go loader mirror the token-ratio pattern but with
+two pinned Python packages instead of one.
+
+### Why dual-pin (jellyfish + Metaphone)
+
+**OQ-1 RESOLUTION LOCKED 2026-05-15:** `jellyfish` 1.x removed its Double
+Metaphone implementation — `jellyfish.metaphone` is single-key (Metaphone),
+not Double Metaphone. To cross-validate the 40-entry Double Metaphone corpus
+(covering 5 language-origin branches: Germanic, Slavic, Romance, Greek,
+Chinese-origin), a second Python package is required.
+
+The `Metaphone` PyPI package (`oubiwann/metaphone`, BSD-3-Clause), version
+0.6, is Andrew Collins' Python translation of Lawrence Philips' public-domain
+C++ reference implementation (2000). It provides `metaphone.doublemetaphone(s)
+→ (primary, secondary)` and is the de-facto Python Double Metaphone canonical
+source (1,034 GitHub stars as of May 2026).
+
+Both pins are declared at the top of `scripts/gen-phonetic-cross-validation.py`:
+
+```python
+JELLYFISH_VERSION = "1.2.1"   # Soundex, NYSIIS, MRA
+METAPHONE_VERSION = "0.6"     # Double Metaphone only
+```
+
+The script asserts both versions at startup and refuses to run on any mismatch.
+
+### Algorithm coverage
+
+| Algorithm       | Reference package | Notes |
+|-----------------|-------------------|-------|
+| Soundex         | `jellyfish==1.2.1` | Knuth/Census H/W-skip variant — matches our implementation exactly (RESEARCH.md §1.1) |
+| Double Metaphone | `Metaphone==0.6` | 40 entries, 5 language-origin branches (≥ 7 per branch) |
+| NYSIIS          | `jellyfish==1.2.1` | Modified (non-truncated) variant — see variant_divergence below |
+| MRA             | `jellyfish==1.2.1` | `match_rating_codex()` + `match_rating_comparison()` |
+
+### Variant-divergence flag mechanism
+
+Some algorithms have variant choices where our implementation (following
+the primary academic source) differs from jellyfish's default:
+
+- **Soundex:** jellyfish 1.2.1 uses the Knuth/Census variant (H/W are NOT
+  separators). Our implementation is identical — no expected divergences for
+  canonical inputs. The `variant_divergence` schema is retained for
+  completeness.
+
+- **NYSIIS (load-bearing):** jellyfish emits non-truncated codes (e.g.
+  `Catherine → CATARAN`, 7 chars). Our implementation truncates to 6 characters
+  per Taft 1970 / Knuth TAOCP Vol. 3 §6.4. **All jellyfish NYSIIS outputs
+  longer than 6 characters carry `variant_divergence: true`.** The Go loader
+  asserts our implementation matches the truncated value (first 6 chars of the
+  jellyfish output), NOT the jellyfish value.
+
+- **Double Metaphone:** No known variant divergence; direct equality assertion.
+
+- **MRA:** No known variant divergence; direct equality assertion.
+
+Per-entry schema for divergent entries:
+
+```json
+{
+  "algorithm": "NYSIIS",
+  "input": "Catherine",
+  "code": "CATARA",
+  "variant_divergence": true,
+  "divergent_jellyfish_value": "CATARAN"
+}
+```
+
+The Go loader test `TestPhonetic_CrossValidation` checks `e.VariantDivergence`
+and emits a diagnostic message distinguishing Knuth-expected vs. jellyfish
+divergent values in failure output.
+
+### Go entry point
+
+```bash
+go test -run TestPhonetic_CrossValidation -race ./...
+```
+
+Sub-tests are organised by algorithm: `/Soundex`, `/DoubleMetaphone`,
+`/NYSIIS`, `/MRA`. Each algorithm's sub-tests are activated by the
+corresponding plan (07-01 through 07-04); earlier plans stub the not-yet-
+implemented sub-tests with `t.Skip`.
+
+### Regeneration
+
+Developer command (requires both pins installed):
+
+```bash
+python3 -m pip install --user jellyfish==1.2.1 Metaphone==0.6
+make regen-phonetic-cross-validation
+```
+
+The Makefile target invokes `python3 scripts/gen-phonetic-cross-validation.py`,
+which writes the corpus to
+`testdata/cross-validation/phonetic/vectors.json` with `_metadata` fields for
+both pins, the Python version, and the regeneration timestamp. Only the
+timestamp varies between runs; scoring fields are byte-stable.
+
+CI does NOT regenerate the corpus. The committed JSON is the fixture.
