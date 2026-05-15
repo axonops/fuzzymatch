@@ -133,6 +133,10 @@ scan / Extract (Phases 9–10).
 
 - func TokenSortRatioScore(a, b string) float64
 
+### TokenSetRatio (RapidFuzz three-way Indel max with bug-for-bug empty-set deviation)
+
+- func TokenSetRatioScore(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

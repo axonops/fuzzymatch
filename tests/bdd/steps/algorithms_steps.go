@@ -653,6 +653,39 @@ func (ctx *AlgorithmContext) bothTokenSortRatioScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// TokenSetRatio step methods (plan 06-02)
+//
+// Token Set Ratio is parameter-free (no n, no α/β): the step grammar
+// reverts to the Phase 2/3/4 score-step shape (no `with n …` suffix),
+// mirroring TokenSortRatio from plan 06-01.
+// ---------------------------------------------------------------------------
+
+// iComputeTheTokenSetRatioScoreBetween computes
+// TokenSetRatioScore(a, b) and stores the result in lastScore.
+func (ctx *AlgorithmContext) iComputeTheTokenSetRatioScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.TokenSetRatioScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondTokenSetRatioScoreBetween computes
+// TokenSetRatioScore(a, b) and stores the result in lastScore2. Used
+// by the symmetry scenario to capture a second score for
+// T(A, B) == T(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondTokenSetRatioScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.TokenSetRatioScore(a, b)
+	return nil
+}
+
+// bothTokenSetRatioScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetry scenario after computing T(A, B) and T(B, A).
+func (ctx *AlgorithmContext) bothTokenSetRatioScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("token set ratio scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // bothTverskyScoresShouldBeEqual asserts lastScore == lastScore2.
 // Used by the parameter-swap symmetry scenario after computing
 // T(a, b, α, β) and T(b, a, β, α) — the algebraic identity from
@@ -958,5 +991,23 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both TokenSortRatio scores should be equal$`,
 		a.bothTokenSortRatioScoresShouldBeEqual,
+	)
+
+	// TokenSetRatio step definitions (plan 06-02). Parameter-free shape
+	// (no `with n …` suffix) — Token Set Ratio takes only (a, b string)
+	// per CONTEXT.md §6 LOCKED. Both the score, second-score, and
+	// both-equal helpers mirror the TokenSortRatio pattern from plan
+	// 06-01.
+	ctx.Step(
+		`^I compute the TokenSetRatio score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheTokenSetRatioScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second TokenSetRatio score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondTokenSetRatioScoreBetween,
+	)
+	ctx.Step(
+		`^both TokenSetRatio scores should be equal$`,
+		a.bothTokenSetRatioScoresShouldBeEqual,
 	)
 }
