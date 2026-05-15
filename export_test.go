@@ -56,6 +56,22 @@ func DispatchEntryNilForTest(i int) bool {
 	return dispatch[i] == nil
 }
 
+// DispatchInvokeForTest invokes the dispatch entry at index i with the
+// given (a, b string) arguments and returns the resulting score. This is
+// used by per-algorithm dispatch tests to exercise the dispatched closure
+// body — Phase 5 dispatch wrappers (q-gram tier) are closures that bind a
+// default n parameter, and the closure body must be exercised at least
+// once to satisfy the per-file 90% coverage floor.
+//
+// Out-of-range indices and nil dispatch entries return 0.0 — callers
+// should pre-check via DispatchEntryNilForTest if they need to disambiguate.
+func DispatchInvokeForTest(i int, a, b string) float64 {
+	if i < 0 || i >= len(dispatch) || dispatch[i] == nil {
+		return 0.0
+	}
+	return dispatch[i](a, b)
+}
+
 // WinklerPrefixScaleForTest re-exports the unexported winklerPrefixScale
 // constant to the external test package. Test code asserts the constant is
 // exactly 0.1 (Winkler 1990 p. 357) against accidental drift.

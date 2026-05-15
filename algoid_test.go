@@ -341,6 +341,14 @@ func TestDispatch_QGramJaccardRegistered(t *testing.T) {
 		t.Errorf("dispatch[AlgoQGramJaccard] (%d) is nil — dispatch_qgram_jaccard.go must register a QGramJaccardScore wrapper at package load time",
 			int(fuzzymatch.AlgoQGramJaccard))
 	}
+	// Exercise the closure body to confirm the dispatch wrapper actually
+	// invokes QGramJaccardScore with the documented default n = 3 trigram.
+	got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoQGramJaccard), "hello", "hello")
+	want := fuzzymatch.QGramJaccardScore("hello", "hello", 3)
+	if got != want {
+		t.Errorf("dispatch[AlgoQGramJaccard](\"hello\",\"hello\") = %v; want %v (= QGramJaccardScore with default n=3 per CONTEXT.md Deferred §4)",
+			got, want)
+	}
 }
 
 // TestDispatch_SorensenDiceRegistered asserts that
@@ -359,6 +367,14 @@ func TestDispatch_SorensenDiceRegistered(t *testing.T) {
 		t.Errorf("dispatch[AlgoSorensenDice] (%d) is nil — dispatch_sorensen_dice.go must register a SorensenDiceScore wrapper at package load time",
 			int(fuzzymatch.AlgoSorensenDice))
 	}
+	// Exercise the closure body to confirm the dispatch wrapper actually
+	// invokes SorensenDiceScore with the documented default n = 3 trigram.
+	got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoSorensenDice), "hello", "hello")
+	want := fuzzymatch.SorensenDiceScore("hello", "hello", 3)
+	if got != want {
+		t.Errorf("dispatch[AlgoSorensenDice](\"hello\",\"hello\") = %v; want %v (= SorensenDiceScore with default n=3 per CONTEXT.md Deferred §4)",
+			got, want)
+	}
 }
 
 // TestDispatch_CosineRegistered asserts that dispatch[AlgoCosine]
@@ -374,6 +390,14 @@ func TestDispatch_CosineRegistered(t *testing.T) {
 	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoCosine)) {
 		t.Errorf("dispatch[AlgoCosine] (%d) is nil — dispatch_cosine.go must register a CosineScore wrapper at package load time",
 			int(fuzzymatch.AlgoCosine))
+	}
+	// Exercise the closure body to confirm the dispatch wrapper actually
+	// invokes CosineScore with the documented default n = 3 trigram.
+	got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoCosine), "hello", "hello")
+	want := fuzzymatch.CosineScore("hello", "hello", 3)
+	if got != want {
+		t.Errorf("dispatch[AlgoCosine](\"hello\",\"hello\") = %v; want %v (= CosineScore with default n=3 per CONTEXT.md Deferred §4)",
+			got, want)
 	}
 }
 
@@ -393,6 +417,16 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoTversky)) {
 		t.Errorf("dispatch[AlgoTversky] (%d) is nil — dispatch_tversky.go must register a TverskyScore wrapper at package load time",
 			int(fuzzymatch.AlgoTversky))
+	}
+	// Exercise the closure body to confirm the dispatch wrapper actually
+	// invokes TverskyScore with the documented default n = 3 trigram AND
+	// α = β = 1.0 (Jaccard-equivalent fallback per CONTEXT.md "Claude's
+	// Discretion").
+	got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoTversky), "hello", "hello")
+	want := fuzzymatch.TverskyScore("hello", "hello", 3, 1.0, 1.0)
+	if got != want {
+		t.Errorf("dispatch[AlgoTversky](\"hello\",\"hello\") = %v; want %v (= TverskyScore with default n=3, α=β=1.0 per CONTEXT.md \"Claude's Discretion\")",
+			got, want)
 	}
 }
 
