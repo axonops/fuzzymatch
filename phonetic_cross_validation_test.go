@@ -240,6 +240,35 @@ func TestPhonetic_CrossValidation(t *testing.T) {
 	})
 
 	t.Run("MRA", func(t *testing.T) {
-		t.Skip("enabled by plan 07-04")
+		// MRA cross-validation against jellyfish==1.2.1.
+		// Code entries: assert MRACode(input) == code.
+		// Pair entries (with input_a / input_b fields): not in the cross-validation
+		// corpus format used here — the boolean decision is inferred from the code
+		// equality by the unit tests; this loader only asserts MRACode stability.
+		// No known variant divergences for canonical MRA inputs (RESEARCH.md §1.4).
+		n := 0
+		for _, e := range c.Entries {
+			e := e
+			if e.Algorithm != "MRA" {
+				continue
+			}
+			n++
+			t.Run(e.Input, func(t *testing.T) {
+				got := fuzzymatch.MRACode(e.Input)
+				if got != e.Code {
+					if e.VariantDivergence {
+						t.Errorf(
+							"MRACode(%q) = %q; want %q (NBS-943 expected; jellyfish divergent value = %q, variant_divergence=true)",
+							e.Input, got, e.Code, e.DivergentJellyfishVal)
+					} else {
+						t.Errorf("MRACode(%q) = %q; want %q (jellyfish %s cross-validation)",
+							e.Input, got, e.Code, c.Metadata.JellyfishVersion)
+					}
+				}
+			})
+		}
+		if n == 0 {
+			t.Fatal("no MRA entries in corpus — corpus may be empty or corrupted")
+		}
 	})
 }

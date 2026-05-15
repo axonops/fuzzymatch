@@ -855,6 +855,65 @@ inner metric (added to `permittedMongeElkanInner` in plan 07-03).
 
 ---
 
+### MRA (mra.go) — Moore 1977 / NBS Tech Note 943
+
+**Algorithm:** MRA (Match Rating Approach). Encodes names by removing non-leading
+vowels and deduplicating adjacent identical consonants; truncates to first-3 + last-3
+if pre-truncation length > 6. Comparison uses a 6-step procedure with Table A threshold
+lookup and length-difference auto-mismatch gate.
+
+**Source-Origin:**
+- *Primary source:* Moore, G. B., Kuhns, J. L., Trefftzs, J. L., Montgomery, C. A. (1977).
+  Accessing individual records from personal data files using non-unique identifiers.
+  National Bureau of Standards, Technical Note 943.
+  Available at: https://nvlpubs.nist.gov/nistpubs/Legacy/TN/nbstechnicalnote943.pdf
+- *Cross-validation:* jellyfish==1.2.1 (BSD-2-Clause) — reference vectors only.
+- *MIT-licensed Go ports NOT consulted:* github.com/UjjwalAyyangar/go-jellyfish
+
+**Special API note:** `MRACompare` is the ONLY public function in the fuzzymatch
+catalogue with a non-float64 return shape — it returns `(matched bool, simScore int)`
+where `simScore` ∈ [0, 6] is the raw NBS Tech Note 943 similarity counter, exposed
+per spec line 691 and CONTEXT.md §6 LOCKED.
+
+**Load-bearing reference vectors:**
+`MRACode("Byrne") == "BYRN"`, `MRACode("Kathrynoglin") == "KTHGLN"` (truncation gate).
+`MRACompare("Smith", "Smyth") == (true, 5)` (sum=9, threshold=3).
+`MRACompare("", "") == (true, 6)` (both-empty).
+`MRACompare("Ad", "ZachariahMontgomery") == (false, 0)` (length-diff >= 3 auto-mismatch).
+
+**Threshold Table A** (mraThresholdTable — package-level var, NOT init()):
+sum ≤ 4 → threshold 5; 4 < sum ≤ 7 → threshold 4; 7 < sum ≤ 11 → threshold 3;
+sum >= 12 → threshold 2 (clamped — RESEARCH.md Pitfall 7.C).
+
+**Non-ASCII:** non-ASCII runes dropped silently; ASCII [A-Za-z] only.
+
+```go
+// MRACode returns the MRA (Match Rating Approach) phonetic code for s per
+// NBS Tech Note 943. Output is ≤ 6 uppercase ASCII letters, ^[A-Z]{0,6}$.
+func MRACode(s string) string
+
+// MRACompare performs the full MRA comparison per NBS Tech Note 943.
+// Returns (matched bool, simScore int) where simScore ∈ [0, 6] is the raw
+// NBS similarity counter. THIS IS THE ONLY public function in the fuzzymatch
+// catalogue with a non-float64 return shape (CONTEXT.md §6 LOCKED).
+// Length-difference gate: |len(MRACode(a)) - len(MRACode(b))| >= 3 returns
+// (false, 0) — NOT an error (per CONTEXT.md §6 LOCKED, Open Question 2).
+func MRACompare(a, b string) (matched bool, simScore int)
+
+// MRAScore returns 1.0 if a and b are an MRA match, 0.0 otherwise.
+// MRAScore(a, b) == 1.0 iff MRACompare(a, b).matched (strict consistency
+// invariant, property-tested by PropMRA_ScoreCompareConsistency).
+func MRAScore(a, b string) float64
+```
+
+**Dispatch:** `AlgoMRA` (slot 26) binds `MRAScore`. `MRACode` and `MRACompare` are
+public but not dispatched (the dispatch table is (a, b string) float64 valued).
+
+**Monge-Elkan inner:** `AlgoMRA` is permitted as a Monge-Elkan inner metric
+(added to `permittedMongeElkanInner` in plan 07-04 — FINAL Phase 7 state, 18 entries).
+
+---
+
 ### Normalisation (normalise.go)
 
 ```go

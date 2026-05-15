@@ -159,3 +159,10 @@ var LCSLenRunesForTest = lcsLenRunes
 // IndelRatioRunesForTest re-exports the unexported indelRatioRunes
 // helper. Pairs with LCSLenRunesForTest above.
 var IndelRatioRunesForTest = indelRatioRunes
+
+// MRAThresholdForTest re-exports the unexported mraThreshold function to the
+// external test package. Used by PropMRA_ThresholdMonotonic to assert the
+// monotonic-decrease property of mraThresholdTable for sumLen ∈ [0, 20], and
+// by TestMRAThresholdTable_Clamp to assert the sum>12 clamp behaviour
+// (RESEARCH.md Pitfall 7.C — the clamp is often omitted from Wikipedia summaries).
+var MRAThresholdForTest = mraThreshold

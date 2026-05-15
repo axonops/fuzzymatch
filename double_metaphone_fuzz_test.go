@@ -43,7 +43,7 @@ func FuzzDoubleMetaphone(f *testing.F) {
 	// ASCII regime — all 5 language-branch mandatory fixtures.
 	for _, seed := range []struct{ a, b string }{
 		// Germanic (CONTEXT.md §3 mandatory):
-		{"Schmidt", "Smith"},   // XMT cross-match
+		{"Schmidt", "Smith"}, // XMT cross-match
 		{"Schwartz", "Schwartz"},
 		// Slavic:
 		{"Sczepanski", "Dvorak"},

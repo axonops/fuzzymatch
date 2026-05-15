@@ -1,0 +1,12 @@
+[
+  {"algorithm": "MRA", "a": "", "b": "", "expected_score": 1.0},
+  {"algorithm": "MRA", "a": "Smith", "b": "Smith", "expected_score": 1.0},
+  {"algorithm": "MRA", "a": "Smith", "b": "Smyth", "expected_score": 1.0},
+  {"algorithm": "MRA", "a": "Byrne", "b": "Boern", "expected_score": 1.0},
+  {"algorithm": "MRA", "a": "William", "b": "Willyam", "expected_score": 1.0},
+  {"algorithm": "MRA", "a": "Ad", "b": "ZachariahMontgomery", "expected_score": 0.0},
+  {"algorithm": "MRA", "a": "Smith", "b": "Jones", "expected_score": 0.0},
+  {"algorithm": "MRA", "a": "", "b": "Smith", "expected_score": 0.0},
+  {"algorithm": "MRA", "a": "Smith", "b": "", "expected_score": 0.0},
+  {"algorithm": "MRA", "a": "Catherine", "b": "Katherine", "expected_score": 1.0}
+]

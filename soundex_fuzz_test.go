@@ -43,7 +43,7 @@ func FuzzSoundex(f *testing.F) {
 	// ASCII regime seeds — literature reference vectors.
 	for _, seed := range []struct{ a, b string }{
 		{"Robert", "Rupert"},     // same code R163
-		{"Tymczak", "Tymczak"},  // identity + Knuth/Census gate
+		{"Tymczak", "Tymczak"},   // identity + Knuth/Census gate
 		{"Ashcraft", "Ashcroft"}, // H/W-handling pair
 		{"Smith", "Jones"},       // different codes
 		{"", ""},                 // both-empty
@@ -52,11 +52,11 @@ func FuzzSoundex(f *testing.F) {
 		{"Lloyd", "Lloyd"},       // double-L collapse
 		{"Pfister", "Pfister"},   // Pf pair
 		// Non-ASCII silent-skip regime (CONTEXT.md §5).
-		{"Müller", "Mueller"},   // ü dropped → Mller / Mueller
-		{"Café", "Cafe"},         // é dropped → Cf / Cafe
-		{"中文", ""},              // all non-ASCII → ""
-		{"🎉hello", "hello"},     // emoji prefix skipped
-		{"\xff\xfe", "abc"},      // invalid UTF-8
+		{"Müller", "Mueller"}, // ü dropped → Mller / Mueller
+		{"Café", "Cafe"},      // é dropped → Cf / Cafe
+		{"中文", ""},            // all non-ASCII → ""
+		{"🎉hello", "hello"},   // emoji prefix skipped
+		{"\xff\xfe", "abc"},   // invalid UTF-8
 	} {
 		f.Add(seed.a, seed.b)
 	}

@@ -101,14 +101,15 @@ func TestSoundexCode_KnuthReferenceVectors(t *testing.T) {
 // variant choice unambiguously.
 //
 // Derivation:
-//   T → T (first letter)
-//   y → vowel separator (lastGroup reset to 0)
-//   m → group 5 → digit '5', lastGroup=5
-//   c → group 2 → digit '2', lastGroup=2
-//   z → group 2 → SAME group as c → SUPPRESSED (lastGroup stays 2)
-//   a → vowel separator (lastGroup reset to 0)
-//   k → group 2 → digit '2', lastGroup=2
-//   Result: T522 (NOT T520 — z is suppressed, not separated by 'a')
+//
+//	T → T (first letter)
+//	y → vowel separator (lastGroup reset to 0)
+//	m → group 5 → digit '5', lastGroup=5
+//	c → group 2 → digit '2', lastGroup=2
+//	z → group 2 → SAME group as c → SUPPRESSED (lastGroup stays 2)
+//	a → vowel separator (lastGroup reset to 0)
+//	k → group 2 → digit '2', lastGroup=2
+//	Result: T522 (NOT T520 — z is suppressed, not separated by 'a')
 //
 // SQL/MySQL variant would give T520 because in that variant 'z' → '2'
 // is output separately from 'c' → '2' even though they are adjacent in

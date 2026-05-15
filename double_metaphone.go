@@ -802,7 +802,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			}
 			if i == 0 && (dmIsVowel(at(i+1)) || dmContains(v, i, "WH")) {
 				// Initial W + vowel → two sounds A, F
-				if dmIsVowel(at(i+1)) {
+				if dmIsVowel(at(i + 1)) {
 					dmAdd(&p, &alt, "A", "F")
 				} else {
 					dmAdd(&p, &alt, "A", "")

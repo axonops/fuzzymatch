@@ -3593,3 +3593,125 @@ func TestProp_NYSIISCode_Charset(t *testing.T) {
 		t.Errorf("NYSIISCode charset invariant violated (^[A-Z]{0,6}$): %v", err)
 	}
 }
+
+// =============================================================================
+// MRA property tests (plan 07-04)
+// =============================================================================
+
+// TestProp_MRAScore_RangeBounds verifies that MRAScore always returns a value
+// in {0.0, 1.0} (strictly binary — not just in [0,1]).
+func TestProp_MRAScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		v := fuzzymatch.MRAScore(a, b)
+		return v == 0.0 || v == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRAScore range invariant violated (want exactly 0.0 or 1.0): %v", err)
+	}
+}
+
+// TestProp_MRAScore_Identity verifies that MRAScore(s, s) == 1.0 for any s.
+func TestProp_MRAScore_Identity(t *testing.T) {
+	f := func(s string) bool {
+		return fuzzymatch.MRAScore(s, s) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRAScore identity invariant violated: %v", err)
+	}
+}
+
+// TestProp_MRAScore_Symmetric verifies that MRAScore(a, b) == MRAScore(b, a)
+// for any (a, b).
+func TestProp_MRAScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.MRAScore(a, b) == fuzzymatch.MRAScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRAScore symmetry invariant violated: %v", err)
+	}
+}
+
+// TestProp_MRAScore_NoNaN verifies that MRAScore never returns NaN.
+func TestProp_MRAScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.MRAScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRAScore no-NaN invariant violated: %v", err)
+	}
+}
+
+// TestProp_MRAScore_NoInf verifies that MRAScore never returns ±Inf.
+func TestProp_MRAScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.MRAScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRAScore no-Inf invariant violated: %v", err)
+	}
+}
+
+// TestProp_MRACode_Charset verifies that MRACode output only contains
+// uppercase ASCII letters (A-Z), maximum 6, matching ^[A-Z]{0,6}$.
+func TestProp_MRACode_Charset(t *testing.T) {
+	f := func(s string) bool {
+		code := fuzzymatch.MRACode(s)
+		if len(code) > 6 {
+			return false
+		}
+		for i := 0; i < len(code); i++ {
+			c := code[i]
+			if c < 'A' || c > 'Z' {
+				return false
+			}
+		}
+		return true
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRACode charset invariant violated (^[A-Z]{0,6}$): %v", err)
+	}
+}
+
+// TestProp_MRACompare_IntegerRange verifies that MRACompare always returns
+// simScore in [0, 6] for any input pair.
+func TestProp_MRACompare_IntegerRange(t *testing.T) {
+	f := func(a, b string) bool {
+		_, sim := fuzzymatch.MRACompare(a, b)
+		return sim >= 0 && sim <= 6
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRACompare integer range invariant violated (want 0 <= sim <= 6): %v", err)
+	}
+}
+
+// TestProp_MRAScoreCompareConsistency is the LOAD-BEARING consistency invariant
+// between MRAScore and MRACompare: MRAScore(a, b) == 1.0 iff MRACompare(a, b).matched.
+// This property test locks this invariant against any future refactoring.
+func TestProp_MRAScoreCompareConsistency(t *testing.T) {
+	f := func(a, b string) bool {
+		score := fuzzymatch.MRAScore(a, b)
+		matched, _ := fuzzymatch.MRACompare(a, b)
+		return (score == 1.0) == matched
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("MRAScore-MRACompare consistency invariant violated: %v", err)
+	}
+}
+
+// TestProp_MRAThresholdMonotonic asserts that the threshold table is
+// monotonically non-increasing: threshold(sumLen+1) <= threshold(sumLen)
+// for sumLen ∈ [0, 20]. This locks the monotonic-decrease property of
+// mraThresholdTable and catches the sum>12 clamp omission (RESEARCH.md
+// Pitfall 7.C). LOAD-BEARING per VALIDATION.md row 07-04-11.
+func TestProp_MRAThresholdMonotonic(t *testing.T) {
+	// Test all sumLen values in [0, 20] — not arbitrary quick.Check input,
+	// since we want to cover the exact range including the clamp boundary.
+	for sumLen := 0; sumLen < 20; sumLen++ {
+		this := fuzzymatch.MRAThresholdForTest(sumLen)
+		next := fuzzymatch.MRAThresholdForTest(sumLen + 1)
+		if next > this {
+			t.Errorf("mraThreshold monotonic violation: threshold(%d)=%d > threshold(%d)=%d — table is not non-increasing (RESEARCH.md Pitfall 7.C)",
+				sumLen+1, next, sumLen, this)
+		}
+	}
+}

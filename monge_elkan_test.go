@@ -310,6 +310,9 @@ func TestMongeElkanScoreSymmetric(t *testing.T) {
 // JaroWinkler + Levenshtein); this sanity check pins the OTHER 12
 // dispatch slots fire correctly.
 func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
+	// FINAL Phase 7 state: 5 rejected entries (AlgoMongeElkan + 4 token-tier).
+	// AlgoSoundex/AlgoDoubleMetaphone/AlgoNYSIIS/AlgoMRA are all PERMITTED
+	// as of plans 07-01/07-02/07-03/07-04 respectively.
 	rejected := []fuzzymatch.AlgoID{
 		fuzzymatch.AlgoMongeElkan,     // self-recursion (RESEARCH.md Pitfall 4)
 		fuzzymatch.AlgoTokenSortRatio, // token-on-token meaningless
@@ -318,7 +321,7 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 		fuzzymatch.AlgoTokenJaccard,   // token-on-token meaningless
 		// AlgoDoubleMetaphone: permitted as of plan 07-02 (removed from rejected)
 		// AlgoNYSIIS: permitted as of plan 07-03 (removed from rejected)
-		fuzzymatch.AlgoMRA, // Phase 7 reserved — 07-04 removes
+		// AlgoMRA: permitted as of plan 07-04 (removed from rejected) — FINAL Phase 7
 	}
 	for _, inner := range rejected {
 		t.Run("rejected_"+inner.String(), func(t *testing.T) {
@@ -384,6 +387,7 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 		fuzzymatch.AlgoSoundex,         // plan 07-01 — phonetic tier addition
 		fuzzymatch.AlgoDoubleMetaphone, // plan 07-02 — phonetic tier addition
 		fuzzymatch.AlgoNYSIIS,          // plan 07-03 — phonetic tier addition
+		fuzzymatch.AlgoMRA,             // plan 07-04 — phonetic tier addition (FINAL Phase 7)
 	}
 	for _, inner := range permittedSanity {
 		t.Run("permitted_"+inner.String(), func(t *testing.T) {
@@ -401,13 +405,15 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 func TestMongeElkan_PanicMessageFormat(t *testing.T) {
 	const wantPrefix = "fuzzymatch: AlgoID "
 	const wantSuffix = " not permitted as Monge-Elkan inner metric"
+	// AlgoMRA is now permitted (plan 07-04). Use AlgoTokenJaccard as the
+	// third representative non-permitted AlgoID.
 	cases := []struct {
 		inner fuzzymatch.AlgoID
 		name  string
 	}{
 		{fuzzymatch.AlgoMongeElkan, "MongeElkan"},
 		{fuzzymatch.AlgoTokenSortRatio, "TokenSortRatio"},
-		{fuzzymatch.AlgoMRA, "MRA"}, // AlgoNYSIIS now permitted (plan 07-03); MRA still non-permitted until 07-04
+		{fuzzymatch.AlgoTokenJaccard, "TokenJaccard"}, // AlgoMRA now permitted (plan 07-04 — FINAL Phase 7)
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -579,6 +585,51 @@ func TestMongeElkanScore_BinaryInner_NYSIIS(t *testing.T) {
 		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoNYSIIS, opts)
 		if got != 0.0 {
 			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoNYSIIS, opts) = %g; want 0.0 (no token match)", got)
+		}
+	})
+}
+
+// TestMongeElkanScore_BinaryInner_MRA verifies binary-inner composition of
+// MongeElkanScore using AlgoMRA as the inner metric per CONTEXT.md §4 LOCKED.
+// Three sub-cases lock the binary-inner-composition behaviour against silent
+// regression in the per-token-max accumulation logic.
+//
+// MRA binary inner: MRAScore(a, b) ∈ {0.0, 1.0} for any (a, b).
+func TestMongeElkanScore_BinaryInner_MRA(t *testing.T) {
+	opts := fuzzymatch.DefaultNormalisationOptions()
+
+	t.Run("one_token_matches_half_score", func(t *testing.T) {
+		// Tokens of a: ["alpha", "beta"]. Tokens of b: ["alpha", "gamma"].
+		// For token "alpha" in a: best match in b is "alpha" → MRAScore("alpha","alpha")=1.0
+		// For token "beta" in a: best match in b is max(MRAScore("beta","alpha"),MRAScore("beta","gamma"))
+		// BATA vs ALPHA (LPHA): |3-4|=1 < 3 → compare. BT vs LPH... likely 0.0.
+		// vs GAMMA (GM): |2-2|=0 → compare. sum=4, threshold=5; BT vs GM: no matches → sim=4. 4 < 5 → 0.0
+		// So ME = (1.0 + 0.0)/2 = 0.5
+		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoMRA, opts)
+		if got != 0.5 {
+			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoMRA, opts) = %g; want 0.5 (one-match)", got)
+		}
+	})
+
+	t.Run("both_tokens_match_full_score", func(t *testing.T) {
+		// Tokens of a: ["alpha", "beta"]. Tokens of b: ["alpha", "beta"].
+		// Each token in a finds its identical match in b → MRAScore=1.0 for each.
+		// ME = (1.0 + 1.0)/2 = 1.0
+		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoMRA, opts)
+		if got != 1.0 {
+			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoMRA, opts) = %g; want 1.0 (both match)", got)
+		}
+	})
+
+	t.Run("no_token_matches_zero_score", func(t *testing.T) {
+		// Tokens of a: ["alpha"]. Tokens of b: ["gamma"].
+		// MRAScore("alpha","gamma"): LPHA vs GM → length diff |4-2|=2 < 3.
+		// sum_len=6, threshold=4. L→R: no matches. R→L: no matches.
+		// unmatched_A=4, unmatched_B=2. max=4. similarity=6-4=2. 2 < 4 → no match.
+		// ME = 0.0/1 = 0.0
+		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoMRA, opts)
+		if got != 0.0 {
+			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoMRA, opts) = %g; want 0.0 (no token match)", got)
 		}
 	})
 }

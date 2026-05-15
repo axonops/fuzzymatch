@@ -160,6 +160,23 @@ func TestPhoneticCodesGolden(t *testing.T) {
 	})
 
 	t.Run("MRA", func(t *testing.T) {
-		t.Skip("enabled by plan 07-04")
+		n := 0
+		for _, e := range gf.Entries {
+			e := e
+			if e.Algorithm != "MRA" {
+				continue
+			}
+			n++
+			t.Run(e.Input, func(t *testing.T) {
+				got := fuzzymatch.MRACode(e.Input)
+				if got != e.Code {
+					t.Errorf("MRACode(%q) = %q; golden wants %q (byte-stable cross-platform gate)",
+						e.Input, got, e.Code)
+				}
+			})
+		}
+		if n == 0 {
+			t.Fatal("no MRA entries in phonetic-codes.json golden file")
+		}
 	})
 }

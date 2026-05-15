@@ -1060,6 +1060,51 @@ func (ctx *AlgorithmContext) iComputeTheNYSIISScoreBetween(a, b string) error {
 	return nil
 }
 
+// iComputeTheMRACodeOf computes MRACode(s) and stores the result in
+// ctx.lastCode. Used by plan 07-04 MRA BDD scenarios. The shared
+// `^the code should be "..."$` step (from plan 07-01) covers assertion.
+func (ctx *AlgorithmContext) iComputeTheMRACodeOf(s string) error {
+	ctx.lastCode = fuzzymatch.MRACode(s)
+	return nil
+}
+
+// iComputeTheMRAScoreBetween computes MRAScore(a, b) and stores the
+// result in ctx.lastScore. Used by plan 07-04 MRA BDD scenarios. The
+// standard `^the score should be exactly (...)$` step covers assertion.
+func (ctx *AlgorithmContext) iComputeTheMRAScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.MRAScore(a, b)
+	return nil
+}
+
+// iCompareWithMRA computes MRACompare(a, b) and stores the result in
+// ctx.lastMRAMatched and ctx.lastMRASim. Both fields were declared in
+// plan 07-01 for this exact purpose. The `^the MRA similarity should be (\d+)$`
+// and `^the MRA match should be (true|false)$` steps cover assertion.
+func (ctx *AlgorithmContext) iCompareWithMRA(a, b string) error {
+	ctx.lastMRAMatched, ctx.lastMRASim = fuzzymatch.MRACompare(a, b)
+	return nil
+}
+
+// theMRASimilarityShouldBe asserts that ctx.lastMRASim equals the expected
+// raw 0-6 NBS similarity counter. Used by MRA BDD scenarios asserting the
+// integer counter directly (e.g. Smith/Smyth → sim=5).
+func (ctx *AlgorithmContext) theMRASimilarityShouldBe(want int) error {
+	if ctx.lastMRASim != want {
+		return fmt.Errorf("MRA similarity: got %d; want %d", ctx.lastMRASim, want)
+	}
+	return nil
+}
+
+// theMRAMatchShouldBe asserts that ctx.lastMRAMatched equals the expected
+// boolean decision. Used by MRA BDD scenarios asserting the match decision.
+func (ctx *AlgorithmContext) theMRAMatchShouldBe(wantStr string) error {
+	want := wantStr == "true"
+	if ctx.lastMRAMatched != want {
+		return fmt.Errorf("MRA match: got %v; want %v", ctx.lastMRAMatched, want)
+	}
+	return nil
+}
+
 // theCallShouldPanicWith asserts that the previous attempt step
 // captured a panic whose message CONTAINS the given phrase. Used by
 // the panic-on-non-permitted-inner scenarios.
@@ -1533,5 +1578,32 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^I compute the NYSIIS score between "([^"]*)" and "([^"]*)"$`,
 		a.iComputeTheNYSIISScoreBetween,
+	)
+
+	// MRA step definitions (plan 07-04). Three surfaces: MRACode step writes
+	// to ctx.lastCode; MRAScore step uses ctx.lastScore; MRACompare step
+	// writes to ctx.lastMRAMatched + ctx.lastMRASim.
+	// The shared `^the code should be "..."$` assertion from plan 07-01 covers
+	// MRACode assertion. The shared `^the score should be exactly (...)$`
+	// assertion from plan 02-01 covers MRAScore assertion.
+	ctx.Step(
+		`^I compute the MRA code of "([^"]*)"$`,
+		a.iComputeTheMRACodeOf,
+	)
+	ctx.Step(
+		`^I compute the MRA score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheMRAScoreBetween,
+	)
+	ctx.Step(
+		`^I compare with MRA "([^"]*)" and "([^"]*)"$`,
+		a.iCompareWithMRA,
+	)
+	ctx.Step(
+		`^the MRA similarity should be (\d+)$`,
+		a.theMRASimilarityShouldBe,
+	)
+	ctx.Step(
+		`^the MRA match should be (true|false)$`,
+		a.theMRAMatchShouldBe,
 	)
 }
