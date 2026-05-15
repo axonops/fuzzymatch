@@ -169,11 +169,16 @@ func TestGolden_Algorithms_Merge(t *testing.T) {
 		"_staging/jarowinkler.json",
 		"_staging/lcsstr.json",
 		"_staging/levenshtein.json",
+		"_staging/monge_elkan.json",
+		"_staging/partial_ratio.json",
 		"_staging/qgram_jaccard.json",
 		"_staging/ratcliff_obershelp.json",
 		"_staging/sorensen_dice.json",
 		"_staging/strcmp95.json",
 		"_staging/swg.json",
+		"_staging/token_jaccard.json",
+		"_staging/token_set_ratio.json",
+		"_staging/token_sort_ratio.json",
 		"_staging/tversky.json",
 	}
 	var allEntries []goldenAlgorithmEntry

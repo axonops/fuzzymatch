@@ -338,6 +338,146 @@
       "expected_score": 0.625
     },
     {
+      "name": "MongeElkan_RV-ME1_user_create_vs_usr_creating_symmetric",
+      "algorithm": "MongeElkan",
+      "a": "user create",
+      "b": "usr creating",
+      "expected_score": 0.9125000000000001
+    },
+    {
+      "name": "MongeElkan_RV-ME2_identity",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta",
+      "b": "alpha beta",
+      "expected_score": 1
+    },
+    {
+      "name": "MongeElkan_RV-ME3_disjoint_greek_symmetric",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta",
+      "b": "gamma delta",
+      "expected_score": 0.6916666666666667
+    },
+    {
+      "name": "MongeElkan_RV-ME4_RV-ME6_asymmetric_symmetric_average",
+      "algorithm": "MongeElkan",
+      "a": "alpha",
+      "b": "alpha beta gamma",
+      "expected_score": 0.8472222222222223
+    },
+    {
+      "name": "MongeElkan_RV-ME6_RV-ME4_swapped_symmetric_same_average",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta gamma",
+      "b": "alpha",
+      "expected_score": 0.8472222222222223
+    },
+    {
+      "name": "MongeElkan_both_empty_standard",
+      "algorithm": "MongeElkan",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "MongeElkan_one_empty_a",
+      "algorithm": "MongeElkan",
+      "a": "",
+      "b": "hello world",
+      "expected_score": 0
+    },
+    {
+      "name": "MongeElkan_one_empty_b",
+      "algorithm": "MongeElkan",
+      "a": "hello world",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "MongeElkan_pure_separators_both_empty_tokens",
+      "algorithm": "MongeElkan",
+      "a": "___",
+      "b": "...",
+      "expected_score": 1
+    },
+    {
+      "name": "MongeElkan_token_reorder_symmetric",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta gamma",
+      "b": "gamma alpha beta",
+      "expected_score": 1
+    },
+    {
+      "name": "PartialRatio_both_empty",
+      "algorithm": "PartialRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "PartialRatio_disjoint_no_overlap",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "xyzzz",
+      "expected_score": 0
+    },
+    {
+      "name": "PartialRatio_identity",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "PartialRatio_one_empty_a",
+      "algorithm": "PartialRatio",
+      "a": "",
+      "b": "hello",
+      "expected_score": 0
+    },
+    {
+      "name": "PartialRatio_one_empty_b",
+      "algorithm": "PartialRatio",
+      "a": "hello",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "PartialRatio_partial_overlap",
+      "algorithm": "PartialRatio",
+      "a": "abcd",
+      "b": "xabcy",
+      "expected_score": 0.75
+    },
+    {
+      "name": "PartialRatio_region_1_left_tail_pitfall_3",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "ab",
+      "expected_score": 1
+    },
+    {
+      "name": "PartialRatio_region_2_middle_wins",
+      "algorithm": "PartialRatio",
+      "a": "YANKEES",
+      "b": "NEW YORK YANKEES",
+      "expected_score": 1
+    },
+    {
+      "name": "PartialRatio_region_3_right_tail_pitfall_3",
+      "algorithm": "PartialRatio",
+      "a": "abc",
+      "b": "bc",
+      "expected_score": 1
+    },
+    {
+      "name": "PartialRatio_subset_short_at_end",
+      "algorithm": "PartialRatio",
+      "a": "world",
+      "b": "hello world",
+      "expected_score": 1
+    },
+    {
       "name": "QGramJaccard_AGCT_AGCTAGCT",
       "algorithm": "QGramJaccard",
       "a": "AGCT",
@@ -588,6 +728,230 @@
       "a": "abc",
       "b": "",
       "expected_score": 0
+    },
+    {
+      "name": "TokenJaccard_RV-TJ1_partial_overlap",
+      "algorithm": "TokenJaccard",
+      "a": "a b c",
+      "b": "b c d",
+      "expected_score": 0.5
+    },
+    {
+      "name": "TokenJaccard_RV-TJ2_subset",
+      "algorithm": "TokenJaccard",
+      "a": "a b",
+      "b": "a b c",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "TokenJaccard_RV-TJ3_set_vs_multiset_keystone",
+      "algorithm": "TokenJaccard",
+      "a": "a a b",
+      "b": "a b",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenJaccard_RV-TJ4_disjoint",
+      "algorithm": "TokenJaccard",
+      "a": "a b c",
+      "b": "x y z",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenJaccard_RV-TJ5_identity",
+      "algorithm": "TokenJaccard",
+      "a": "a b c",
+      "b": "a b c",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenJaccard_RV-TJ6_partial_overlap_greek",
+      "algorithm": "TokenJaccard",
+      "a": "alpha beta gamma delta",
+      "b": "alpha beta epsilon zeta",
+      "expected_score": 0.3333333333333333
+    },
+    {
+      "name": "TokenJaccard_both_empty",
+      "algorithm": "TokenJaccard",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenJaccard_one_empty_a",
+      "algorithm": "TokenJaccard",
+      "a": "",
+      "b": "hello",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenJaccard_one_empty_b",
+      "algorithm": "TokenJaccard",
+      "a": "hello",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenJaccard_token_reorder",
+      "algorithm": "TokenJaccard",
+      "a": "alpha beta gamma",
+      "b": "gamma alpha beta",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSetRatio_both_empty_strings_deviation",
+      "algorithm": "TokenSetRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSetRatio_both_pure_separator_deviation",
+      "algorithm": "TokenSetRatio",
+      "a": " ",
+      "b": "  ",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSetRatio_dedup_set_equal",
+      "algorithm": "TokenSetRatio",
+      "a": "alpha beta",
+      "b": "beta alpha alpha beta",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSetRatio_disjoint",
+      "algorithm": "TokenSetRatio",
+      "a": "abc def",
+      "b": "xyz qrs",
+      "expected_score": 0.1428571428571429
+    },
+    {
+      "name": "TokenSetRatio_identity",
+      "algorithm": "TokenSetRatio",
+      "a": "hello world",
+      "b": "hello world",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSetRatio_low_overlap_singletons",
+      "algorithm": "TokenSetRatio",
+      "a": "hello",
+      "b": "world",
+      "expected_score": 0.2
+    },
+    {
+      "name": "TokenSetRatio_one_empty_a",
+      "algorithm": "TokenSetRatio",
+      "a": "",
+      "b": "hello world",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSetRatio_one_empty_b",
+      "algorithm": "TokenSetRatio",
+      "a": "hello world",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSetRatio_subset_a_in_b",
+      "algorithm": "TokenSetRatio",
+      "a": "alpha beta",
+      "b": "alpha beta gamma",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSetRatio_subset_b_in_a",
+      "algorithm": "TokenSetRatio",
+      "a": "alpha beta gamma",
+      "b": "alpha beta",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSetRatio_three_way_max_combined_wins",
+      "algorithm": "TokenSetRatio",
+      "a": "hello world",
+      "b": "world peace",
+      "expected_score": 0.6363636363636364
+    },
+    {
+      "name": "TokenSetRatio_unicode_reorder",
+      "algorithm": "TokenSetRatio",
+      "a": "café société",
+      "b": "société café",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_both_empty",
+      "algorithm": "TokenSortRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_disjoint",
+      "algorithm": "TokenSortRatio",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSortRatio_identity",
+      "algorithm": "TokenSortRatio",
+      "a": "hello world",
+      "b": "hello world",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_low_overlap",
+      "algorithm": "TokenSortRatio",
+      "a": "hello",
+      "b": "world",
+      "expected_score": 0.2
+    },
+    {
+      "name": "TokenSortRatio_one_empty_a",
+      "algorithm": "TokenSortRatio",
+      "a": "",
+      "b": "hello world",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSortRatio_one_empty_b",
+      "algorithm": "TokenSortRatio",
+      "a": "hello world",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSortRatio_subset_mid",
+      "algorithm": "TokenSortRatio",
+      "a": "alpha beta",
+      "b": "alpha beta gamma",
+      "expected_score": 0.7692307692307693
+    },
+    {
+      "name": "TokenSortRatio_subset_short",
+      "algorithm": "TokenSortRatio",
+      "a": "alpha",
+      "b": "alpha beta",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "TokenSortRatio_token_reorder_canonical",
+      "algorithm": "TokenSortRatio",
+      "a": "fuzzy wuzzy was a bear",
+      "b": "wuzzy fuzzy was a bear",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_token_reorder_two",
+      "algorithm": "TokenSortRatio",
+      "a": "alpha beta",
+      "b": "beta alpha",
+      "expected_score": 1
     },
     {
       "name": "Tversky_abcd_abcdef_asym",

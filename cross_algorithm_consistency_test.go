@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// cross_algorithm_consistency_test.go pins relationships across the seven
-// Phase 2 + Phase 3 character-based algorithms:
+// cross_algorithm_consistency_test.go pins relationships across the Phase 2,
+// 3, 4, 5, and 6 catalogue:
 //
 //   - DIVERGENCE: DL-OSA and DL-Full produce DIFFERENT distances for
 //     the canonical discriminating vector "ca"/"abc" (3 vs 2). This
@@ -35,6 +35,23 @@
 //     and Hamming all return distance == 1 for a single-character
 //     substitution between equal-length strings (e.g. "a"/"b"). SWG
 //     is excluded — it has no Distance variant (CONTEXT.md §7 / IN-06).
+//
+//   - PHASE 5 TVERSKY EQUIVALENCES: Tversky reduces to Jaccard at α=β=1.0
+//     and to Sørensen-Dice at α=β=0.5 (BIT-EXACT). Tversky asymmetry pin
+//     at α=0.8, β=0.2.
+//
+//   - PHASE 6 LOCKED DIVERGENCES (plan 06-06 cross-algorithm finalisation):
+//   - TokenJaccard (set) vs QGramJaccard (multiset) — keystone
+//     "a a b" vs "a b" returns 1.0 under TokenJaccard and < 1.0 under
+//     QGramJaccard (plan 06-04 KEYSTONE / RESEARCH.md Pattern 8).
+//   - TokenSetRatioScore("","") = 0.0 DEVIATION (plan 06-02 / RapidFuzz
+//     issue #110) pinned against TokenJaccardScore("","") = 1.0 STANDARD
+//     (plan 06-04) — the catalogue contains BOTH conventions deliberately.
+//   - MongeElkanScoreSymmetric(a, b) = mean(MongeElkanScore(a, b),
+//     MongeElkanScore(b, a)) (plan 06-05 KEYSTONE / CONTEXT §4 LOCKED).
+//   - PartialRatio (Indel formula) ≠ RatcliffObershelp (difflib formula)
+//     on substring-containment inputs — proves the surfaces are NOT
+//     aliased.
 //
 // Stdlib `testing` only — no testify in root tests, per
 // .claude/skills/go-coding-standards.
@@ -577,5 +594,229 @@ func TestCrossAlgorithm_Tversky_AsymmetryPin(t *testing.T) {
 	if math.Abs(fwd-rev) <= 0.1 {
 		t.Errorf("TverskyScore asymmetry magnitude collapsed for %q/%q with α=%v, β=%v — |fwd − rev| = %g ≤ 0.1 (expected ≈ 0.2302; near-equality regression)",
 			a, b, alpha, beta, math.Abs(fwd-rev))
+	}
+}
+
+// --- Phase 6 cross-algorithm invariants (plan 06-06) ---
+//
+// The four cross-algorithm tests below pin the LOCKED semantic divergences
+// introduced by the Phase 6 token-based algorithms relative to the existing
+// Phase 1-5 catalogue. Each test cites the source-of-truth plan SUMMARY where
+// the divergence was first locked, plus the RESEARCH.md pattern it derives
+// from. The intent is defence-in-depth: each algorithm's own _test.go and
+// _bdd.feature pin the same invariant against ITSELF; these cross-algorithm
+// tests pin the invariant between two algorithms so that a refactor of either
+// side fires the regression.
+
+// TestCrossAlgorithm_TokenJaccard_VsQGramJaccard_SetVsMultisetDivergence pins
+// the LOCKED Set vs Multiset semantic divergence between TokenJaccard (set
+// semantics — Phase 6 plan 06-04) and QGramJaccard (multiset semantics —
+// Phase 5). The keystone input ("a a b" vs "a b") is the same regression
+// pair that fires in plan 06-04's `TestTokenJaccardScore_SetVsMultisetDistinction`
+// unit test and BDD scenario, but here we additionally pin the OTHER side
+// (Q-Gram Jaccard's multiset value) so the divergence is locked from BOTH
+// directions.
+//
+// Plan 06-04 SUMMARY "Set vs Multiset LOCKED 2026-05-15":
+//
+//	TokenJaccard uses SET semantics (map[string]struct{}, multiplicity
+//	collapsed). DISTINCT from Phase 5's Q-Gram Jaccard MULTISET semantics
+//	over q-gram counts. Token presence is a binary signal; q-gram presence
+//	is a multiplicity signal.
+//
+// Algebra for ("a a b", "a b") with q=1:
+//
+//   - TokenJaccard: A = {a, b}, B = {a, b}; intersection 2, union 2; J = 1.0
+//   - QGramJaccard (q=1, multiset): counts_A = {a:2, b:1}, counts_B = {a:1, b:1};
+//     intersection cardinality = sum(min(count_A, count_B)) = min(2,1)+min(1,1) = 2;
+//     union cardinality = |A| + |B| − intersection = 3 + 2 − 2 = 3; J = 2/3 ≈ 0.6667
+//
+// RESEARCH.md Pattern 8 / plan 06-04 KEYSTONE RV-TJ3.
+func TestCrossAlgorithm_TokenJaccard_VsQGramJaccard_SetVsMultisetDivergence(t *testing.T) {
+	const a, b = "a a b", "a b"
+
+	tokenJaccard := fuzzymatch.TokenJaccardScore(a, b)
+	qgramJaccard := fuzzymatch.QGramJaccardScore(a, b, 1)
+
+	// 1. TokenJaccard returns 1.0 exact (SET semantics — duplicates collapse).
+	if math.Float64bits(tokenJaccard) != math.Float64bits(1.0) {
+		t.Errorf("TokenJaccardScore(%q, %q) = %.17g (bits=0x%016x); want 1.0 bit-exact (SET semantics — plan 06-04 KEYSTONE RV-TJ3)",
+			a, b, tokenJaccard, math.Float64bits(tokenJaccard))
+	}
+
+	// 2. QGramJaccard returns < 1.0 (MULTISET semantics — counts matter).
+	if !(qgramJaccard < 1.0) {
+		t.Errorf("QGramJaccardScore(%q, %q, n=1) = %.17g; want < 1.0 (MULTISET semantics — RESEARCH.md Pattern 8 divergence)",
+			a, b, qgramJaccard)
+	}
+
+	// 3. Cross-check the divergence itself — the two values MUST differ.
+	if math.Float64bits(tokenJaccard) == math.Float64bits(qgramJaccard) {
+		t.Errorf("Set/Multiset semantic divergence collapsed: TokenJaccardScore(%q, %q) = %.17g converges with QGramJaccardScore(...,n=1) = %.17g (expected SET vs MULTISET divergence)",
+			a, b, tokenJaccard, qgramJaccard)
+	}
+}
+
+// TestCrossAlgorithm_TokenSetRatio_EmptyDeviation_PinnedAgainstTokenJaccard
+// pins the LOCKED RapidFuzz issue #110 deviation: TokenSetRatioScore("", "")
+// returns 0.0 (NOT 1.0), bug-for-bug compatible with RapidFuzz / fuzzywuzzy.
+// TokenJaccardScore("", "") follows the STANDARD catalogue both-empty
+// convention and returns 1.0. Pinning both at the same input proves the
+// catalogue contains BOTH conventions and the contrast is intentional.
+//
+// Plan 06-02 SUMMARY "DEVIATION LOCKED 2026-05-15":
+//
+//	TokenSetRatioScore returns 0.0 (not 1.0) when EITHER input is empty
+//	OR either Tokenise output is empty — bug-for-bug compat with
+//	RapidFuzz issue #110 / fuzzywuzzy. The empty-input gate fires BEFORE
+//	the identity short-circuit so TokenSetRatioScore("", "") returns 0.0
+//	matching RapidFuzz exactly.
+//
+// Plan 06-04 SUMMARY "Both-empty STANDARD convention LOCKED 2026-05-15":
+//
+//	TokenJaccardScore("", "") returns 1.0 (catalogue STANDARD both-empty
+//	identity convention). DOES NOT deviate like TokenSetRatio.
+//
+// RESEARCH.md Pitfall 2 / plan 06-02 DEVIATION / plan 06-04 STANDARD.
+func TestCrossAlgorithm_TokenSetRatio_EmptyDeviation_PinnedAgainstTokenJaccard(t *testing.T) {
+	tokenSet := fuzzymatch.TokenSetRatioScore("", "")
+	tokenJaccard := fuzzymatch.TokenJaccardScore("", "")
+
+	// 1. TokenSetRatio DEVIATES — returns 0.0 (RapidFuzz issue #110 compat).
+	if math.Float64bits(tokenSet) != math.Float64bits(0.0) {
+		t.Errorf("TokenSetRatioScore(\"\", \"\") = %.17g (bits=0x%016x); want 0.0 bit-exact (RapidFuzz issue #110 DEVIATION — plan 06-02 LOCKED)",
+			tokenSet, math.Float64bits(tokenSet))
+	}
+
+	// 2. TokenJaccard follows the catalogue STANDARD — returns 1.0.
+	if math.Float64bits(tokenJaccard) != math.Float64bits(1.0) {
+		t.Errorf("TokenJaccardScore(\"\", \"\") = %.17g (bits=0x%016x); want 1.0 bit-exact (catalogue STANDARD both-empty identity — plan 06-04 LOCKED)",
+			tokenJaccard, math.Float64bits(tokenJaccard))
+	}
+
+	// 3. Cross-check the deviation magnitude — the two values MUST differ by 1.0.
+	if math.Abs(tokenSet-tokenJaccard) != 1.0 {
+		t.Errorf("Empty-input deviation gap collapsed: |TokenSetRatioScore(\"\",\"\") − TokenJaccardScore(\"\",\"\")| = %.17g; want 1.0 exact (DEVIATION vs STANDARD contrast)",
+			math.Abs(tokenSet-tokenJaccard))
+	}
+}
+
+// TestCrossAlgorithm_MongeElkanSymmetric_VsAsymmetric_Identity pins the
+// LOCKED relationship between the two Monge-Elkan surfaces introduced in
+// plan 06-05:
+//
+//   - MongeElkanScore is ASYMMETRIC — direction-sensitive (a → b averages
+//     max-inner-similarities over A's tokens; b → a averages over B's tokens).
+//   - MongeElkanScoreSymmetric is the arithmetic mean of the two directions,
+//     so it is direction-INSENSITIVE.
+//
+// For non-empty identical inputs, BOTH surfaces return 1.0 (the symmetric
+// variant doesn't degrade identity — both directions yield 1.0 and the mean
+// of two 1.0s is 1.0). For asymmetric pairs (e.g. RV-ME4: "alpha" vs
+// "alpha beta gamma"), the symmetric variant returns the arithmetic mean of
+// the two asymmetric directions per CONTEXT §4 LOCKED.
+//
+// Plan 06-05 SUMMARY "Asymmetric reference vector LOCKED 2026-05-15":
+//
+//	RV-ME4 / RV-ME-asym KEYSTONE pinned: MongeElkanScore("alpha",
+//	"alpha beta gamma", AlgoJaroWinkler) ≠ MongeElkanScore("alpha beta gamma",
+//	"alpha", AlgoJaroWinkler); MongeElkanScoreSymmetric returns the mean of
+//	both directions.
+//
+// Algebra for the symmetric-vs-asymmetric mean relationship:
+//
+//	MongeElkanScoreSymmetric(a, b, inner, opts)
+//	  = (MongeElkanScore(a, b, inner, opts) + MongeElkanScore(b, a, inner, opts)) / 2
+//
+// Plan 06-05 CONTEXT §4 LOCKED.
+func TestCrossAlgorithm_MongeElkanSymmetric_VsAsymmetric_Identity(t *testing.T) {
+	opts := fuzzymatch.DefaultNormalisationOptions()
+
+	// 1. Identity: both surfaces return BIT-EXACT 1.0 on identical non-empty inputs.
+	const idA = "alpha beta gamma"
+	asymID := fuzzymatch.MongeElkanScore(idA, idA, fuzzymatch.AlgoJaroWinkler, opts)
+	symID := fuzzymatch.MongeElkanScoreSymmetric(idA, idA, fuzzymatch.AlgoJaroWinkler, opts)
+	if math.Float64bits(asymID) != math.Float64bits(1.0) {
+		t.Errorf("MongeElkanScore(%q, %q, AlgoJaroWinkler, ...) identity = %.17g (bits=0x%016x); want 1.0 bit-exact",
+			idA, idA, asymID, math.Float64bits(asymID))
+	}
+	if math.Float64bits(symID) != math.Float64bits(1.0) {
+		t.Errorf("MongeElkanScoreSymmetric(%q, %q, AlgoJaroWinkler, ...) identity = %.17g (bits=0x%016x); want 1.0 bit-exact (symmetric variant must not degrade identity)",
+			idA, idA, symID, math.Float64bits(symID))
+	}
+
+	// 2. Asymmetric pair: symmetric variant must equal the arithmetic mean of
+	//    the two asymmetric directions (RV-ME4 / RV-ME-asym KEYSTONE — plan 06-05 LOCKED).
+	const asymInputA = "alpha"
+	const asymInputB = "alpha beta gamma"
+	fwd := fuzzymatch.MongeElkanScore(asymInputA, asymInputB, fuzzymatch.AlgoJaroWinkler, opts)
+	rev := fuzzymatch.MongeElkanScore(asymInputB, asymInputA, fuzzymatch.AlgoJaroWinkler, opts)
+	sym := fuzzymatch.MongeElkanScoreSymmetric(asymInputA, asymInputB, fuzzymatch.AlgoJaroWinkler, opts)
+	expectedMean := (fwd + rev) / 2.0
+	const tol = 1e-12
+	if math.Abs(sym-expectedMean) > tol {
+		t.Errorf("MongeElkanScoreSymmetric vs (fwd+rev)/2 disagree for (%q, %q):\n  symmetric = %.17g\n  (fwd+rev)/2 = %.17g (fwd=%.17g, rev=%.17g)\n  delta = %g; want within %g (plan 06-05 KEYSTONE)",
+			asymInputA, asymInputB, sym, expectedMean, fwd, rev, math.Abs(sym-expectedMean), tol)
+	}
+
+	// 3. Direction divergence: the asymmetric surface MUST be direction-sensitive
+	//    on this pair (proves the symmetric variant's mean is informative, not
+	//    a degenerate single-direction collapse).
+	if fwd == rev {
+		t.Errorf("MongeElkanScore is INTENTIONALLY asymmetric for (%q, %q) — got fwd=%g == rev=%g (regression to symmetric behaviour; symmetric variant's mean becomes degenerate)",
+			asymInputA, asymInputB, fwd, rev)
+	}
+}
+
+// TestCrossAlgorithm_PartialRatio_VsRatcliffObershelp_DistinctSemantic pins
+// that PartialRatio (Indel-based, plan 06-03) and RatcliffObershelp
+// (difflib-based, Phase 4) produce DIFFERENT scores on at least one input
+// pair where both are well-defined. RatcliffObershelp's godoc references the
+// difflib-equivalent semantic; PartialRatio's godoc cross-references
+// RatcliffObershelp for consumers wanting that semantic. This cross-test
+// pins the divergence so a future refactor that aliases one onto the other
+// fires the regression.
+//
+// Plan 06-03 introduced PartialRatio via the Indel formula (substring search
+// + Indel ratio on the best-match window). It is NOT the difflib partial
+// ratio — RapidFuzz / fuzzywuzzy provides both surfaces and they differ.
+//
+// Plan 06-03 SUMMARY:
+//
+//	PartialRatio uses the Indel-distance formula per RapidFuzz documentation
+//	(NOT difflib.SequenceMatcher.partial_ratio). The Phase 4 RatcliffObershelp
+//	surface is the difflib equivalent for consumers requiring that semantic.
+//
+// Pair "abc" vs "abcdef" is well-defined for both:
+//
+//   - PartialRatio: substring "abc" found at index 0 of "abcdef"; Indel ratio
+//     on ("abc", "abc") = 1.0 (sub-window perfectly matches).
+//   - RatcliffObershelp: longest contiguous match "abc" length 3; total
+//     length 3+6=9; ratio = 2*3/9 ≈ 0.6667.
+//
+// The DIVERGENCE is wide (1.0 vs ~0.6667), well above any sub-ULP tolerance.
+func TestCrossAlgorithm_PartialRatio_VsRatcliffObershelp_DistinctSemantic(t *testing.T) {
+	const a, b = "abc", "abcdef"
+	gotPartial := fuzzymatch.PartialRatioScore(a, b)
+	gotRO := fuzzymatch.RatcliffObershelpScore(a, b)
+
+	// 1. PartialRatio finds the substring and returns 1.0 exactly.
+	if math.Float64bits(gotPartial) != math.Float64bits(1.0) {
+		t.Errorf("PartialRatioScore(%q, %q) = %.17g (bits=0x%016x); want 1.0 bit-exact (Indel formula on substring match)",
+			a, b, gotPartial, math.Float64bits(gotPartial))
+	}
+
+	// 2. RatcliffObershelp scores STRICTLY LESS than 1.0 on this pair
+	//    (difflib's 2·matches/(|a|+|b|) penalises uncovered characters).
+	if !(gotRO < 1.0) {
+		t.Errorf("RatcliffObershelpScore(%q, %q) = %.17g; want < 1.0 (difflib semantic — uncovered chars penalise)",
+			a, b, gotRO)
+	}
+
+	// 3. Cross-check the divergence — PartialRatio MUST exceed RatcliffObershelp
+	//    on this pair (the semantic distinction is load-bearing).
+	if !(gotPartial > gotRO) {
+		t.Errorf("PartialRatio/RatcliffObershelp distinct-semantic gate failed for (%q, %q): PartialRatio=%.17g, RatcliffObershelp=%.17g — want PartialRatio > RatcliffObershelp (Indel substring vs difflib match-ratio)",
+			a, b, gotPartial, gotRO)
 	}
 }
