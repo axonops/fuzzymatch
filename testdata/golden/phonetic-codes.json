@@ -118,6 +118,61 @@
       "input": "Caesar",
       "primary": "SSR",
       "secondary": "SSR"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "",
+      "code": ""
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Brown",
+      "code": "BRAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Browne",
+      "code": "BRAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Robert",
+      "code": "RABAD"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Catherine",
+      "code": "CATARA"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Katherine",
+      "code": "CATARA"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "John",
+      "code": "JAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Teresa",
+      "code": "TARAS"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Theresa",
+      "code": "TARAS"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "montgomery",
+      "code": "MANTGA"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Smith",
+      "code": "SNAT"
     }
   ]
 }

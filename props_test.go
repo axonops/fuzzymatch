@@ -3500,3 +3500,96 @@ func TestProp_DoubleMetaphone_KeyCharset(t *testing.T) {
 		t.Errorf("DoubleMetaphoneKeys charset invariant violated: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// NYSIIS property tests (plan 07-03)
+// ---------------------------------------------------------------------------
+
+// TestProp_NYSIISScore_Identity verifies that NYSIISScore(s, s) == 1.0 for
+// any input — the identity short-circuit must fire before any computation.
+func TestProp_NYSIISScore_Identity(t *testing.T) {
+	f := func(s string) bool {
+		return fuzzymatch.NYSIISScore(s, s) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISScore identity invariant violated: %v", err)
+	}
+}
+
+// TestProp_NYSIISScore_Symmetric verifies that NYSIISScore(a, b) == NYSIISScore(b, a)
+// for any inputs. Phonetic scores are symmetric (codes are compared bidirectionally).
+func TestProp_NYSIISScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.NYSIISScore(a, b) == fuzzymatch.NYSIISScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISScore symmetry invariant violated: %v", err)
+	}
+}
+
+// TestProp_NYSIISScore_RangeBounds verifies that NYSIISScore returns only
+// 0.0 or 1.0 (binary phonetic score) for any inputs.
+func TestProp_NYSIISScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.NYSIISScore(a, b)
+		return s == 0.0 || s == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISScore range invariant violated: %v", err)
+	}
+}
+
+// TestProp_NYSIISScore_NoNaN verifies that NYSIISScore never returns NaN.
+func TestProp_NYSIISScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.NYSIISScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISScore no-NaN invariant violated: %v", err)
+	}
+}
+
+// TestProp_NYSIISScore_NoInf verifies that NYSIISScore never returns ±Inf.
+func TestProp_NYSIISScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.NYSIISScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISScore no-Inf invariant violated: %v", err)
+	}
+}
+
+// TestProp_NYSIISCode_Length is the LOAD-BEARING Taft-1970 truncation invariant.
+// For any input, NYSIISCode(s) must have length <= 6 (original NYSIIS-1970
+// 6-char truncation per CONTEXT.md §2 LOCKED). If this fails with length 7+,
+// the modified-NYSIIS variant was accidentally shipped.
+func TestProp_NYSIISCode_Length(t *testing.T) {
+	f := func(s string) bool {
+		return len(fuzzymatch.NYSIISCode(s)) <= 6
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISCode length invariant violated (Taft-1970 truncation gate): %v", err)
+	}
+}
+
+// TestProp_NYSIISCode_Charset verifies that NYSIISCode output only contains
+// uppercase ASCII letters (A-Z), no digits, no punctuation, no lowercase,
+// matching the regex ^[A-Z]{0,6}$.
+func TestProp_NYSIISCode_Charset(t *testing.T) {
+	f := func(s string) bool {
+		code := fuzzymatch.NYSIISCode(s)
+		if len(code) > 6 {
+			return false
+		}
+		for i := 0; i < len(code); i++ {
+			c := code[i]
+			if c < 'A' || c > 'Z' {
+				return false
+			}
+		}
+		return true
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("NYSIISCode charset invariant violated (^[A-Z]{0,6}$): %v", err)
+	}
+}

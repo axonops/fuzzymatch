@@ -405,8 +405,131 @@
     },
     {
       "algorithm": "NYSIIS",
+      "input": "Brown",
+      "code": "BRAN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Browne",
+      "code": "BRAN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Robert",
+      "code": "RABAD",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Catherine",
+      "code": "CATARA",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "CATARAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Katherine",
+      "code": "CATARA",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "CATARAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Johnathan",
+      "code": "JANATA",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "JANATAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Jonathan",
+      "code": "JANATA",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "JANATAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "John",
+      "code": "JAN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Teresa",
+      "code": "TARAS",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Theresa",
+      "code": "TARAS",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "montgomery",
+      "code": "MANTGA",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "MANTGANARY"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "martincevic",
+      "code": "MARTAN",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "MARTANCAFAC"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Nicholson",
+      "code": "NACALS",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "NACALSAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Henderson",
+      "code": "HANDAR",
+      "variant_divergence": true,
+      "divergent_jellyfish_value": "HANDARSAN"
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Smith",
+      "code": "SNAT",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Johnson",
+      "code": "JANSAN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Taylor",
+      "code": "TAYLAR",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Davis",
+      "code": "DAV",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "Wilson",
+      "code": "WALSAN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "NYSIIS",
       "input": "",
-      "code": ""
+      "code": "",
+      "variant_divergence": false
     },
     {
       "algorithm": "MRA",

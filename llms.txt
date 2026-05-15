@@ -161,6 +161,11 @@ scan / Extract (Phases 9–10).
 - func DoubleMetaphoneKeys(s string) (primary, secondary string)
 - func DoubleMetaphoneScore(a, b string) float64
 
+### NYSIIS (Taft 1970 / Knuth TAOCP §6.4)
+
+- func NYSIISCode(s string) string
+- func NYSIISScore(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

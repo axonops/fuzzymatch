@@ -197,7 +197,46 @@ func TestPhonetic_CrossValidation(t *testing.T) {
 	})
 
 	t.Run("NYSIIS", func(t *testing.T) {
-		t.Skip("enabled by plan 07-03")
+		// NYSIIS cross-validation against jellyfish==1.2.1.
+		// Entries where jellyfish emits >6 chars (modified-NYSIIS variant)
+		// carry variant_divergence=true; the loader asserts against the
+		// TRUNCATED Taft-1970 value (entry.Code), NOT the jellyfish value
+		// (entry.DivergentJellyfishVal). See RESEARCH.md §7 Pitfall 7.B.
+		n := 0
+		divergenceCount := 0
+		for _, e := range c.Entries {
+			e := e
+			if e.Algorithm != "NYSIIS" {
+				continue
+			}
+			n++
+			if e.VariantDivergence {
+				divergenceCount++
+			}
+			t.Run(e.Input, func(t *testing.T) {
+				got := fuzzymatch.NYSIISCode(e.Input)
+				if got != e.Code {
+					if e.VariantDivergence {
+						t.Errorf(
+							"NYSIISCode(%q) = %q; want %q (Taft-1970 truncated value; jellyfish divergent value = %q, variant_divergence=true)",
+							e.Input, got, e.Code, e.DivergentJellyfishVal)
+					} else {
+						t.Errorf("NYSIISCode(%q) = %q; want %q (jellyfish %s cross-validation)",
+							e.Input, got, e.Code, c.Metadata.JellyfishVersion)
+					}
+				}
+			})
+		}
+		if n == 0 {
+			t.Fatal("no NYSIIS entries in corpus — corpus may be empty or corrupted")
+		}
+		// RESEARCH.md key finding 3: ~40-60% of NYSIIS corpus entries carry
+		// variant_divergence: true (jellyfish's untruncated output exceeds 6 chars).
+		divergencePct := float64(divergenceCount) / float64(n) * 100
+		if divergencePct < 30 || divergencePct > 70 {
+			t.Logf("NYSIIS variant_divergence rate = %.0f%% (%d/%d); expected ~40-60%% per RESEARCH.md key finding 3",
+				divergencePct, divergenceCount, n)
+		}
 	})
 
 	t.Run("MRA", func(t *testing.T) {
