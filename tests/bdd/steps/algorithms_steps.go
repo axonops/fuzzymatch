@@ -613,7 +613,7 @@ func (ctx *AlgorithmContext) iComputeTheTverskyRunesScoreBetweenWithNAlphaBeta(a
 func (ctx *AlgorithmContext) theTwoTverskyScoresShouldDifferByMoreThan(threshold float64) error {
 	delta := math.Abs(ctx.lastScore - ctx.lastScore2)
 	if delta <= threshold {
-		return fmt.Errorf("Tversky asymmetry gate FAILED: lastScore=%g, lastScore2=%g, |Δ|=%g; want > %g (the input swap with fixed α/β should produce direction-sensitive scores)",
+		return fmt.Errorf("tversky asymmetry gate FAILED: lastScore=%g, lastScore2=%g, |Δ|=%g; want > %g (the input swap with fixed α/β should produce direction-sensitive scores)",
 			ctx.lastScore, ctx.lastScore2, delta, threshold)
 	}
 	return nil
@@ -625,7 +625,7 @@ func (ctx *AlgorithmContext) theTwoTverskyScoresShouldDifferByMoreThan(threshold
 // Tversky 1977 §2 that holds bit-for-bit.
 func (ctx *AlgorithmContext) bothTverskyScoresShouldBeEqual() error {
 	if ctx.lastScore != ctx.lastScore2 {
-		return fmt.Errorf("Tversky scores not equal: %f != %f (parameter-swap symmetry violated — T(a,b,α,β) should equal T(b,a,β,α))",
+		return fmt.Errorf("tversky scores not equal: %f != %f (parameter-swap symmetry violated — T(a,b,α,β) should equal T(b,a,β,α))",
 			ctx.lastScore, ctx.lastScore2)
 	}
 	return nil

@@ -66,18 +66,18 @@ func FuzzQGramJaccardScore(f *testing.F) {
 		a, b string
 		n    int
 	}{
-		{"AGCT", "AGCTAGCT", 2},                                // RV-J1 canonical
-		{"hello", "hello", 2},                                  // identity
-		{"", "", 2},                                            // both-empty
-		{"abc", "", 2},                                         // one-empty
-		{"abc", "xyz", 2},                                      // orthogonal
-		{"abcd", "abxy", 2},                                    // single-shared
-		{"\xff\xfe", "abc", 2},                                 // invalid UTF-8
-		{"\xc0\x80", "abc", 2},                                 // overlong NUL
-		{"café", "cafe", 2},                                    // multi-byte UTF-8
+		{"AGCT", "AGCTAGCT", 2}, // RV-J1 canonical
+		{"hello", "hello", 2},   // identity
+		{"", "", 2},             // both-empty
+		{"abc", "", 2},          // one-empty
+		{"abc", "xyz", 2},       // orthogonal
+		{"abcd", "abxy", 2},     // single-shared
+		{"\xff\xfe", "abc", 2},  // invalid UTF-8
+		{"\xc0\x80", "abc", 2},  // overlong NUL
+		{"café", "cafe", 2},     // multi-byte UTF-8
 		{strings.Repeat("a", 200), strings.Repeat("ab", 100), 3}, // long input
-		{"x", "x", 1},                                          // n=1 unigram
-		{"abcdefgh", "abcdefgi", 8},                            // n=8 max
+		{"x", "x", 1},               // n=1 unigram
+		{"abcdefgh", "abcdefgi", 8}, // n=8 max
 	} {
 		f.Add(seed.a, seed.b, seed.n)
 	}
@@ -106,17 +106,17 @@ func FuzzQGramJaccardScoreRunes(f *testing.F) {
 		a, b string
 		n    int
 	}{
-		{"AGCT", "AGCTAGCT", 2},                                // RV-J1 (ASCII; both paths align)
-		{"hello", "hello", 2},                                  // identity
-		{"", "", 2},                                            // both-empty
-		{"abc", "", 2},                                         // one-empty
-		{"abc", "xyz", 2},                                      // orthogonal
-		{"café", "cafe", 2},                                    // RV-J5-Runes
-		{"Привет", "привет", 2},                                // Cyrillic
-		{"\xff\xfe", "abc", 2},                                 // invalid UTF-8 (FFFD-replaced)
+		{"AGCT", "AGCTAGCT", 2}, // RV-J1 (ASCII; both paths align)
+		{"hello", "hello", 2},   // identity
+		{"", "", 2},             // both-empty
+		{"abc", "", 2},          // one-empty
+		{"abc", "xyz", 2},       // orthogonal
+		{"café", "cafe", 2},     // RV-J5-Runes
+		{"Привет", "привет", 2}, // Cyrillic
+		{"\xff\xfe", "abc", 2},  // invalid UTF-8 (FFFD-replaced)
 		{strings.Repeat("a", 200), strings.Repeat("ab", 100), 3}, // long input
-		{"x", "x", 1},                                          // n=1
-		{"abcdefgh", "abcdefgi", 8},                            // n=8
+		{"x", "x", 1},               // n=1
+		{"abcdefgh", "abcdefgi", 8}, // n=8
 	} {
 		f.Add(seed.a, seed.b, seed.n)
 	}

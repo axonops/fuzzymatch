@@ -300,7 +300,7 @@ func CosineScoreRunes(a, b string, n int) float64 {
 // non-identical inputs), returns 1.0 by the both-empty convention (a
 // vacuous match — no q-grams to disagree about). When exactly one is
 // empty, returns 0.0 (the asymmetric short-circuit guard).
-func cosineFromQGramMaps(qa, qb map[string]int) float64 {
+func cosineFromQGramMaps(qa, qb map[string]int) float64 { //nolint:gocyclo // empty-multiset short-circuits + sort-key-canonical dot-product reduction + Cauchy-Schwarz clamp folded for hot-path locality; same precedent as damerau_osa.go::damerauOSADP per godoc above
 	if len(qa) == 0 && len(qb) == 0 {
 		return 1.0
 	}

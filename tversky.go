@@ -326,8 +326,8 @@ func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64 {
 //
 // Algebraic cross-check (RV-T3 / RV-T4 from RESEARCH.md §2.4):
 //
-//   - α = β = 1.0: denom = intersection + (aMinusB + bMinusA) = totalA
-//     + totalB − intersection = union. T = intersection/union = J. ✓
+//   - α = β = 1.0: denom = intersection + (aMinusB + bMinusA) =
+//     totalA + totalB − intersection = union. T = intersection/union = J. ✓
 //   - α = β = 0.5: denom = intersection + 0.5·(aMinusB + bMinusA) =
 //     intersection + 0.5·(totalA + totalB − 2·intersection) = (totalA +
 //     totalB)/2. T = 2·intersection/(totalA + totalB) = DSC. ✓
@@ -335,7 +335,7 @@ func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64 {
 // These equivalences hold bit-for-bit with QGramJaccardScore /
 // SorensenDiceScore on the same q-gram multisets — pinned by both unit
 // tests AND property tests as the load-bearing correctness gate.
-func tverskyFromQGramMaps(qa, qb map[string]int, alpha, beta float64) float64 {
+func tverskyFromQGramMaps(qa, qb map[string]int, alpha, beta float64) float64 { //nolint:gocyclo // empty-multiset short-circuits + smaller-side intersection iteration + asymmetric α/β weighting + 0/0 denominator guard folded for hot-path locality; same precedent as damerau_osa.go::damerauOSADP per godoc above
 	if len(qa) == 0 && len(qb) == 0 {
 		return 1.0
 	}
