@@ -479,6 +479,7 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoTokenSetRatio):          true,
 		int(fuzzymatch.AlgoPartialRatio):           true,
 		int(fuzzymatch.AlgoTokenJaccard):           true,
+		int(fuzzymatch.AlgoSoundex):                true, // registered by Phase 7 plan 07-01
 		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {

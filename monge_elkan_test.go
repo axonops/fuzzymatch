@@ -316,10 +316,9 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 		fuzzymatch.AlgoTokenSetRatio,   // token-on-token meaningless
 		fuzzymatch.AlgoPartialRatio,    // token-on-token meaningless
 		fuzzymatch.AlgoTokenJaccard,    // token-on-token meaningless
-		fuzzymatch.AlgoSoundex,         // Phase 7 reserved
-		fuzzymatch.AlgoDoubleMetaphone, // Phase 7 reserved
-		fuzzymatch.AlgoNYSIIS,          // Phase 7 reserved
-		fuzzymatch.AlgoMRA,             // Phase 7 reserved
+		fuzzymatch.AlgoDoubleMetaphone, // Phase 7 reserved — 07-02 removes
+		fuzzymatch.AlgoNYSIIS,          // Phase 7 reserved — 07-03 removes
+		fuzzymatch.AlgoMRA,             // Phase 7 reserved — 07-04 removes
 	}
 	for _, inner := range rejected {
 		t.Run("rejected_"+inner.String(), func(t *testing.T) {
@@ -382,6 +381,7 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 		fuzzymatch.AlgoCosine,
 		fuzzymatch.AlgoTversky,
 		fuzzymatch.AlgoRatcliffObershelp,
+		fuzzymatch.AlgoSoundex, // plan 07-01 — phonetic tier addition
 	}
 	for _, inner := range permittedSanity {
 		t.Run("permitted_"+inner.String(), func(t *testing.T) {
@@ -405,7 +405,7 @@ func TestMongeElkan_PanicMessageFormat(t *testing.T) {
 	}{
 		{fuzzymatch.AlgoMongeElkan, "MongeElkan"},
 		{fuzzymatch.AlgoTokenSortRatio, "TokenSortRatio"},
-		{fuzzymatch.AlgoSoundex, "Soundex"},
+		{fuzzymatch.AlgoDoubleMetaphone, "DoubleMetaphone"}, // AlgoSoundex now permitted (plan 07-01)
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -432,6 +432,53 @@ func TestMongeElkan_PanicMessageFormat(t *testing.T) {
 
 // TestMongeElkanScore_DispatchRegistration verifies the LOCKED CONTEXT.md
 // §4 dispatch defaults: the AlgoMongeElkan dispatch slot binds the
+// TestMongeElkanScore_BinaryInner_Soundex asserts the binary-inner-composition
+// behaviour of MongeElkanScore when AlgoSoundex is used as the inner metric
+// (per CONTEXT.md §4 LOCKED). Three sub-cases lock the contract:
+//
+//   - one_matches: "alpha beta" vs "alpha gamma" → Soundex("alpha")=="alpha"
+//     identity gives 1.0 for first token; "beta" vs "gamma" codes differ →
+//     0.0 for second token. MongeElkanScore = (1.0 + 0.0) / 2 = 0.5.
+//
+//   - both_match: "alpha beta" vs "alpha beta" → identity short-circuit
+//     fires in SoundexScore; both tokens match. MongeElkanScore = 1.0.
+//
+//   - neither: "alpha" vs "gamma" → codes differ → 0.0.
+//
+// This test locks the binary-inner-composition behaviour against silent
+// regression (e.g. a change to per-token-max accumulation logic that breaks
+// ME over discrete-valued inners).
+func TestMongeElkanScore_BinaryInner_Soundex(t *testing.T) {
+	opts := fuzzymatch.DefaultNormalisationOptions()
+
+	t.Run("one_matches", func(t *testing.T) {
+		// "alpha beta" vs "alpha gamma": alpha matches (identity), beta vs gamma
+		// have different Soundex codes (B300 vs G565 — wait: beta=B300, gamma=G650).
+		// MongeElkanScore = max(SoundexScore("alpha","alpha"), SoundexScore("alpha","gamma"))
+		//                 + max(SoundexScore("beta","alpha"), SoundexScore("beta","gamma"))
+		// = max(1.0, 0.0) + max(0.0, 0.0) ) / 2 = 0.5
+		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoSoundex, opts)
+		if got != 0.5 {
+			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoSoundex, opts) = %g; want 0.5 (one token matches)", got)
+		}
+	})
+
+	t.Run("both_match", func(t *testing.T) {
+		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoSoundex, opts)
+		if got != 1.0 {
+			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoSoundex, opts) = %g; want 1.0 (both tokens match)", got)
+		}
+	})
+
+	t.Run("neither", func(t *testing.T) {
+		// "alpha" vs "gamma": A416 vs G650 — codes differ → 0.0.
+		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoSoundex, opts)
+		if got != 0.0 {
+			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoSoundex, opts) = %g; want 0.0 (no token match)", got)
+		}
+	})
+}
+
 // SYMMETRIC variant with AlgoJaroWinkler as the default inner and
 // DefaultNormalisationOptions(). A regression here would break Phase 8
 // Scorer integration silently.

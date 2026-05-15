@@ -114,6 +114,19 @@ removal here.
   `TestTokenRatios_CrossValidation` and does not require Python.
   See `docs/cross-validation.md` for the OQ-1 tokeniser-divergence
   resolution and the regeneration protocol.
+- `make regen-phonetic-cross-validation` — developer-only; regenerate
+  `testdata/cross-validation/phonetic/vectors.json` (Soundex, Double
+  Metaphone, NYSIIS, MRA phonetic codes) from dual-pinned Python packages:
+  `jellyfish==1.2.1` (Soundex/NYSIIS/MRA) and `Metaphone==0.6` (Double
+  Metaphone — jellyfish 1.x has no DM; oubiwann's BSD-licensed port is
+  used instead per OQ-1 RESOLUTION LOCKED 2026-05-15 in plan 07-01).
+  Requires Python 3.7+ and
+  `python3 -m pip install --user jellyfish==1.2.1 Metaphone==0.6`.
+  The script refuses to run on any other version of either package.
+  NOT part of `make check`; CI consumes the committed JSON via
+  `TestPhonetic_CrossValidation` and does not require Python.
+  See `docs/cross-validation.md` for the dual-pin rationale and
+  variant-divergence tagging mechanism.
 - `make release-check` — validate `.goreleaser.yml` parses; never
   invokes a release locally (releases ship via CI only — see below).
 - `make clean` — clear test cache and coverage outputs.

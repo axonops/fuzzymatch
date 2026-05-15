@@ -270,16 +270,15 @@ package fuzzymatch
 
 // permittedMongeElkanInner enumerates the AlgoIDs valid as Monge-Elkan
 // inner metrics. Declared at PACKAGE SCOPE (per DET-13 / Phase 5 §5
-// LOCKED — NO init()-time table builds). Phase 7 will ADD AlgoSoundex /
-// AlgoDoubleMetaphone / AlgoNYSIIS / AlgoMRA additively (4 new entries →
-// 18 total). The allow-list is the single source of truth — when Phase 7
-// lands, planners ADD entries here AND update the panic-test fixture in
-// monge_elkan_test.go.
+// LOCKED — NO init()-time table builds). Phase 7 ADDITIVELY adds phonetic
+// AlgoIDs (1 per plan: 07-01 adds AlgoSoundex; 07-02..07-04 add the rest).
+// The allow-list is the single source of truth — when a Phase 7 plan lands,
+// it ADDS its entry here AND updates the panic-test fixture in
+// monge_elkan_test.go in the SAME COMMIT (per CONTEXT.md §4 LOCKED).
 //
-// 14 entries (9 character-tier + 4 q-gram tier + 1 gestalt per OQ-4
-// RESOLUTION LOCKED 2026-05-15 — see plan 06-05 SUMMARY for the
-// reasoning that AlgoRatcliffObershelp is a character-tier algorithm
-// and excluding it would be arbitrary).
+// 15 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 1 phonetic-tier
+// — plan 07-01 adds AlgoSoundex; plans 07-02..07-04 add DM/NYSIIS/MRA
+// additively → 18 total after Phase 7 completes).
 //
 // EXPLICITLY NOT permitted (verified by exhaustive panic test):
 //
@@ -289,8 +288,8 @@ package fuzzymatch
 //     receives single tokens from the outer Tokenise; re-tokenising
 //     single tokens is a no-op / identity-equivalent at best, recursive
 //     at worst)
-//   - Phase 7 phonetic (AlgoSoundex / AlgoDoubleMetaphone / AlgoNYSIIS /
-//     AlgoMRA): added in Phase 7 ADDITIVELY (4 new entries → 18 total)
+//   - Phase 7 phonetic remaining (AlgoDoubleMetaphone / AlgoNYSIIS /
+//     AlgoMRA): added in Phase 7 plans 07-02..07-04 ADDITIVELY
 var permittedMongeElkanInner = map[AlgoID]bool{
 	// Character tier (9):
 	AlgoLevenshtein:            true, // Levenshtein 1965
@@ -311,6 +310,9 @@ var permittedMongeElkanInner = map[AlgoID]bool{
 
 	// Gestalt tier (1) — OQ-4 RESOLUTION LOCKED 2026-05-15:
 	AlgoRatcliffObershelp: true, // Ratcliff & Metzener 1988 — character-tier per OQ-4
+
+	// Phonetic tier (Phase 7) — plan 07-01 adds AlgoSoundex; 07-02..07-04 add the rest:
+	AlgoSoundex: true, // Russell 1918 / Knuth TAOCP §6.4 — plan 07-01
 }
 
 // MongeElkanScore returns the asymmetric Monge-Elkan similarity between

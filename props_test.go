@@ -3319,3 +3319,94 @@ func TestProp_MongeElkanScoreSymmetric_NoNegativeZero(t *testing.T) {
 		t.Errorf("MongeElkanScoreSymmetric produced -0.0: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Soundex (Phase 7 plan 07-01)
+//
+// Soundex is SYMMETRIC: SoundexScore(a,b) == SoundexScore(b,a) always, because
+// code-equality is symmetric. The Symmetric invariant IS included (unlike
+// RatcliffObershelp which is asymmetric by design).
+//
+// PropSoundex_CodeCharset asserts the output matches ^([A-Z][0-9]{3})?$
+// (empty string or exactly 4 chars: letter + 3 digits).
+// ---------------------------------------------------------------------------
+
+// TestProp_SoundexScore_RangeBounds asserts the score is in [0.0, 1.0]
+// for any pair of strings. DET-04 range-bounds invariant.
+func TestProp_SoundexScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.SoundexScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SoundexScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_SoundexScore_Identity asserts Score(x, x) == 1.0 for any string x.
+func TestProp_SoundexScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		return fuzzymatch.SoundexScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SoundexScore identity violated: %v", err)
+	}
+}
+
+// TestProp_SoundexScore_Symmetric asserts Score(a,b) == Score(b,a).
+// Soundex is symmetric because code-equality is symmetric.
+func TestProp_SoundexScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.SoundexScore(a, b) == fuzzymatch.SoundexScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SoundexScore symmetry violated: %v", err)
+	}
+}
+
+// TestProp_SoundexScore_NoNaN asserts the score is never NaN.
+func TestProp_SoundexScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.SoundexScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SoundexScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_SoundexScore_NoInf asserts the score never returns ±Inf.
+func TestProp_SoundexScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.SoundexScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SoundexScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_SoundexCode_Charset asserts that SoundexCode output matches
+// ^([A-Z][0-9]{3})?$ — either empty string (for empty/non-ASCII input)
+// or exactly 4 characters (1 uppercase letter + 3 digits).
+func TestProp_SoundexCode_Charset(t *testing.T) {
+	f := func(s string) bool {
+		code := fuzzymatch.SoundexCode(s)
+		if code == "" {
+			return true // empty input or all-non-ASCII
+		}
+		if len(code) != 4 {
+			return false
+		}
+		if code[0] < 'A' || code[0] > 'Z' {
+			return false
+		}
+		for i := 1; i < 4; i++ {
+			if code[i] < '0' || code[i] > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SoundexCode charset invariant violated: %v", err)
+	}
+}
