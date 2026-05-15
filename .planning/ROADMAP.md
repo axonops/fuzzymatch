@@ -167,7 +167,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Core Character Algorithms (six) | 0/7 | Not started | - |
 | 3. Smith-Waterman-Gotoh | 3/3 | Complete    | 2026-05-14 |
 | 4. Remaining Character & Gestalt | 0/5 | Not started | - |
-| 5. Q-gram Algorithms | 1/5 | In Progress|  |
+| 5. Q-gram Algorithms | 2/5 | In Progress|  |
 | 6. Token-based Algorithms | 0/TBD | Not started | - |
 | 7. Phonetic Algorithms | 0/TBD | Not started | - |
 | 8. Composite Scorer | 0/TBD | Not started | - |
