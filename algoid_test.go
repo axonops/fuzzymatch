@@ -377,6 +377,25 @@ func TestDispatch_CosineRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_TverskyRegistered asserts that dispatch[AlgoTversky]
+// (slot 12) is non-nil after Phase 5 plan 05-04 registers a
+// TverskyScore wrapper. The dispatch wrapper binds default n = 3
+// (the canonical trigram value) AND α = β = 1.0 (the Jaccard-equivalent
+// weights) per CONTEXT.md "Claude's Discretion" — the dispatch
+// signature has no place for n, α, or β, so the real Tversky use case
+// (asymmetric direction-sensitive scoring with α ≠ β) lands in Phase 8
+// via WithTverskyAlgorithm(weight, alpha, beta).
+//
+// Only TverskyScore is dispatched — TverskyScoreRunes is public but
+// not dispatched (the dispatch table maps AlgoID to
+// (a, b string) float64).
+func TestDispatch_TverskyRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoTversky)) {
+		t.Errorf("dispatch[AlgoTversky] (%d) is nil — dispatch_tversky.go must register a TverskyScore wrapper at package load time",
+			int(fuzzymatch.AlgoTversky))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
 // AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
@@ -385,16 +404,17 @@ func TestDispatch_CosineRegistered(t *testing.T) {
 // 3 plan 03-01), AlgoLCSStr (slot 8 — registered by Phase 4 plan 04-02),
 // AlgoQGramJaccard (slot 9 — registered by Phase 5 plan 05-01),
 // AlgoSorensenDice (slot 10 — registered by Phase 5 plan 05-02),
-// AlgoCosine (slot 11 — registered by Phase 5 plan 05-03), and
+// AlgoCosine (slot 11 — registered by Phase 5 plan 05-03),
+// AlgoTversky (slot 12 — registered by Phase 5 plan 05-04), and
 // AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by Phase 4
 // plan 04-03) are still nil.
 //
-// Plan 05-03 flips slot 11 to registered. Slots 12..21 remain nil pending
-// later plans (Tversky 05-04, plus token and phonetic algorithms).
+// Plan 05-04 flips slot 12 to registered. Slots 13..21 remain nil pending
+// later plans (the token and phonetic algorithms).
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
-	// plan 04-02, plan 04-03, plan 05-01, plan 05-02, and plan 05-03
-	// respectively; all others nil.
+	// plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03, and
+	// plan 05-04 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -408,13 +428,14 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoQGramJaccard):           true,
 		int(fuzzymatch.AlgoSorensenDice):           true,
 		int(fuzzymatch.AlgoCosine):                 true,
+		int(fuzzymatch.AlgoTversky):                true,
 		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, plan 05-02, or plan 05-03)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03, or plan 05-04)", i)
 			}
 		} else {
 			if !isNil {

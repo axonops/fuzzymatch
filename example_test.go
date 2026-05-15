@@ -269,3 +269,55 @@ func ExampleCosineScoreRunes() {
 	// Output:
 	// 0.6666666666666667
 }
+
+// ExampleTverskyScore demonstrates the Tversky asymmetric similarity
+// over q-gram multisets. The example is structured per RESEARCH.md
+// OQ-4 recommendation: BOTH a symmetric case (α=β=1.0 → Q-Gram Jaccard
+// degeneracy) AND an asymmetric case (α=0.8, β=0.2 → input-swap
+// produces different scores) appear in the Output block, illustrating
+// the direction-sensitivity property inline.
+//
+// Symmetric case (α=β=1.0):
+//   - QA = bigrams("abcd") = {ab:1, bc:1, cd:1}
+//   - QB = bigrams("abce") = {ab:1, bc:1, ce:1}
+//   - |A∩B| = 2; |A−B| = 1; |B−A| = 1
+//   - T = 2/(2 + 1·1 + 1·1) = 2/4 = 0.5 (also equals
+//     QGramJaccardScore("abcd", "abce", 2))
+//
+// Asymmetric case (α=0.8, β=0.2 — RV-T1 / RV-T2 from RESEARCH.md §2.4):
+//   - TverskyScore("abcd", "abcdef", 2, 0.8, 0.2) = 0.8823529411764706
+//     (RV-T1; |A∩B|=3, |A−B|=0, |B−A|=2 → 3/3.4)
+//   - TverskyScore("abcdef", "abcd", 2, 0.8, 0.2) = 0.6521739130434783
+//     (RV-T2; |A∩B|=3, |A−B|=2, |B−A|=0 → 3/4.6)
+//   - The two scores differ because α weighs the FIRST argument's
+//     residuals (|A−B|) more heavily than β weighs the SECOND
+//     (|B−A|); swapping the inputs flips which residual carries the
+//     larger weight.
+func ExampleTverskyScore() {
+	// Symmetric case: α=β=1.0 reduces to Q-Gram Jaccard.
+	fmt.Printf("%.4f\n", fuzzymatch.TverskyScore("abcd", "abce", 2, 1.0, 1.0))
+	// Asymmetric case: α≠β; swapping inputs produces different scores.
+	fmt.Printf("%.4f\n", fuzzymatch.TverskyScore("abcd", "abcdef", 2, 0.8, 0.2))
+	fmt.Printf("%.4f\n", fuzzymatch.TverskyScore("abcdef", "abcd", 2, 0.8, 0.2))
+	// Output:
+	// 0.5000
+	// 0.8824
+	// 0.6522
+}
+
+// ExampleTverskyScoreRunes demonstrates the rune-path variant on the
+// café/cafe pair with α=β=0.5 (the Sørensen-Dice degeneracy).
+//
+//   - QA = rune-bigrams("café") = {"ca":1, "af":1, "fé":1}
+//   - QB = rune-bigrams("cafe") = {"ca":1, "af":1, "fe":1}
+//   - |A∩B| = 2 (ca + af); |A−B| = 1 (fé); |B−A| = 1 (fe)
+//   - T = 2/(2 + 0.5·1 + 0.5·1) = 2/3 ≈ 0.6667 (also equals
+//     SorensenDiceScoreRunes("café", "cafe", 2))
+//
+// The byte path would split "é" mid-codepoint and yield a different
+// score; the rune variant guarantees rune-boundary alignment.
+func ExampleTverskyScoreRunes() {
+	fmt.Printf("%.4f\n", fuzzymatch.TverskyScoreRunes("café", "cafe", 2, 0.5, 0.5))
+	// Output:
+	// 0.6667
+}

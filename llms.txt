@@ -124,6 +124,11 @@ scan / Extract (Phases 9–10).
 - func CosineScore(a, b string, n int) float64
 - func CosineScoreRunes(a, b string, n int) float64
 
+### Tversky asymmetric similarity (Tversky 1977)
+
+- func TverskyScore(a, b string, n int, alpha, beta float64) float64
+- func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
