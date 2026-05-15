@@ -1,0 +1,63 @@
+{
+  "_metadata": {
+    "purpose": "Cross-platform byte-stable phonetic code determinism gate",
+    "regenerated_at": "2026-05-15T00:00:00+00:00"
+  },
+  "entries": [
+    {
+      "algorithm": "Soundex",
+      "input": "",
+      "code": ""
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Ashcraft",
+      "code": "A261"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Ashcroft",
+      "code": "A261"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Euler",
+      "code": "E460"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Honeyman",
+      "code": "H555"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Lloyd",
+      "code": "L300"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Pfister",
+      "code": "P236"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Robert",
+      "code": "R163"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Rupert",
+      "code": "R163"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Smith",
+      "code": "S530"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Tymczak",
+      "code": "T522"
+    }
+  ]
+}

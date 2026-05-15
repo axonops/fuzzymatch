@@ -48,6 +48,13 @@ type AlgorithmContext struct {
 	lastScore2   float64 // populated by "I compute the second Xxx score between" steps
 	lastDistance int     // populated by "I compute the Xxx distance between" steps (plan 02-02+)
 	lastPanicMsg string  // populated by "I attempt to compute …" steps that recover() from a panic (plan 06-05+)
+
+	// Phase 7 phonetic state fields (plan 07-01+).
+	lastCode        string // populated by Soundex / NYSIIS / MRA code steps
+	lastDMPrimary   string // populated by DoubleMetaphone primary key step (plan 07-02)
+	lastDMSecondary string // populated by DoubleMetaphone secondary key step (plan 07-02)
+	lastMRAMatched  bool   // populated by MRACompare step (plan 07-04)
+	lastMRASim      int    // populated by MRACompare step (plan 07-04) — raw 0-6 NBS counter
 }
 
 // iComputeTheLevenshteinScoreBetween computes LevenshteinScore(a, b) and
@@ -965,6 +972,29 @@ func (ctx *AlgorithmContext) iAttemptToComputeTheMongeElkanScoreBetweenWithInner
 	return nil
 }
 
+// iComputeTheSoundexCodeOf computes SoundexCode(s) and stores the result
+// in ctx.lastCode. Used by plan 07-01 Soundex BDD scenarios.
+func (ctx *AlgorithmContext) iComputeTheSoundexCodeOf(s string) error {
+	ctx.lastCode = fuzzymatch.SoundexCode(s)
+	return nil
+}
+
+// iComputeTheSoundexScoreBetween computes SoundexScore(a, b) and stores
+// the result in ctx.lastScore. Used by plan 07-01 Soundex BDD scenarios.
+func (ctx *AlgorithmContext) iComputeTheSoundexScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.SoundexScore(a, b)
+	return nil
+}
+
+// theCodeShouldBe asserts that ctx.lastCode equals the expected value.
+// Shared step for Soundex, NYSIIS, and MRA code scenarios.
+func (ctx *AlgorithmContext) theCodeShouldBe(want string) error {
+	if ctx.lastCode != want {
+		return fmt.Errorf("expected code %q, got %q", want, ctx.lastCode)
+	}
+	return nil
+}
+
 // theCallShouldPanicWith asserts that the previous attempt step
 // captured a panic whose message CONTAINS the given phrase. Used by
 // the panic-on-non-permitted-inner scenarios.
@@ -1383,5 +1413,23 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^the call should panic with "([^"]*)"$`,
 		a.theCallShouldPanicWith,
+	)
+
+	// Soundex step definitions (plan 07-01). Parameter-free shape (no `with
+	// n ...` suffix). The code step writes to ctx.lastCode and shares the
+	// `^the code should be "..."$` assertion step with NYSIIS and MRA
+	// (plans 07-03 and 07-04). The score step uses the standard lastScore
+	// field and theScoreShouldBeExactly assertion.
+	ctx.Step(
+		`^I compute the Soundex code of "([^"]*)"$`,
+		a.iComputeTheSoundexCodeOf,
+	)
+	ctx.Step(
+		`^I compute the Soundex score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSoundexScoreBetween,
+	)
+	ctx.Step(
+		`^the code should be "([^"]*)"$`,
+		a.theCodeShouldBe,
 	)
 }

@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "_metadata": {
+    "jellyfish_version": "1.2.1",
+    "metaphone_version": "0.6",
+    "python_version": "3.12.0",
+    "regenerated_at": "2026-05-15T00:00:00+00:00",
+    "script_sha256": "hand-authored-initial-corpus-see-scripts-gen-phonetic-cross-validation-py"
+  },
+  "entries": [
+    {
+      "algorithm": "Soundex",
+      "input": "Robert",
+      "code": "R163"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Rupert",
+      "code": "R163"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Rubin",
+      "code": "R150"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Tymczak",
+      "code": "T522"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Ashcraft",
+      "code": "A261"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Ashcroft",
+      "code": "A261"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Pfister",
+      "code": "P236"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Smith",
+      "code": "S530"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Honeyman",
+      "code": "H555"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Lloyd",
+      "code": "L300"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Jackson",
+      "code": "J250"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Euler",
+      "code": "E460"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Ellery",
+      "code": "E460"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "Gauss",
+      "code": "G200"
+    },
+    {
+      "algorithm": "Soundex",
+      "input": "",
+      "code": ""
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "",
+      "branch": "edge",
+      "primary": "",
+      "secondary": ""
+    },
+    {
+      "algorithm": "NYSIIS",
+      "input": "",
+      "code": ""
+    },
+    {
+      "algorithm": "MRA",
+      "input": "",
+      "code": ""
+    }
+  ]
+}

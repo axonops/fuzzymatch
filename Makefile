@@ -27,6 +27,7 @@ COVERAGE_FLOOR   := 95.0
 	coverage coverage-check tidy tidy-check security verify-deps-allowlist \
 	verify-determinism verify-license-headers regen-swg-cross-validation \
 	regen-ratcliff-obershelp-cross-validation regen-token-ratio-cross-validation \
+	regen-phonetic-cross-validation \
 	release-check clean
 
 # `check` — the canonical pre-PR aggregate gate. CI runs the same target.
@@ -244,6 +245,28 @@ regen-token-ratio-cross-validation:
 	  exit 1; \
 	fi
 	python3 scripts/gen-token-ratio-cross-validation.py
+
+# Regenerates testdata/cross-validation/phonetic/vectors.json by invoking the
+# dual-pin generator script (jellyfish==1.2.1 + Metaphone==0.6). Developer-only
+# — NOT included in `make check`. The committed JSON is the verification fixture;
+# CI does NOT require Python at test time. Re-run this target when the pin
+# versions are bumped or when new phonetic test cases are added to
+# scripts/gen-phonetic-cross-validation.py. The script refuses to run on a
+# non-pinned version of either package (JELLYFISH_VERSION = "1.2.1" and
+# METAPHONE_VERSION = "0.6").
+#
+# OQ-1 RESOLUTION LOCKED 2026-05-15: Two pins are required because jellyfish
+# 1.x has no Double Metaphone; the Metaphone package (oubiwann, BSD-3-Clause)
+# carries Double Metaphone instead. See plan 07-01 SUMMARY and RESEARCH.md §4.
+#
+# Requires: python3 (>= 3.7) + jellyfish==1.2.1 + Metaphone==0.6
+#   python3 -m pip install --user jellyfish==1.2.1 Metaphone==0.6
+regen-phonetic-cross-validation:
+	@if ! command -v python3 >/dev/null 2>&1; then \
+	  echo "python3 not found; install Python 3.7+ and run: python3 -m pip install --user jellyfish==1.2.1 Metaphone==0.6"; \
+	  exit 1; \
+	fi
+	python3 scripts/gen-phonetic-cross-validation.py
 
 # Plan 01-03 lands .goreleaser.yml. Until then this is a tolerant no-op.
 release-check:
