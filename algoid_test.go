@@ -446,17 +446,18 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // the BYTE-PATH PartialRatioScore is dispatched; PartialRatioScoreRunes
 // is public but NOT in dispatch — matches LCSStr's rune-variants
 // convention),
+// AlgoTokenJaccard (slot 17 — registered by Phase 6 plan 06-04),
 // and AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by
 // Phase 4 plan 04-03) are still nil.
 //
-// Plan 06-03 flips slot 16 (AlgoPartialRatio) to registered. Slots
-// 13, 17..21 remain nil pending later plans (Monge-Elkan,
-// TokenJaccard, and the phonetic tier).
+// Plan 06-04 flips slot 17 (AlgoTokenJaccard) to registered. Slots
+// 13 and 18..21 remain nil pending later plans (Monge-Elkan,
+// and the phonetic tier).
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
 	// plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03,
-	// plan 05-04, plan 06-01, plan 06-02, and plan 06-03 respectively;
-	// all others nil.
+	// plan 05-04, plan 06-01, plan 06-02, plan 06-03, and plan 06-04
+	// respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -474,13 +475,14 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoTokenSortRatio):         true,
 		int(fuzzymatch.AlgoTokenSetRatio):          true,
 		int(fuzzymatch.AlgoPartialRatio):           true,
+		int(fuzzymatch.AlgoTokenJaccard):           true,
 		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03, plan 05-04, plan 06-01, plan 06-02, or plan 06-03)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03, plan 05-04, plan 06-01, plan 06-02, plan 06-03, or plan 06-04)", i)
 			}
 		} else {
 			if !isNil {

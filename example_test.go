@@ -408,3 +408,25 @@ func ExamplePartialRatioScoreRunes() {
 	// Output:
 	// 1.0000
 }
+
+// ExampleTokenJaccardScore demonstrates the TokenJaccard similarity on a
+// canonical partial-overlap pair. Tokenise produces {alpha, beta, gamma}
+// on the left and {beta, gamma, delta} on the right. The set
+// intersection is {beta, gamma} (cardinality 2) and the union is {alpha,
+// beta, gamma, delta} (cardinality 4), so J = 2/4 = 0.5.
+//
+// TokenJaccard uses SET semantics on the deduplicated token list —
+// distinct from Phase 5's Q-Gram Jaccard (QGramJaccardScore) which uses
+// MULTISET semantics over q-gram counts. RV-TJ3 ("a a b" vs "a b" → 1.0)
+// is the keystone regression gate for this distinction: TokenJaccard
+// collapses the duplicate "a" to a single set member; Q-Gram Jaccard at
+// any q would count duplicate q-grams.
+//
+// Unlike TokenSetRatio (whose LOCKED RapidFuzz issue #110 deviation
+// returns 0.0 for both-empty inputs), TokenJaccard follows the STANDARD
+// catalogue both-empty → 1.0 convention.
+func ExampleTokenJaccardScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.TokenJaccardScore("alpha beta gamma", "beta gamma delta"))
+	// Output:
+	// 0.5000
+}
