@@ -367,5 +367,26 @@ func cosineFromQGramMaps(qa, qb map[string]int) float64 {
 	// math.Sqrt(float64(sumSquaresA * sumSquaresB)) — that pattern
 	// risks int64 overflow on pathological long inputs (RESEARCH.md
 	// "Pitfall 6") and changes the rounding sequence.
-	return dot / (normA * normB)
+	cos := dot / (normA * normB)
+	// Clamp to [0.0, 1.0]. Mathematically, cos(A,B) ∈ [0, 1] for
+	// non-negative count vectors (Cauchy-Schwarz: dot(A,B) ≤ ‖A‖·‖B‖).
+	// IEEE-754 rounding can push the result a few ULP above 1.0 in
+	// degenerate cases — e.g. CosineScore("cba", "abc", 1) where
+	// QA == QB as multisets and the algebraic limit is exactly 1.0,
+	// but `3.0 / (sqrt(3)*sqrt(3))` = `3.0 / 2.9999999999999996` =
+	// 1.0000000000000002 (1 ULP overshoot because sqrt(3)*sqrt(3) is
+	// 1 ULP below 3.0). The clamp preserves the public-API
+	// [0.0, 1.0] contract; surfaced by FuzzCosineScore on plan 05-03
+	// (Rule 1 deviation; documented in 05-03-cosine-SUMMARY.md).
+	// The lower clamp is a defensive guard — the dot product of
+	// non-negative integer-derived values is non-negative, and
+	// floor(0.0 / positive) is +0.0 in IEEE-754; `cos < 0.0` is
+	// theoretically unreachable but the clamp costs nothing.
+	if cos > 1.0 {
+		return 1.0
+	}
+	if cos < 0.0 {
+		return 0.0
+	}
+	return cos
 }

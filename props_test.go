@@ -1909,6 +1909,213 @@ func TestProp_SorensenDiceScore_DeterministicAcrossRuns(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Cosine property tests (plan 05-03)
+// ---------------------------------------------------------------------------
+
+// cosineN coerces an arbitrary int into the [1, 5] inclusive range used
+// by the Cosine property tests. Negative and zero n values are mapped
+// into the valid range; the n parameter would otherwise panic per
+// CONTEXT.md §5 LOCKED, but that contract is unit-tested separately by
+// TestCosine_PanicsOnInvalidN — the property tests exercise the [0, 1]
+// score-range invariants.
+func cosineN(n int) int {
+	if n < 0 {
+		n = -n
+	}
+	return (n % 5) + 1
+}
+
+// TestProp_CosineScore_RangeBounds asserts the byte-path score stays in
+// [0.0, 1.0] for any (a, b, n) triple. Inline NaN/Inf guards document
+// the joint invariant; dedicated _NoNaN / _NoInf tests below retest
+// each guard in isolation for documentation clarity.
+func TestProp_CosineScore_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.CosineScore(a, b, cosineN(n))
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScore out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_CosineScore_Identity asserts Score(x, x, n) == 1.0 EXACTLY
+// for any non-empty x and any n >= 1 — the identity short-circuit
+// fires before extraction and the result is the literal 1.0.
+func TestProp_CosineScore_Identity(t *testing.T) {
+	f := func(x string, n int) bool {
+		if x == "" {
+			return true // both-empty handled by unit tests
+		}
+		return fuzzymatch.CosineScore(x, x, cosineN(n)) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScore identity violated: %v", err)
+	}
+}
+
+// TestProp_CosineScore_Symmetric asserts Score(a, b, n) == Score(b, a, n)
+// EXACTLY (not within tolerance) — Cosine is symmetric and the
+// sorted-key iteration is canonical regardless of input argument
+// order, producing bit-identical float64 output.
+func TestProp_CosineScore_Symmetric(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := cosineN(n)
+		return fuzzymatch.CosineScore(a, b, nn) == fuzzymatch.CosineScore(b, a, nn)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_CosineScore_NoNaN asserts the byte-path score never returns
+// NaN. The both-empty + one-empty + identity short-circuits gate away
+// the only potential 0/0 paths; the explicit cosineFromQGramMaps
+// len-check provides the secondary guard.
+func TestProp_CosineScore_NoNaN(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsNaN(fuzzymatch.CosineScore(a, b, cosineN(n)))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_CosineScore_NoInf asserts the byte-path score never returns
+// ±Inf. The numerator is bounded by min(‖A‖², ‖B‖²) ≤ ‖A‖·‖B‖ (Cauchy-
+// Schwarz); the denominator is the product of two non-negative norms
+// that fit in float64 for any input where len(a)+len(b) < 2^53. The
+// final division never overflows.
+func TestProp_CosineScore_NoInf(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsInf(fuzzymatch.CosineScore(a, b, cosineN(n)), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_CosineScore_NoNegativeZero asserts that when the byte-path
+// score is 0.0 it is positive zero, not negative zero. The dot-product
+// reduction sums non-negative integer-derived float64 products; the
+// final division `0.0 / (positive)` is +0.0 in IEEE-754.
+func TestProp_CosineScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.CosineScore(a, b, cosineN(n))
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_CosineScoreRunes_RangeBounds: rune-path mirror of
+// _RangeBounds.
+func TestProp_CosineScoreRunes_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.CosineScoreRunes(a, b, cosineN(n))
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScoreRunes out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_CosineScoreRunes_Identity: rune-path identity.
+func TestProp_CosineScoreRunes_Identity(t *testing.T) {
+	f := func(x string, n int) bool {
+		if x == "" {
+			return true
+		}
+		return fuzzymatch.CosineScoreRunes(x, x, cosineN(n)) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScoreRunes identity violated: %v", err)
+	}
+}
+
+// TestProp_CosineScoreRunes_Symmetric: rune-path symmetry.
+func TestProp_CosineScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := cosineN(n)
+		return fuzzymatch.CosineScoreRunes(a, b, nn) == fuzzymatch.CosineScoreRunes(b, a, nn)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScoreRunes not symmetric: %v", err)
+	}
+}
+
+// TestProp_CosineScoreRunes_NoNaN: rune-path NaN guard.
+func TestProp_CosineScoreRunes_NoNaN(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsNaN(fuzzymatch.CosineScoreRunes(a, b, cosineN(n)))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScoreRunes produced NaN: %v", err)
+	}
+}
+
+// TestProp_CosineScoreRunes_NoInf: rune-path Inf guard.
+func TestProp_CosineScoreRunes_NoInf(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsInf(fuzzymatch.CosineScoreRunes(a, b, cosineN(n)), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScoreRunes produced Inf: %v", err)
+	}
+}
+
+// TestProp_CosineScoreRunes_NoNegativeZero: rune-path -0.0 guard.
+func TestProp_CosineScoreRunes_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.CosineScoreRunes(a, b, cosineN(n))
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("CosineScoreRunes produced -0.0: %v", err)
+	}
+}
+
+// TestProp_CosineScore_DeterministicAcrossRuns asserts that 1000
+// sequential calls on the same (a, b, n) input produce byte-identical
+// output. Cosine-specific load-bearing test: this catches any future
+// regression that re-introduces map-iteration order dependence on the
+// dot-product reduction (CONTEXT.md §3 LOCKED — sort.Strings on the
+// intersection key slice is the determinism gate).
+//
+// Compares via math.Float64bits to detect bit-level differences (e.g.
+// +0.0 vs -0.0, signalling vs quiet NaN — even though the algorithm
+// emits neither). Uses RV-C2 (5-key intersection) on the byte surface
+// — the same pair as TestCosine_SortedKeyIteration in cosine_test.go.
+// The rune surface gate uses RV-C3 (café/cafe/n=2) for cross-surface
+// determinism coverage.
+func TestProp_CosineScore_DeterministicAcrossRuns(t *testing.T) {
+	const iterations = 1000
+	const a = "abcdefgh"
+	const b = "abcdefgi"
+	const n = 3
+	baseline := fuzzymatch.CosineScore(a, b, n)
+	baselineBits := math.Float64bits(baseline)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.CosineScore(a, b, n)
+		if math.Float64bits(got) != baselineBits {
+			t.Fatalf("iteration %d: CosineScore(%q,%q,%d) = %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, a, b, n, got, math.Float64bits(got), baseline, baselineBits)
+		}
+	}
+	// Mirror gate on the rune surface.
+	baselineR := fuzzymatch.CosineScoreRunes("café", "cafe", 2)
+	baselineRBits := math.Float64bits(baselineR)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.CosineScoreRunes("café", "cafe", 2)
+		if math.Float64bits(got) != baselineRBits {
+			t.Fatalf("iteration %d (rune): got %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, got, math.Float64bits(got), baselineR, baselineRBits)
+		}
+	}
+}
+
 // TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment checks the
 // "generally" property from RESEARCH.md: on substring-containment inputs
 // the Ratcliff-Obershelp score is typically ≥ the Levenshtein score
