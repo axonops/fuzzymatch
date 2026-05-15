@@ -1142,3 +1142,141 @@ func TestGolden_SorensenDice_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/sorensen_dice.json", file)
 }
+
+// buildCosineStagingEntries returns the nine Cosine entries used by
+// TestGolden_Cosine_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output.
+// Nine entries (sorted by Name in the test) per CONTEXT.md §1 LOCKED
+// (algorithms.json entries spanning ASCII + Unicode at n ∈ {2, 3, 4})
+// and RESEARCH.md §2.3 slate:
+//
+//   - Cosine_ascii_n2_irrational    ("abc"/"abcd"/n=2/byte; RV-C1;
+//                                    2/sqrt(6) ≈ 0.8164965809277261)
+//   - Cosine_ascii_n3_large_intersection ("abcdefgh"/"abcdefgi"/n=3/byte;
+//                                    RV-C2; 5/6 = 0.8333333333333334)
+//   - Cosine_ascii_n4_exact         ("abcde"/"abcdf"/n=4/byte; RV-C4;
+//                                    1/(sqrt(2)·sqrt(2)) =
+//                                    0.49999999999999989 — see
+//                                    cosine_test.go RV-C4 derivation
+//                                    block; RESEARCH.md "Pitfall 2")
+//   - Cosine_both_empty             (""/""/n=2/byte; both-empty
+//                                    convention; 1.0)
+//   - Cosine_identical              ("hello"/"hello"/n=2/byte; identity
+//                                    short-circuit; 1.0)
+//   - Cosine_one_empty              (""/"abc"/n=2/byte; one-empty
+//                                    convention; 0.0)
+//   - Cosine_orthogonal             ("abc"/"xyz"/n=2/byte; empty
+//                                    intersection → cos=0)
+//   - Cosine_unicode_n2_runes       ("café"/"cafe"/n=2/rune; RV-C3;
+//                                    2/3 = 0.6666666666666666)
+//   - Cosine_unicode_n3_runes       ("héllo"/"hello"/n=3/rune;
+//                                    1/3 = 0.3333333333333333 —
+//                                    rune-trigrams: ["hél","éll","llo"]
+//                                    vs ["hel","ell","llo"];
+//                                    intersection sorted = ["llo"];
+//                                    dot=1; ‖A‖²=‖B‖²=3;
+//                                    cos = 1/(sqrt(3)·sqrt(3)) = 1/3)
+//
+// Plan 05-05 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file. The unicode entries are rune-path;
+// all others are byte-path.
+//
+// LOAD-BEARING per CONTEXT.md §1: this slate is the cross-platform
+// float-determinism gate. Any single-byte drift in algorithms.json
+// (after plan 05-05 merge) on linux/amd64 vs linux/arm64 vs darwin/arm64
+// vs windows/amd64 fails `make verify-determinism` HARD.
+func buildCosineStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "Cosine_ascii_n2_irrational",
+			Algorithm:     "Cosine",
+			A:             "abc",
+			B:             "abcd",
+			ExpectedScore: fuzzymatch.CosineScore("abc", "abcd", 2),
+		},
+		{
+			Name:          "Cosine_ascii_n3_large_intersection",
+			Algorithm:     "Cosine",
+			A:             "abcdefgh",
+			B:             "abcdefgi",
+			ExpectedScore: fuzzymatch.CosineScore("abcdefgh", "abcdefgi", 3),
+		},
+		{
+			Name:          "Cosine_ascii_n4_exact",
+			Algorithm:     "Cosine",
+			A:             "abcde",
+			B:             "abcdf",
+			ExpectedScore: fuzzymatch.CosineScore("abcde", "abcdf", 4),
+		},
+		{
+			Name:          "Cosine_both_empty",
+			Algorithm:     "Cosine",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.CosineScore("", "", 2),
+		},
+		{
+			Name:          "Cosine_identical",
+			Algorithm:     "Cosine",
+			A:             "hello",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.CosineScore("hello", "hello", 2),
+		},
+		{
+			Name:          "Cosine_one_empty",
+			Algorithm:     "Cosine",
+			A:             "",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.CosineScore("", "abc", 2),
+		},
+		{
+			Name:          "Cosine_orthogonal",
+			Algorithm:     "Cosine",
+			A:             "abc",
+			B:             "xyz",
+			ExpectedScore: fuzzymatch.CosineScore("abc", "xyz", 2),
+		},
+		{
+			Name:          "Cosine_unicode_n2_runes",
+			Algorithm:     "Cosine",
+			A:             "café",
+			B:             "cafe",
+			ExpectedScore: fuzzymatch.CosineScoreRunes("café", "cafe", 2),
+		},
+		{
+			Name:          "Cosine_unicode_n3_runes",
+			Algorithm:     "Cosine",
+			A:             "héllo",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.CosineScoreRunes("héllo", "hello", 3),
+		},
+	}
+}
+
+// TestGolden_Cosine_Staging produces
+// testdata/golden/_staging/cosine.json for plan 05-05's merge step.
+// Entries are sorted alphabetically by Name. Nine entries cover
+// CONTEXT.md §1 LOCKED ASCII + Unicode at n ∈ {2, 3, 4}: ascii_n2_
+// irrational (RV-C1), ascii_n3_large_intersection (RV-C2),
+// ascii_n4_exact (RV-C4 — IEEE-754 1-ULP shortfall from 0.5; see
+// cosine_test.go derivation), both_empty, identical, one_empty,
+// orthogonal, unicode_n2_runes (RV-C3), unicode_n3_runes (1/3 from
+// "héllo"/"hello").
+//
+// LOAD-BEARING per CONTEXT.md §1 — this is the cross-platform
+// float-determinism gate. Plan 05-05 owns the merge into
+// testdata/golden/algorithms.json; this plan only writes the staging
+// file. Do NOT update TestGolden_Algorithms_Merge's stagingFiles slice
+// here — that's plan 05-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_Cosine_Staging(t *testing.T) {
+	entries := buildCosineStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/cosine.json", file)
+}

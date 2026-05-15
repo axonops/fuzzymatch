@@ -119,6 +119,11 @@ scan / Extract (Phases 9–10).
 - func SorensenDiceScore(a, b string, n int) float64
 - func SorensenDiceScoreRunes(a, b string, n int) float64
 
+### Cosine n-gram (Salton & McGill 1983) similarity
+
+- func CosineScore(a, b string, n int) float64
+- func CosineScoreRunes(a, b string, n int) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

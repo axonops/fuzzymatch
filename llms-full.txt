@@ -214,6 +214,57 @@ func SorensenDiceScore(a, b string, n int) float64
 func SorensenDiceScoreRunes(a, b string, n int) float64
 ```
 
+### Phase 5 algorithm surface (q-gram tier — Cosine)
+
+Plan 05-03 lands Cosine n-gram similarity (Salton & McGill 1983 §4.1
+eq. 4.4 p.121) as the third q-gram-tier algorithm. Builds on the
+shared `extractQGrams` / `extractQGramsRunes` helpers from plan 05-01.
+Two new exported functions plus a fourth dispatch slot (AlgoCosine)
+registered with the default-n=3 trigram wrapper per CONTEXT.md
+Deferred §4. Cosine is the LOAD-BEARING cross-platform float-determinism
+algorithm for Phase 5: the algorithms.json golden file Cosine entries
+(merged into algorithms.json by plan 05-05) are the gate that detects
+any drift in float reduction order across the four CI platforms
+(linux/amd64, linux/arm64, darwin/arm64, windows/amd64).
+
+The implementation uses sort.Strings on the intersection key slice
+(CONTEXT.md §3 LOCKED) before the dot-product reduction loop;
+math.Sqrt on integer-derived sums-of-squares for the norms (IEEE-754
+correctly rounded on all four CI platforms per RESEARCH.md §3.5);
+explicit `(x*y) + z` parenthesisation per DET-06; and `dot / (normA *
+normB)` factorised cosine form (Salton & McGill 1983 §4.1) for the
+final division. NO math.Pow / math.Log / math.Exp / math.FMA — only
+math.Sqrt.
+
+```go
+// CosineScore returns the Cosine similarity of the q-gram frequency
+// vectors of a and b: cos(A, B) = (A · B) / (‖A‖ × ‖B‖), in [0, 1]
+// (Salton & McGill 1983 §4.1 eq. 4.4 p.121). Operates on bytes; UTF-8
+// inputs split q-grams at byte boundaries. Identity short-circuit
+// (a == b) covers both-empty. Iteration order over intersection keys
+// is sorted (sort.Strings) per CONTEXT.md §3 LOCKED. Panics with
+// "fuzzymatch: invalid q-gram size" when n < 1 — the Phase 8 Scorer
+// option WithCosineAlgorithm returns ErrInvalidQGramSize instead.
+// Reference: CosineScore("abc", "abcd", 2) = 2/sqrt(6) ≈ 0.81649658
+// (the IEEE-754 actual from the factorised form is 1 ULP from this
+// rational limit; see cosine_test.go RV-C1 for the precision
+// discussion).
+func CosineScore(a, b string, n int) float64
+```
+
+```go
+// CosineScoreRunes returns the Cosine similarity of the q-gram
+// frequency vectors of a and b under rune semantics. Multi-byte UTF-8
+// windows are compared atomically; "café" decomposes to four runes
+// and produces three rune-bigrams at n=2. Allocates two []rune slices
+// on the heap plus the two multiset maps and the intersection key
+// slice. For ASCII inputs prefer CosineScore. Same panic-on-n<1
+// contract.
+// Reference: CosineScoreRunes("café", "cafe", 2) = 2/3 ≈ 0.66666667
+// (1 ULP from the rational limit per the factorised form).
+func CosineScoreRunes(a, b string, n int) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go
