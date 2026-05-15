@@ -60,9 +60,11 @@
 //     (both-empty identity — already covered by step 1, but kept for
 //     clarity and parity with the catalogue convention).
 //  3. One-empty guard: if len(a) == 0 || len(b) == 0, return 0.0.
-//  4. Determine `shorter` / `longer` ([]byte) by length comparison;
-//     the swap is value-preserving because the optimal alignment is
-//     symmetric in (a, b).
+//  4. Determine `shorter` / `longer` ([]byte) by length comparison.
+//     For unequal-length inputs the swap is value-preserving; for
+//     equal-length inputs an additional symmetric tie-break runs the
+//     three-region iteration twice with the roles swapped — see the
+//     "Equal-length symmetric tie-break" note below.
 //  5. Build `s1_char_set` as a [256]bool — set membership of bytes of
 //     `shorter`. Used to early-skip alignments whose last (Region 1 or
 //     Region 2) or first (Region 3) byte does not appear in `shorter`
@@ -76,10 +78,16 @@
 //     across the longer string. Skip if charSet[longer[i+m-1]] is
 //     false. Early-exit when best == 1.0 (perfect match found).
 //  8. Region 3 (right tail): for i := n-m; i < n; i++ — substrings
-//     `longer[i:]` (length n-i, decreasing from m-1 down to 1). The
+//     `longer[i:]` (length n-i, decreasing from m down to 1). The
 //     right edge of the shorter string "hangs off" the end of the
-//     longer string. Skip if charSet[longer[i]] is false. The `n > m`
-//     guard avoids re-iterating Region 2 when n == m.
+//     longer string. Skip if charSet[longer[i]] is false.
+//     IMPORTANT: when n == m, this region iterates i = 0..n-1
+//     (covering the full alignment at i=0 plus all right-suffix
+//     alignments) — these would otherwise be missed because Region 2
+//     iterates only i = 0 when n-m == 0. Region 3 always runs
+//     unconditionally; when n > m there is a single trivial overlap
+//     at i = n-m with Region 2 (one redundant indelRatio call,
+//     harmless and matches the RapidFuzz reference behaviour).
 //  9. Return best.
 //
 // Algorithm — PartialRatioScoreRunes(a, b) (rune path):
@@ -99,6 +107,19 @@
 // scenarios "Region 1 left-tail alignment wins" and "Region 3
 // right-tail alignment wins", (c) cross-validation corpus entries
 // `partial_left_tail_wins` and `partial_right_tail_wins`.
+//
+// Equal-length symmetric tie-break (matches RapidFuzz
+// `partial_ratio_alignment` lines 328-333): when `len(a) == len(b)`
+// AND the first pass did not saturate at 1.0, the three-region
+// iteration is run a SECOND time with the roles of shorter/longer
+// swapped, then the max is taken. Region 1 / Region 3 of the
+// three-region implementation are asymmetric in the role of
+// `shorter` vs `longer` (they iterate prefixes / suffixes of `longer`,
+// never `shorter`); when both inputs are the same length there are
+// two valid "shorter, longer" orderings and the optimal alignment
+// may live in only one of them. RapidFuzz's wrapper covers this by
+// re-invoking the implementation with arguments swapped; we mirror
+// that here. This is the LOCKED equal-length symmetry tie-break.
 //
 // Complexity:
 //
@@ -271,14 +292,34 @@ func PartialRatioScore(a, b string) float64 {
 		return 0.0
 	}
 	// Step 4: shorter / longer determination. The swap is value-
-	// preserving because the optimal alignment is symmetric in (a, b).
+	// preserving because the optimal alignment is symmetric in (a, b)
+	// for unequal-length inputs.
+	ab := []byte(a)
+	bb := []byte(b)
 	var shorter, longer []byte
-	if len(a) <= len(b) {
-		shorter, longer = []byte(a), []byte(b)
+	if len(ab) <= len(bb) {
+		shorter, longer = ab, bb
 	} else {
-		shorter, longer = []byte(b), []byte(a)
+		shorter, longer = bb, ab
 	}
-	return partialRatioThreeRegionMax(shorter, longer)
+	res := partialRatioThreeRegionMax(shorter, longer)
+	// Equal-length symmetric tie-break (matches RapidFuzz
+	// `partial_ratio_alignment` lines 328-333): when len1 == len2 AND
+	// the first pass did not saturate at 1.0, run the algorithm again
+	// with the role of shorter/longer swapped, then take the max.
+	// Region 1 / Region 3 of `_partial_ratio_impl` are asymmetric in
+	// the role of `shorter` vs `longer` (they iterate prefixes /
+	// suffixes of `longer`, never `shorter`); when both inputs are
+	// the same length there are two valid "shorter, longer"
+	// orderings and the optimal alignment may live in only one of
+	// them. RapidFuzz's wrapper covers this by re-invoking the
+	// implementation with arguments swapped; we mirror that here.
+	if res < 1.0 && len(ab) == len(bb) {
+		if r := partialRatioThreeRegionMax(longer, shorter); r > res {
+			res = r
+		}
+	}
+	return res
 }
 
 // partialRatioThreeRegionMax runs the three-region iteration over
@@ -308,9 +349,7 @@ func partialRatioThreeRegionMax(shorter, longer []byte) float64 {
 	if perfect {
 		return 1.0
 	}
-	if n > m {
-		best = partialRatioRegion3Bytes(shorter, longer, m, n, &charSet, best)
-	}
+	best = partialRatioRegion3Bytes(shorter, longer, m, n, &charSet, best)
 	return best
 }
 
@@ -354,8 +393,12 @@ func partialRatioRegion2Bytes(shorter, longer []byte, m, n int, charSet *[256]bo
 // partialRatioRegion3Bytes iterates Region 3 (right tail) of the byte
 // path: substrings `longer[i:]` for i = n-m..n-1. Skip if
 // charSet[longer[i]] is false (the first byte of the candidate
-// substring is not in shorter). Caller guarantees n > m (otherwise
-// this region would re-iterate Region 2 from i = 0).
+// substring is not in shorter). When n == m this iterates i = 0..n-1
+// (covering both the full alignment at i=0 and the right-suffix
+// alignments at i=1..n-1) — these would otherwise be missed because
+// Region 2 evaluates only i=0. When n > m there is a single trivial
+// overlap at i = n-m with Region 2 (one redundant indelRatio call;
+// harmless and matches the RapidFuzz reference behaviour).
 func partialRatioRegion3Bytes(shorter, longer []byte, m, n int, charSet *[256]bool, best float64) float64 {
 	for i := n - m; i < n; i++ {
 		if !charSet[longer[i]] {
@@ -419,7 +462,15 @@ func PartialRatioScoreRunes(a, b string) float64 {
 	} else {
 		shorter, longer = rb, ra
 	}
-	return partialRatioThreeRegionMaxRunes(shorter, longer)
+	res := partialRatioThreeRegionMaxRunes(shorter, longer)
+	// Equal-length symmetric tie-break (matches RapidFuzz behaviour;
+	// see PartialRatioScore for the rationale and citation).
+	if res < 1.0 && len(ra) == len(rb) {
+		if r := partialRatioThreeRegionMaxRunes(longer, shorter); r > res {
+			res = r
+		}
+	}
+	return res
 }
 
 // partialRatioThreeRegionMaxRunes is the rune-slice variant of
@@ -449,9 +500,7 @@ func partialRatioThreeRegionMaxRunes(shorter, longer []rune) float64 {
 	if perfect {
 		return 1.0
 	}
-	if n > m {
-		best = partialRatioRegion3Runes(shorter, longer, m, n, charSet, best)
-	}
+	best = partialRatioRegion3Runes(shorter, longer, m, n, charSet, best)
 	return best
 }
 
@@ -488,8 +537,10 @@ func partialRatioRegion2Runes(shorter, longer []rune, m, n int, charSet map[rune
 }
 
 // partialRatioRegion3Runes iterates Region 3 (right tail) of the rune
-// path: substrings `longer[i:]` for i = n-m..n-1. Caller guarantees
-// n > m.
+// path: substrings `longer[i:]` for i = n-m..n-1. When n == m this
+// iterates i = 0..n-1; when n > m there is a single trivial overlap
+// at i = n-m with Region 2. See partialRatioRegion3Bytes for the full
+// rationale.
 func partialRatioRegion3Runes(shorter, longer []rune, m, n int, charSet map[rune]struct{}, best float64) float64 {
 	for i := n - m; i < n; i++ {
 		if _, ok := charSet[longer[i]]; !ok {
