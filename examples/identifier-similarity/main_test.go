@@ -15,8 +15,9 @@
 // main_test.go pins the example program's stdout byte-for-byte across
 // runs and platforms. This extends the project-wide cross-platform
 // determinism gate (verify-determinism / DET-02) to the runnable example:
-// the similarity scores for all fourteen algorithms on all seven identifier
-// pairs must be identical on every platform in the CI matrix.
+// the similarity scores for all nineteen algorithms (Phase 2-6) on all
+// seven identifier pairs must be identical on every platform in the CI
+// matrix.
 //
 // TestExample_Output runs the example via a direct call to main() with
 // stdout redirected to a bytes.Buffer, then compares the captured output
@@ -38,15 +39,15 @@ import (
 // want is the committed, byte-stable expected stdout of the example program.
 // Regenerate by running `go run .` and pasting the output here.
 // Any diff in this constant requires a deliberate, reviewed update.
-const want = `Pair (a / b)                      Levenshtein       DL-OSA      DL-Full      Hamming         Jaro Jaro-Winkler          SWG     Strcmp95       LCSStr           RO       QGramJ         Dice          Cos      Tversky
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-user_id / userId                       0.7143       0.7143       0.7143       0.0000       0.8492       0.9095       0.6667       0.9095       0.6154       0.7692       0.2857       0.4444       0.4472       0.2857
-created_at / creationTimestamp         0.4118       0.4118       0.4118       0.0000       0.7152       0.8291       0.5000       0.8481       0.3704       0.5185       0.1500       0.2609       0.2739       0.1500
-status / state                         0.6667       0.6667       0.6667       0.0000       0.8222       0.8933       0.8000       0.9153       0.7273       0.7273       0.4000       0.5714       0.5774       0.4000
-email / e_mail                         0.8333       0.8333       0.8333       0.0000       0.9444       0.9500       0.8000       0.9607       0.7273       0.9091       0.4000       0.5714       0.5774       0.4000
-org_id / organisation_id               0.4000       0.4000       0.4000       0.0000       0.6444       0.6444       0.5000       0.6871       0.2857       0.5714       0.1333       0.2353       0.2774       0.1333
-latitude / longitude                   0.6667       0.6667       0.6667       0.0000       0.7500       0.7750       0.6250       0.8370       0.5882       0.7059       0.3000       0.4615       0.4629       0.3000
-is_deleted / is_active                 0.4000       0.4000       0.4000       0.0000       0.6185       0.6185       0.3333       0.7232       0.3158       0.4211       0.0714       0.1333       0.1336       0.0714
+const want = `Pair (a / b)                      Levenshtein       DL-OSA      DL-Full      Hamming         Jaro Jaro-Winkler          SWG     Strcmp95       LCSStr           RO       QGramJ         Dice          Cos      Tversky    TokenSort     TokenSet      Partial     TokenJac     MongeElk
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+user_id / userId                       0.7143       0.7143       0.7143       0.0000       0.8492       0.9095       0.6667       0.9095       0.6154       0.7692       0.2857       0.4444       0.4472       0.2857       1.0000       1.0000       0.8000       1.0000       1.0000
+created_at / creationTimestamp         0.4118       0.4118       0.4118       0.0000       0.7152       0.8291       0.5000       0.8481       0.3704       0.5185       0.1500       0.2609       0.2739       0.1500       0.4286       0.4286       0.6667       0.0000       0.7557
+status / state                         0.6667       0.6667       0.6667       0.0000       0.8222       0.8933       0.8000       0.9153       0.7273       0.7273       0.4000       0.5714       0.5774       0.4000       0.7273       0.7273       0.8889       0.0000       0.8933
+email / e_mail                         0.8333       0.8333       0.8333       0.0000       0.9444       0.9500       0.8000       0.9607       0.7273       0.9091       0.4000       0.5714       0.5774       0.4000       0.9091       0.9091       0.8889       0.0000       0.8900
+org_id / organisation_id               0.4000       0.4000       0.4000       0.0000       0.6444       0.6444       0.5000       0.6871       0.2857       0.5714       0.1333       0.2353       0.2774       0.1333       0.5714       0.5714       0.7273       0.3333       0.9125
+latitude / longitude                   0.6667       0.6667       0.6667       0.0000       0.7500       0.7750       0.6250       0.8370       0.5882       0.7059       0.3000       0.4615       0.4629       0.3000       0.7059       0.7059       0.7692       0.0000       0.7750
+is_deleted / is_active                 0.4000       0.4000       0.4000       0.0000       0.6185       0.6185       0.3333       0.7232       0.3158       0.4211       0.0714       0.1333       0.1336       0.0714       0.5263       0.5263       0.5714       0.3333       0.6865
 `
 
 // TestExample_Output captures the example's stdout by redirecting os.Stdout
