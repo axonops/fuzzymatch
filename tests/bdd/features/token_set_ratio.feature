@@ -58,11 +58,25 @@ Feature: Token Set Ratio (three-way Indel max with bug-for-bug RapidFuzz empty-s
     Then the score should be exactly 1
 
   @token @token-set-ratio
-  Scenario: empty-token-set returns 0.0 (RapidFuzz issue #110 deviation from catalogue convention)
-    # LOCKED DEVIATION: when both inputs Tokenise to an empty slice
-    # AND the raw strings differ (so the identity short-circuit does
-    # NOT fire), TokenSetRatio returns 0.0 — NOT 1.0. This is the
-    # bug-for-bug parity with RapidFuzz issue #110 / fuzzywuzzy.
+  Scenario: both-empty strings return 0.0 (RapidFuzz issue #110 deviation from catalogue convention)
+    # LOCKED DEVIATION: TokenSetRatioScore("", "") returns 0.0
+    # — NOT 1.0. The empty-input gate fires BEFORE the identity
+    # short-circuit per the LOCKED bug-for-bug RapidFuzz issue #110
+    # / fuzzywuzzy parity. Other tokenised algorithms in the
+    # catalogue (TokenJaccard, MongeElkan) follow the standard
+    # both-empty → 1.0 convention; TokenSetRatio is the documented
+    # exception.
+    When I compute the TokenSetRatio score between "" and ""
+    Then the score should be exactly 0
+
+  @token @token-set-ratio
+  Scenario: pure-separator inputs return 0.0 (post-Tokenise empty-set deviation)
+    # LOCKED DEVIATION post-Tokenise: when both inputs Tokenise to
+    # an empty slice (pure-separator runs) AND the raw strings
+    # differ (so the identity short-circuit does NOT fire),
+    # TokenSetRatio returns 0.0 — NOT 1.0. Same RapidFuzz issue
+    # #110 deviation as the both-empty-strings case, but reached via
+    # the post-Tokenise gate rather than the pre-Tokenise gate.
     When I compute the TokenSetRatio score between " " and "  "
     Then the score should be exactly 0
 

@@ -9,12 +9,20 @@
       "expected_score": 1
     },
     {
+      "name": "TokenSetRatio_both_empty_strings_deviation",
+      "algorithm": "TokenSetRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 0,
+      "deviation_note": "RapidFuzz issue #110 — empty-input gate fires BEFORE identity short-circuit; returns 0.0 (NOT 1.0)"
+    },
+    {
       "name": "TokenSetRatio_both_pure_separator_deviation",
       "algorithm": "TokenSetRatio",
       "a": " ",
       "b": "  ",
       "expected_score": 0,
-      "deviation_note": "RapidFuzz issue #110 — both Tokenise to []; returns 0.0 (NOT 1.0)"
+      "deviation_note": "RapidFuzz issue #110 — both Tokenise to []; post-Tokenise empty-set gate fires; returns 0.0 (NOT 1.0)"
     },
     {
       "name": "TokenSetRatio_one_empty_a",

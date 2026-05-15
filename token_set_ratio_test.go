@@ -79,13 +79,16 @@ func TestTokenSetRatioScore(t *testing.T) {
 			derivation: "DEVIATION: both Tokenise to [] → 0.0 (RapidFuzz issue #110); identity short-circuit does NOT fire (\"  \" != \" \")",
 		},
 		{
-			// Direct RapidFuzz cross-validation entry. The corpus
-			// also pins this — duplicating the test in the unit
-			// layer ensures the deviation is visible WITHOUT
-			// running the full cross-validation loader.
+			// LOCKED DEVIATION (RapidFuzz issue #110 / fuzzywuzzy
+			// parity): ("", "") returns 0.0 — NOT 1.0. The
+			// empty-input gate fires BEFORE the identity
+			// short-circuit so the both-empty-→-1.0 catalogue
+			// convention does not apply to TokenSetRatio. This is
+			// the load-bearing deviation pinned in both the
+			// cross-validation corpus and the staging-golden file.
 			name: "both_empty_strings_deviation", a: "", b: "",
-			want: 1.0, exact: true,
-			derivation: "a == b identity short-circuit returns 1.0 BEFORE the empty-token-set deviation gate is reached — see RapidFuzz cross-validation note for the (\"\",\"\") corpus entry where RapidFuzz reports 0.0",
+			want: 0.0, exact: true,
+			derivation: "DEVIATION: empty-input gate fires before identity short-circuit — TokenSetRatioScore(\"\",\"\") returns 0.0 per RapidFuzz issue #110 (NOT 1.0)",
 		},
 		{
 			name: "one_empty_a", a: "", b: "alpha beta",

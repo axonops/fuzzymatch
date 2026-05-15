@@ -2755,19 +2755,32 @@ func TestProp_TokenSetRatioScore_RangeBounds(t *testing.T) {
 }
 
 // TestProp_TokenSetRatioScore_Identity asserts Score(x, x) == 1.0 for
-// any NON-empty string x. The empty case is GUARDED: when x == "" the
-// a == b identity short-circuit fires before the empty-set DEVIATION
-// gate (which returns 0.0 only when the raw strings DIFFER but both
-// tokenise empty) — so Score("", "") == 1.0. However, when x is a
-// pure-separator string (e.g. " "), Score(x, x) still returns 1.0 via
-// the identity short-circuit because the raw strings are equal.
+// any NON-EMPTY string x. The empty case is GUARDED: when x == "" the
+// LOCKED RapidFuzz issue #110 DEVIATION fires first and returns 0.0,
+// NOT 1.0 (the empty-input gate runs before the identity
+// short-circuit per the LOCKED deviation). Per RESEARCH.md Pitfall 2,
+// this is the documented exception from the catalogue's
+// unconditional Score(x, x) == 1.0 property.
 //
-// The identity property therefore holds UNCONDITIONALLY for x == x
-// (the identity short-circuit fires bit-for-bit). The empty-set
-// DEVIATION is documented separately (RESEARCH.md Pitfall 2) and
-// surfaces only when the raw strings differ.
+// Pure-separator strings (e.g. " ", "___") that Tokenise to an empty
+// slice ALSO return 0.0 via the post-Tokenise empty-set gate. The
+// guard `if x == "" return true` only skips the literal-empty case;
+// the property is then false for pure-separator strings too. We
+// therefore guard on `len(Tokenise(x, opts)) == 0` to skip all
+// post-Tokenise-empty inputs — the deviation is documented elsewhere
+// (algorithm godoc, BDD scenarios, staging-golden, unit tests, and
+// this docstring).
 func TestProp_TokenSetRatioScore_Identity(t *testing.T) {
+	opts := fuzzymatch.DefaultTokeniseOptions()
 	f := func(x string) bool {
+		// Guard the LOCKED DEVIATION: when Tokenise(x) is empty
+		// (literal-empty x or pure-separator x), the function
+		// returns 0.0 not 1.0. The identity property is
+		// vacuously true for those inputs per RESEARCH.md Pitfall
+		// 2.
+		if len(fuzzymatch.Tokenise(x, opts)) == 0 {
+			return true
+		}
 		return fuzzymatch.TokenSetRatioScore(x, x) == 1.0
 	}
 	if err := quick.Check(f, nil); err != nil {

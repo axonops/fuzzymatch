@@ -40,23 +40,33 @@
 //
 // Algorithm — TokenSetRatioScore(a, b):
 //
-//   1. Identity short-circuit: if a == b, return 1.0 immediately. This
-//      avoids the Tokenise allocation on identical inputs.
-//   2. Tokenise both sides using DefaultTokeniseOptions() — see OQ-1
+//   1. Empty-input gate: if a == "" or b == "" (including
+//      ("", "")), return 0.0 immediately. This is the LOCKED
+//      bug-for-bug RapidFuzz issue #110 / fuzzywuzzy parity — the
+//      catalogue's standard both-empty → 1.0 convention is overridden
+//      for TokenSetRatio per the DEVIATION below. The gate fires
+//      BEFORE the identity short-circuit because the deviation
+//      requires ("", "") → 0.0, not 1.0.
+//   2. Identity short-circuit (non-empty only): if a == b AND a != "",
+//      return 1.0 immediately. This avoids the Tokenise allocation
+//      on identical inputs.
+//   3. Tokenise both sides using DefaultTokeniseOptions() — see OQ-1
 //      RESOLUTION below for the tokeniser-divergence note.
-//   3. Empty-token-set DEVIATION: if EITHER Tokenise output is empty
-//      (zero tokens), return 0.0 — NOT 1.0. This is the LOCKED
-//      bug-for-bug RapidFuzz issue #110 / fuzzywuzzy parity. See
-//      DEVIATION below.
-//   4. Build deduplicated sorted slices: intersectKeys (tokens in BOTH
+//   4. Empty-token-set DEVIATION (post-Tokenise): if EITHER Tokenise
+//      output is empty (zero tokens), return 0.0 — catches the case
+//      where the raw strings are non-empty but tokenise to nothing
+//      (e.g. (" ", "  ")). The pre-Tokenise empty-input gate above
+//      catches the cheaper case where a literal empty string is
+//      passed.
+//   5. Build deduplicated sorted slices: intersectKeys (tokens in BOTH
 //      sets), diffABKeys (tokens in A but not B), diffBAKeys (tokens in
 //      B but not A). Each slice is sorted byte-lex ascending so all
 //      downstream joins are deterministic.
-//   5. Subset short-circuit: if intersectKeys is non-empty AND
+//   6. Subset short-circuit: if intersectKeys is non-empty AND
 //      (diffABKeys is empty OR diffBAKeys is empty) — i.e. one token set
 //      is a subset of the other — return 1.0 directly without computing
 //      the three ratios.
-//   6. Three-way max construction. Join each sorted slice with a single
+//   7. Three-way max construction. Join each sorted slice with a single
 //      ASCII space:
 //        sortedSect      = strings.Join(intersectKeys, " ")
 //        sortedDiffAB    = strings.Join(diffABKeys,    " ")
@@ -88,13 +98,13 @@
 // has no meaningful interpretation when there are no tokens to
 // intersect.
 //
-// Note: the identity short-circuit `if a == b { return 1.0 }` at the
-// top of TokenSetRatioScore still fires for non-empty identical
-// strings — so TokenSetRatioScore("hello", "hello") returns 1.0, but
-// TokenSetRatioScore("", "") returns 0.0 (the identity short-circuit
-// also fires for ("", ""), but the post-Tokenise empty-set deviation
-// gate is reached when the strings differ but both tokenise empty —
-// e.g. (" ", "  ")).
+// Note: the identity short-circuit `if a == b { return 1.0 }` fires
+// ONLY for non-empty identical strings — so TokenSetRatioScore(
+// "hello", "hello") returns 1.0. TokenSetRatioScore("", "") returns
+// 0.0 because the empty-input gate (which is checked FIRST) fires
+// before the identity short-circuit. The post-Tokenise empty-set
+// gate handles the remaining edge: raw strings non-empty but both
+// tokenise to empty (e.g. (" ", "  ")) → 0.0.
 //
 // Three-way max construction note (LOCKED in plan 06-02): the third
 // branch is `indelRatio(combined1to2, combined2to1)` — the LCS between
@@ -217,11 +227,13 @@ import (
 //
 // Conventions:
 //
-//   - TokenSetRatioScore("hello",       "hello")            == 1.0  (identity short-circuit)
+//   - TokenSetRatioScore("hello",       "hello")            == 1.0  (identity short-circuit; non-empty)
 //   - TokenSetRatioScore("",            "")                 == 0.0  (DEVIATION — RapidFuzz issue #110;
-//     empty-token-set returns 0.0, NOT 1.0)
+//     empty-input returns 0.0, NOT 1.0, before identity check fires)
 //   - TokenSetRatioScore("hello",       "")                 == 0.0  (one-empty)
 //   - TokenSetRatioScore("",            "hello")            == 0.0  (one-empty)
+//   - TokenSetRatioScore(" ",           "  ")               == 0.0  (DEVIATION — both Tokenise to [];
+//     post-Tokenise empty-set gate)
 //   - TokenSetRatioScore("alpha beta",  "alpha beta gamma") == 1.0  (subset short-circuit: A ⊆ B)
 //   - TokenSetRatioScore("alpha beta gamma", "alpha beta")  == 1.0  (subset short-circuit: B ⊆ A)
 //   - TokenSetRatioScore("alpha beta",  "beta alpha")       == 1.0  (set equality after dedup+sort)
@@ -241,11 +253,13 @@ import (
 // inputs the two agree; for identifier-style inputs the project
 // tokenisation produces semantically richer splits.
 //
-// Empty-set DEVIATION (LOCKED — see file-header godoc): if EITHER
-// Tokenise output is empty, the function returns 0.0 (NOT 1.0) per
-// RapidFuzz issue #110 bug-for-bug compatibility. Note: identical
-// non-empty strings (e.g. `("alpha", "alpha")`) still return 1.0 via
-// the a == b identity short-circuit.
+// Empty-input / empty-set DEVIATION (LOCKED — see file-header
+// godoc): if either input is empty OR either Tokenise output is
+// empty, the function returns 0.0 (NOT 1.0) per RapidFuzz issue
+// #110 bug-for-bug compatibility. The empty-input gate fires BEFORE
+// the identity short-circuit so TokenSetRatioScore("", "") returns
+// 0.0 (matching RapidFuzz) — NOT 1.0 (the identity short-circuit
+// only fires for non-empty identical strings).
 //
 // Reference vector (cross-validated against RapidFuzz 3.14.5):
 //
@@ -265,15 +279,31 @@ import (
 // directly. There is no rune-path variant: Tokenise is UTF-8-aware so
 // the rune semantic is already preserved at the tokenisation layer.
 func TokenSetRatioScore(a, b string) float64 {
+	// Empty-input fast path: at least one input is empty → return
+	// 0.0 directly. This matches RapidFuzz's behaviour bit-for-bit
+	// per issue #110, INCLUDING the both-empty case ("", "") which
+	// RapidFuzz returns 0.0 for despite the inputs being trivially
+	// identical (fuzzywuzzy parity). This gate fires BEFORE the
+	// identity short-circuit because Indel's both-empty → 1.0
+	// convention is overridden in TokenSetRatio by the LOCKED
+	// deviation.
+	if a == "" || b == "" {
+		return 0.0
+	}
+	// Identity short-circuit for non-empty identical strings —
+	// avoids the Tokenise allocation on identical inputs. The empty
+	// case is handled above (a == b == "" returns 0.0 via the
+	// deviation, not 1.0 via identity).
 	if a == b {
-		return 1.0 // identity short-circuit — avoids Tokenise allocations
+		return 1.0
 	}
 	tokensA := Tokenise(a, DefaultTokeniseOptions())
 	tokensB := Tokenise(b, DefaultTokeniseOptions())
 	// LOCKED DEVIATION per RapidFuzz issue #110 / fuzzywuzzy compat:
 	// when EITHER Tokenise output is empty (zero tokens), return 0.0
-	// (NOT 1.0). This intentionally overrides the catalogue's standard
-	// both-empty → 1.0 convention. See file-header godoc.
+	// (NOT 1.0). This catches the case where the raw strings are
+	// non-empty but tokenise to nothing — e.g. (" ", "  ") — where
+	// the empty-input gate above would not fire.
 	if len(tokensA) == 0 || len(tokensB) == 0 {
 		return 0.0
 	}
@@ -289,33 +319,36 @@ func TokenSetRatioScore(a, b string) float64 {
 		return 1.0
 	}
 
-	// Build the three string forms used by the three Indel ratios.
+	return tokenSetThreeWayMax(intersectKeys, diffABKeys, diffBAKeys)
+}
+
+// tokenSetThreeWayMax computes the three-way max over the three
+// Indel-ratio branches that define Token Set Ratio. Extracted out of
+// TokenSetRatioScore so the parent function stays under the
+// cyclomatic-complexity ceiling.
+//
+//	r1: intersection vs intersection+diff_ab    (analytical: 2·sect/(sect+sect_ab))
+//	r2: intersection vs intersection+diff_ba    (analytical: 2·sect/(sect+sect_ba))
+//	r3: intersection+diff_ab vs intersection+diff_ba
+//
+// Branches 1 and 2 reduce to a closed-form expression because the
+// intersection is a contiguous prefix of the combined string, so
+// LCS(sortedSect, combined) == len(sortedSect). The code uses
+// indelRatio for both branches to keep the Indel-kernel surface
+// area small and the algorithm reviewer-auditable.
+//
+// The max is taken via explicit if-chain (NOT builtin `max`) to
+// mirror the determinism-reviewer-auditable pattern from
+// token_indel.go (qgram_jaccard.go).
+func tokenSetThreeWayMax(intersectKeys, diffABKeys, diffBAKeys []string) float64 {
 	sortedSect := strings.Join(intersectKeys, " ")
 	sortedDiffAB := strings.Join(diffABKeys, " ")
 	sortedDiffBA := strings.Join(diffBAKeys, " ")
 	combined1to2 := joinSectAndDiff(sortedSect, sortedDiffAB)
 	combined2to1 := joinSectAndDiff(sortedSect, sortedDiffBA)
-
-	// Three-way max. Each branch is a single indelRatio call over byte
-	// slices of the joined strings.
-	//
-	//   r1: intersection vs intersection+diff_ab    (analytical: 2·sect/(sect+sect_ab))
-	//   r2: intersection vs intersection+diff_ba    (analytical: 2·sect/(sect+sect_ba))
-	//   r3: intersection+diff_ab vs intersection+diff_ba
-	//
-	// Branches 1 and 2 reduce to a closed-form expression because the
-	// intersection is a contiguous prefix of the combined string, so
-	// LCS(sortedSect, combined) == len(sortedSect). The code uses
-	// indelRatio for both branches to keep the Indel-kernel surface
-	// area small and the algorithm reviewer-auditable; the
-	// equivalence is verified by a dedicated property test.
 	r1 := indelRatio([]byte(sortedSect), []byte(combined1to2))
 	r2 := indelRatio([]byte(sortedSect), []byte(combined2to1))
 	r3 := indelRatio([]byte(combined1to2), []byte(combined2to1))
-
-	// Explicit if-chain three-way max — NOT builtin `max` — to mirror
-	// the determinism-reviewer-auditable pattern from token_indel.go
-	// (qgram_jaccard.go).
 	best := r1
 	if r2 > best {
 		best = r2
