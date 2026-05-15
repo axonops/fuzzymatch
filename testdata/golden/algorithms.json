@@ -135,6 +135,76 @@
       "expected_score": 0
     },
     {
+      "name": "DoubleMetaphone_Catherine_Katherine_exact",
+      "algorithm": "DoubleMetaphone",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_Cheung_Chen_match",
+      "algorithm": "DoubleMetaphone",
+      "a": "Cheung",
+      "b": "Chen",
+      "expected_score": 0
+    },
+    {
+      "name": "DoubleMetaphone_Cheung_XNK_match",
+      "algorithm": "DoubleMetaphone",
+      "a": "Cheung",
+      "b": "Cheung",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_Schmidt_Mueller_nomatch",
+      "algorithm": "DoubleMetaphone",
+      "a": "Schmidt",
+      "b": "Mueller",
+      "expected_score": 0
+    },
+    {
+      "name": "DoubleMetaphone_Schmidt_Smith_XMT_match",
+      "algorithm": "DoubleMetaphone",
+      "a": "Schmidt",
+      "b": "Smith",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_Smith_Garcia_nomatch",
+      "algorithm": "DoubleMetaphone",
+      "a": "Smith",
+      "b": "Garcia",
+      "expected_score": 0
+    },
+    {
+      "name": "DoubleMetaphone_both_empty",
+      "algorithm": "DoubleMetaphone",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_identical_Schmidt",
+      "algorithm": "DoubleMetaphone",
+      "a": "Schmidt",
+      "b": "Schmidt",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_one_empty_a",
+      "algorithm": "DoubleMetaphone",
+      "a": "",
+      "b": "Schmidt",
+      "expected_score": 0
+    },
+    {
+      "name": "DoubleMetaphone_one_empty_b",
+      "algorithm": "DoubleMetaphone",
+      "a": "Schmidt",
+      "b": "",
+      "expected_score": 0
+    },
+    {
       "name": "Hamming_empty_empty",
       "algorithm": "Hamming",
       "a": "",
@@ -338,6 +408,76 @@
       "expected_score": 0.625
     },
     {
+      "name": "MRA_Ad_ZachariahMontgomery_nomatch",
+      "algorithm": "MRA",
+      "a": "Ad",
+      "b": "ZachariahMontgomery",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_Byrne_Boern_match",
+      "algorithm": "MRA",
+      "a": "Byrne",
+      "b": "Boern",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_Catherine_Katherine_match",
+      "algorithm": "MRA",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_Smith_Jones_nomatch",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Jones",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_Smith_Smyth_match",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Smyth",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_Smith_both",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Smith",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_William_Willyam_match",
+      "algorithm": "MRA",
+      "a": "William",
+      "b": "Willyam",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_both_empty",
+      "algorithm": "MRA",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_one_empty_a",
+      "algorithm": "MRA",
+      "a": "",
+      "b": "Smith",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_one_empty_b",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "",
+      "expected_score": 0
+    },
+    {
       "name": "MongeElkan_RV-ME1_user_create_vs_usr_creating_symmetric",
       "algorithm": "MongeElkan",
       "a": "user create",
@@ -406,6 +546,76 @@
       "a": "alpha beta gamma",
       "b": "gamma alpha beta",
       "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_Brown_Browne_match",
+      "algorithm": "NYSIIS",
+      "a": "Brown",
+      "b": "Browne",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_Brown_Robert_nomatch",
+      "algorithm": "NYSIIS",
+      "a": "Brown",
+      "b": "Robert",
+      "expected_score": 0
+    },
+    {
+      "name": "NYSIIS_Brown_both",
+      "algorithm": "NYSIIS",
+      "a": "Brown",
+      "b": "Brown",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_Catherine_Katherine_match",
+      "algorithm": "NYSIIS",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_John_Jon_match",
+      "algorithm": "NYSIIS",
+      "a": "John",
+      "b": "Jon",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_Robert_both",
+      "algorithm": "NYSIIS",
+      "a": "Robert",
+      "b": "Robert",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_Smith_Jones_nomatch",
+      "algorithm": "NYSIIS",
+      "a": "Smith",
+      "b": "Jones",
+      "expected_score": 0
+    },
+    {
+      "name": "NYSIIS_both_empty",
+      "algorithm": "NYSIIS",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_one_empty_a",
+      "algorithm": "NYSIIS",
+      "a": "",
+      "b": "Brown",
+      "expected_score": 0
+    },
+    {
+      "name": "NYSIIS_one_empty_b",
+      "algorithm": "NYSIIS",
+      "a": "Brown",
+      "b": "",
+      "expected_score": 0
     },
     {
       "name": "PartialRatio_both_empty",
@@ -678,6 +888,76 @@
       "algorithm": "SorensenDice",
       "a": "",
       "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Ashcraft_Ashcroft_match",
+      "algorithm": "Soundex",
+      "a": "Ashcraft",
+      "b": "Ashcroft",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_Catherine_Katherine_nomatch",
+      "algorithm": "Soundex",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Robert_Rupert_match",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "Rupert",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_Robert_Smith_nomatch",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "Smith",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Smith_Jones_nomatch",
+      "algorithm": "Soundex",
+      "a": "Smith",
+      "b": "Jones",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Tymczak_self_match",
+      "algorithm": "Soundex",
+      "a": "Tymczak",
+      "b": "Tymczak",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_both_empty",
+      "algorithm": "Soundex",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_identical_Robert",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "Robert",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_one_empty_a",
+      "algorithm": "Soundex",
+      "a": "",
+      "b": "Robert",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_one_empty_b",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "",
       "expected_score": 0
     },
     {

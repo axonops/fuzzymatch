@@ -1,12 +1,75 @@
-[
-  {"algorithm": "MRA", "a": "", "b": "", "expected_score": 1.0},
-  {"algorithm": "MRA", "a": "Smith", "b": "Smith", "expected_score": 1.0},
-  {"algorithm": "MRA", "a": "Smith", "b": "Smyth", "expected_score": 1.0},
-  {"algorithm": "MRA", "a": "Byrne", "b": "Boern", "expected_score": 1.0},
-  {"algorithm": "MRA", "a": "William", "b": "Willyam", "expected_score": 1.0},
-  {"algorithm": "MRA", "a": "Ad", "b": "ZachariahMontgomery", "expected_score": 0.0},
-  {"algorithm": "MRA", "a": "Smith", "b": "Jones", "expected_score": 0.0},
-  {"algorithm": "MRA", "a": "", "b": "Smith", "expected_score": 0.0},
-  {"algorithm": "MRA", "a": "Smith", "b": "", "expected_score": 0.0},
-  {"algorithm": "MRA", "a": "Catherine", "b": "Katherine", "expected_score": 1.0}
-]
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "MRA_Ad_ZachariahMontgomery_nomatch",
+      "algorithm": "MRA",
+      "a": "Ad",
+      "b": "ZachariahMontgomery",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_both_empty",
+      "algorithm": "MRA",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_Byrne_Boern_match",
+      "algorithm": "MRA",
+      "a": "Byrne",
+      "b": "Boern",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_Catherine_Katherine_match",
+      "algorithm": "MRA",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_one_empty_a",
+      "algorithm": "MRA",
+      "a": "",
+      "b": "Smith",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_one_empty_b",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_Smith_both",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Smith",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_Smith_Jones_nomatch",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Jones",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_Smith_Smyth_match",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Smyth",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_William_Willyam_match",
+      "algorithm": "MRA",
+      "a": "William",
+      "b": "Willyam",
+      "expected_score": 1
+    }
+  ]
+}
