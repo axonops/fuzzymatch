@@ -927,3 +927,110 @@ func TestGolden_RatcliffObershelp_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/ratcliff_obershelp.json", file)
 }
+
+// buildQGramJaccardStagingEntries returns the eight Q-Gram Jaccard
+// entries used by TestGolden_QGramJaccard_Staging. ExpectedScore is
+// computed from the current implementation so the staging file stays
+// in sync with actual output. Eight entries (sorted by Name in the test):
+//
+//   - QGramJaccard_AGCT_AGCTAGCT      (RV-J1; Ukkonen 1992 §3 worked
+//                                      example; n=2; 3/7 ≈ 0.4286)
+//   - QGramJaccard_abcd_abxy          (RV-J4; single-shared bigram;
+//                                      n=2; 1/5 = 0.2)
+//   - QGramJaccard_both_empty         (n=2; both-empty convention; 1.0)
+//   - QGramJaccard_cafe_runes         (RV-J5-Runes; rune path;
+//                                      n=2; 2/4 = 0.5)
+//   - QGramJaccard_identical          (RV-J2; identity short-circuit;
+//                                      n=2; 1.0)
+//   - QGramJaccard_n_too_large        (RV-J6; n > min length; both-empty
+//                                      convention; 1.0)
+//   - QGramJaccard_no_overlap         (RV-J3; n=2; 0/4 = 0.0)
+//   - QGramJaccard_one_empty          (n=2; one-empty convention; 0.0)
+//
+// Plan 05-05 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file. The cafe_runes entry is the
+// rune-path canary; all others are byte-path.
+func buildQGramJaccardStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "QGramJaccard_AGCT_AGCTAGCT",
+			Algorithm:     "QGramJaccard",
+			A:             "AGCT",
+			B:             "AGCTAGCT",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("AGCT", "AGCTAGCT", 2),
+		},
+		{
+			Name:          "QGramJaccard_abcd_abxy",
+			Algorithm:     "QGramJaccard",
+			A:             "abcd",
+			B:             "abxy",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("abcd", "abxy", 2),
+		},
+		{
+			Name:          "QGramJaccard_both_empty",
+			Algorithm:     "QGramJaccard",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("", "", 2),
+		},
+		{
+			Name:          "QGramJaccard_cafe_runes",
+			Algorithm:     "QGramJaccard",
+			A:             "café",
+			B:             "cafe",
+			ExpectedScore: fuzzymatch.QGramJaccardScoreRunes("café", "cafe", 2),
+		},
+		{
+			Name:          "QGramJaccard_identical",
+			Algorithm:     "QGramJaccard",
+			A:             "hello",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("hello", "hello", 2),
+		},
+		{
+			Name:          "QGramJaccard_n_too_large",
+			Algorithm:     "QGramJaccard",
+			A:             "ab",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("ab", "abc", 5),
+		},
+		{
+			Name:          "QGramJaccard_no_overlap",
+			Algorithm:     "QGramJaccard",
+			A:             "abc",
+			B:             "xyz",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("abc", "xyz", 2),
+		},
+		{
+			Name:          "QGramJaccard_one_empty",
+			Algorithm:     "QGramJaccard",
+			A:             "",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.QGramJaccardScore("", "abc", 2),
+		},
+	}
+}
+
+// TestGolden_QGramJaccard_Staging produces
+// testdata/golden/_staging/qgram_jaccard.json for plan 05-05's merge
+// step. Entries are sorted alphabetically by Name. Eight entries cover:
+// AGCT_AGCTAGCT (RV-J1 Ukkonen 1992 §3 worked example), abcd_abxy
+// (RV-J4 single-shared bigram), both-empty, cafe_runes (RV-J5-Runes
+// rune-path canary), identical, n_too_large, no_overlap (RV-J3),
+// one_empty.
+//
+// Plan 05-05 owns the canonical algorithms.json merge; this plan only
+// writes the staging file. Do NOT update TestGolden_Algorithms_Merge's
+// stagingFiles slice here — that's plan 05-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_QGramJaccard_Staging(t *testing.T) {
+	entries := buildQGramJaccardStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/qgram_jaccard.json", file)
+}

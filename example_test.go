@@ -192,3 +192,25 @@ func ExampleRatcliffObershelpScoreRunes() {
 	// Output:
 	// 0.7500
 }
+
+// ExampleQGramJaccardScore demonstrates the Q-Gram Jaccard similarity on
+// the canonical Ukkonen 1992 §3 worked-example pair. The bigram multisets
+// are |QA|=3 ("AGCT") and |QB|=7 ("AGCTAGCT"); intersection = 3, union = 7,
+// J = 3/7 ≈ 0.4286. This is the load-bearing primary-source reference
+// vector for the q-gram tier.
+func ExampleQGramJaccardScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.QGramJaccardScore("AGCT", "AGCTAGCT", 2))
+	// Output:
+	// 0.4286
+}
+
+// ExampleQGramJaccardScoreRunes demonstrates the rune-path variant on the
+// café/cafe pair. The rune-bigram multisets are QA={"ca","af","fé"} and
+// QB={"ca","af","fe"}; intersection = 2, union = 4, J = 2/4 = 0.5000. The
+// byte path would split "é" mid-codepoint and produce a different score;
+// the rune variant guarantees rune-boundary alignment.
+func ExampleQGramJaccardScoreRunes() {
+	fmt.Printf("%.4f\n", fuzzymatch.QGramJaccardScoreRunes("café", "cafe", 2))
+	// Output:
+	// 0.5000
+}
