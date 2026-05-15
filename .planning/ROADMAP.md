@@ -107,7 +107,7 @@
   4. All five algorithms ship with unit + property + fuzz + benchmark + BDD; `algorithms.json` golden file extended; worst-case complexity for Monge-Elkan / Partial Ratio / Token Set Ratio (DoS vectors) documented explicitly in their godoc
 
 **Plans**: 6 plans
-  - [ ] 06-01-PLAN.md — Foundation kernel (token_indel.go: lcsLen + indelRatio + rune variants) + TokenSortRatio (simplest Indel consumer) + RapidFuzz cross-validation infra (script + pinned vectors.json + Makefile target + Go loader + docs/cross-validation.md). Closes TOKEN-02.
+  - [x] 06-01-PLAN.md — Foundation kernel (token_indel.go: lcsLen + indelRatio + rune variants) + TokenSortRatio (simplest Indel consumer) + RapidFuzz cross-validation infra (script + pinned vectors.json + Makefile target + Go loader + docs/cross-validation.md). Closes TOKEN-02.
   - [ ] 06-02-PLAN.md — TokenSetRatio (three-way Indel max + bug-for-bug RapidFuzz empty-set deviation per issue #110 + DoS godoc + Pathological_AsymmetricSetCardinalities bench fixture). Closes TOKEN-03.
   - [ ] 06-03-PLAN.md — PartialRatio (byte AND rune surfaces) with three-region iteration (left tail / middle / right tail) + char-set early-skip + DoS godoc + Pathological_LongShortMismatch bench fixture (both surfaces). Closes TOKEN-04.
   - [ ] 06-04-PLAN.md — TokenJaccard (set-Jaccard over Tokenise output, distinct from Q-Gram Jaccard multiset semantics) + 4-6 hand-derived RV-TJ1..RV-TJ6. Closes TOKEN-05.
