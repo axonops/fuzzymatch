@@ -593,6 +593,122 @@ derivation in the test comment per algorithm-correctness-standards.
 func TokenJaccardScore(a, b string) float64
 ```
 
+### Phase 6 algorithm surface (token tier — Monge-Elkan)
+
+Plan 06-05 lands Monge-Elkan, the most complex Phase 6 algorithm — the
+only one that takes a PLUGGABLE inner-metric AlgoID parameter. For each
+token in A, take the maximum inner-metric similarity over every token
+in B, then average the per-token maxima (Monge & Elkan 1996 KDD'96 §3).
+With a fixed inner metric the function is DIRECTION-SENSITIVE — the
+same inputs in swapped order generally produce different scores.
+
+Two surfaces ship:
+
+- `MongeElkanScore`           — the ASYMMETRIC direct surface
+- `MongeElkanScoreSymmetric`  — the arithmetic mean of the two
+                                directional scores (symmetric in
+                                (a, b) by construction)
+
+The dispatch slot `AlgoMongeElkan` binds `MongeElkanScoreSymmetric`
+with `AlgoJaroWinkler` as the default inner and `DefaultNormalisationOptions()`
+per 06-CONTEXT.md §4 LOCKED — so `AlgoMongeElkan` participates in the
+standard `PropAlgorithmScore_Symmetric` property test set without
+exemption. Consumers needing genuine asymmetric scoring call
+`MongeElkanScore` directly or use the Phase 8 Scorer option
+`WithMongeElkanAlgorithm(weight, inner)` which forwards the
+user-supplied inner AlgoID.
+
+**Permitted inner allow-list (LOCKED 2026-05-15 — 14 entries per
+OQ-4 RESOLUTION):** the inner AlgoID must be one of 9 character-tier
+algorithms (AlgoLevenshtein / AlgoDamerauLevenshteinOSA /
+AlgoDamerauLevenshteinFull / AlgoHamming / AlgoJaro / AlgoJaroWinkler /
+AlgoStrcmp95 / AlgoSmithWatermanGotoh / AlgoLCSStr) + 4 q-gram-tier
+algorithms (AlgoQGramJaccard / AlgoSorensenDice / AlgoCosine /
+AlgoTversky) + AlgoRatcliffObershelp (the gestalt-pattern character-
+tier algorithm — included per OQ-4 RESOLUTION because excluding it
+would be arbitrary).
+
+Phase 7 will EXTEND the allow-list ADDITIVELY by adding the 4
+phonetic AlgoIDs (AlgoSoundex / AlgoDoubleMetaphone / AlgoNYSIIS /
+AlgoMRA → 18 total entries). The allow-list itself is declared at
+PACKAGE SCOPE in monge_elkan.go (NOT in init() per DET-13) and is
+the single source of truth — when Phase 7 lands, planners ADD entries
+to the map AND update the panic-test fixture (rejected: 9 → 5;
+permitted: 14 → 18).
+
+**Direct-call panic discipline (LOCKED 2026-05-15 per CONTEXT.md §3):**
+passing AlgoMongeElkan (self-recursion infinite-loop guard per
+RESEARCH.md Pitfall 4), any token-tier AlgoID (AlgoTokenSortRatio /
+AlgoTokenSetRatio / AlgoPartialRatio / AlgoTokenJaccard — token-on-
+token meaningless), or any Phase 7 phonetic AlgoID (AlgoSoundex /
+AlgoDoubleMetaphone / AlgoNYSIIS / AlgoMRA — reserved for the
+additive expansion) panics with the message
+
+	"fuzzymatch: AlgoID <name> not permitted as Monge-Elkan inner metric"
+
+where `<name>` is the canonical `String()` output of the AlgoID. The
+exact message format is pinned by `TestMongeElkan_PanicMessageFormat`.
+The Phase 8 Scorer option `WithMongeElkanAlgorithm` returns
+`ErrInvalidAlgoID` for the same input — direct-call panic discipline
+applies only to the direct surface where programmer error must fail
+loudly.
+
+**Asymmetry KEYSTONE (RV-ME6 / RV-ME-asym):** the RV-ME4 vs RV-ME6
+input-swap pair with `inner = AlgoLevenshtein` is the load-bearing
+direction-sensitivity regression detector. RV-ME4:
+`MongeElkanScore("alpha", "alpha beta gamma", Lev) = 1.0`; RV-ME6:
+`MongeElkanScore("alpha beta gamma", "alpha", Lev) ≈ 0.4667`. The
+difference (≈ 0.5333) is pinned by `TestMongeElkanScore_AsymmetryDirectionSensitive`,
+`TestProp_MongeElkanScore_AsymmetricWhenTokenCountAsymmetric`, AND
+the BDD scenario "MongeElkanScore is direction-sensitive". A silent
+direction-swap regression surfaces as 3 separate test failures.
+
+**DoS notice (06-CONTEXT.md §5 LOCKED):** on inputs with > 1,000
+tokens per side, Monge-Elkan performs ~10^6 inner-metric comparisons.
+With JaroWinkler inner (the default), each comparison is
+O(token_length) — total cost approximates 10^7 character operations.
+The three-part godoc block in monge_elkan.go (Complexity formula +
+DoS notice paragraph + `BenchmarkMongeElkan_Pathological_1000Tokens`
+fixture reference) documents the contract; consumers in untrusted-
+input contexts must pre-validate token-count ceilings before calling.
+
+**Reference vectors (hand-derived RV-ME1..RV-ME6 per 06-CONTEXT.md
+§1b LOCKED — no RapidFuzz toolchain because RapidFuzz's default
+inner may not match this project's JaroWinkler default):** RV-ME1
+("user create" / "usr creating" with JaroWinkler ≈ 0.9125); RV-ME2
+(identity → 1.0); RV-ME3 (disjoint Greek pair with JaroWinkler
+≈ 0.6917); RV-ME4 (subset case with Levenshtein → 1.0); RV-ME5
+(Unicode "café" / "cafe" with Levenshtein → 0.6); RV-ME6 (asymmetry
+keystone — RV-ME4 swapped → ≈ 0.4667). Each derivation is reproduced
+in the unit-test comment per algorithm-correctness-standards.
+
+```go
+// MongeElkanScore returns the asymmetric Monge-Elkan similarity
+// between a and b under the given inner metric: tokenise both sides,
+// then for each token in A take the max inner-metric similarity over
+// every token in B; average the per-token maxima. Returns [0.0, 1.0].
+//
+// Direction-sensitive: MongeElkanScore(a, b, inner, opts) generally
+// ≠ MongeElkanScore(b, a, inner, opts). For a symmetric variant call
+// MongeElkanScoreSymmetric.
+//
+// The inner AlgoID MUST be one of the 14 permitted inner metrics
+// (9 character + 4 q-gram + AlgoRatcliffObershelp). Passing
+// AlgoMongeElkan (self-reference), any token-tier AlgoID, or any
+// phonetic AlgoID panics with the documented message.
+//
+// Reference vector (RV-ME1):
+//   MongeElkanScore("user create", "usr creating",
+//                   AlgoJaroWinkler, DefaultNormalisationOptions()) ≈ 0.9125
+func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64
+
+// MongeElkanScoreSymmetric returns the symmetric (arithmetic mean)
+// variant: (MongeElkanScore(a, b, ...) + MongeElkanScore(b, a, ...)) / 2.
+// Order-independent by construction; the variant bound to
+// dispatch[AlgoMongeElkan] per CONTEXT §4 LOCKED.
+func MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go

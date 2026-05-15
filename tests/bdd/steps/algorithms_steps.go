@@ -47,6 +47,7 @@ type AlgorithmContext struct {
 	lastScore    float64 // populated by "I compute the Xxx score between" steps
 	lastScore2   float64 // populated by "I compute the second Xxx score between" steps
 	lastDistance int     // populated by "I compute the Xxx distance between" steps (plan 02-02+)
+	lastPanicMsg string  // populated by "I attempt to compute …" steps that recover() from a panic (plan 06-05+)
 }
 
 // iComputeTheLevenshteinScoreBetween computes LevenshteinScore(a, b) and
@@ -796,6 +797,187 @@ func (ctx *AlgorithmContext) bothTokenJaccardScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Monge-Elkan step methods (plan 06-05)
+//
+// Monge-Elkan is the only Phase 6 algorithm that takes a pluggable
+// INNER metric (specified as an AlgoID string). The step grammar adds
+// a `with inner Algo<Name>` suffix; the step body resolves the inner
+// AlgoID by switching on the matched name. Two surfaces ship:
+//   - MongeElkanScore           — asymmetric direct
+//   - MongeElkanScoreSymmetric  — symmetric (mean of two directions)
+//
+// The asymmetry direction-sensitivity scenario uses a dedicated "two
+// scores should differ by more than X" step (mirrors Tversky's
+// asymmetry gate). The panic-on-non-permitted-inner scenarios use a
+// dedicated panic-capture step.
+// ---------------------------------------------------------------------------
+
+// algoIDByName resolves an inner-metric AlgoID name (without the
+// "Algo" prefix) to the corresponding fuzzymatch.AlgoID constant.
+// Returns -1 (out-of-range) for unknown names so the caller's panic
+// path fires.
+//
+// The high cyclomatic complexity of the switch is intentional: one
+// case per AlgoID, mirroring algoid.go's String() method. Adding an
+// AlgoID requires adding a case here AND in algoid.go's String()
+// AND in permittedMongeElkanInner (if it's a permitted inner) — the
+// algorithm-correctness reviewer enforces this triad. This is the
+// canonical Go idiom for a stringly-typed enum reverse-lookup and
+// gocyclo's threshold does not apply to the pattern.
+func algoIDByName(name string) fuzzymatch.AlgoID { //nolint:gocyclo // one switch case per AlgoID is intentional — see godoc above
+
+	switch name {
+	case "Levenshtein":
+		return fuzzymatch.AlgoLevenshtein
+	case "DamerauLevenshteinOSA":
+		return fuzzymatch.AlgoDamerauLevenshteinOSA
+	case "DamerauLevenshteinFull":
+		return fuzzymatch.AlgoDamerauLevenshteinFull
+	case "Hamming":
+		return fuzzymatch.AlgoHamming
+	case "Jaro":
+		return fuzzymatch.AlgoJaro
+	case "JaroWinkler":
+		return fuzzymatch.AlgoJaroWinkler
+	case "Strcmp95":
+		return fuzzymatch.AlgoStrcmp95
+	case "SmithWatermanGotoh":
+		return fuzzymatch.AlgoSmithWatermanGotoh
+	case "LCSStr":
+		return fuzzymatch.AlgoLCSStr
+	case "QGramJaccard":
+		return fuzzymatch.AlgoQGramJaccard
+	case "SorensenDice":
+		return fuzzymatch.AlgoSorensenDice
+	case "Cosine":
+		return fuzzymatch.AlgoCosine
+	case "Tversky":
+		return fuzzymatch.AlgoTversky
+	case "MongeElkan":
+		return fuzzymatch.AlgoMongeElkan
+	case "TokenSortRatio":
+		return fuzzymatch.AlgoTokenSortRatio
+	case "TokenSetRatio":
+		return fuzzymatch.AlgoTokenSetRatio
+	case "PartialRatio":
+		return fuzzymatch.AlgoPartialRatio
+	case "TokenJaccard":
+		return fuzzymatch.AlgoTokenJaccard
+	case "Soundex":
+		return fuzzymatch.AlgoSoundex
+	case "DoubleMetaphone":
+		return fuzzymatch.AlgoDoubleMetaphone
+	case "NYSIIS":
+		return fuzzymatch.AlgoNYSIIS
+	case "MRA":
+		return fuzzymatch.AlgoMRA
+	case "RatcliffObershelp":
+		return fuzzymatch.AlgoRatcliffObershelp
+	default:
+		return fuzzymatch.AlgoID(-1) // out-of-range; caller's panic path will fire
+	}
+}
+
+// iComputeTheMongeElkanScoreBetweenWithInner computes
+// MongeElkanScore(a, b, inner, opts) (asymmetric direct surface) and
+// stores the result in lastScore.
+func (ctx *AlgorithmContext) iComputeTheMongeElkanScoreBetweenWithInner(a, b, innerName string) error {
+	inner := algoIDByName(innerName)
+	ctx.lastScore = fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	return nil
+}
+
+// iComputeTheSecondMongeElkanScoreBetweenWithInner computes
+// MongeElkanScore(a, b, inner, opts) and stores the result in
+// lastScore2. Used by the asymmetry direction-sensitivity scenario
+// (RV-ME4 vs RV-ME6 input swap with same inner) AND by the symmetric-
+// variant order-independence scenario.
+func (ctx *AlgorithmContext) iComputeTheSecondMongeElkanScoreBetweenWithInner(a, b, innerName string) error {
+	inner := algoIDByName(innerName)
+	ctx.lastScore2 = fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	return nil
+}
+
+// iComputeTheMongeElkanSymmetricScoreBetweenWithInner computes
+// MongeElkanScoreSymmetric(a, b, inner, opts) and stores the result
+// in lastScore. The arithmetic-mean variant; order-independent.
+func (ctx *AlgorithmContext) iComputeTheMongeElkanSymmetricScoreBetweenWithInner(a, b, innerName string) error {
+	inner := algoIDByName(innerName)
+	ctx.lastScore = fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	return nil
+}
+
+// iComputeTheSecondMongeElkanSymmetricScoreBetweenWithInner computes
+// MongeElkanScoreSymmetric(a, b, inner, opts) and stores the result
+// in lastScore2. Used by the symmetric-variant order-independence
+// scenario.
+func (ctx *AlgorithmContext) iComputeTheSecondMongeElkanSymmetricScoreBetweenWithInner(a, b, innerName string) error {
+	inner := algoIDByName(innerName)
+	ctx.lastScore2 = fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	return nil
+}
+
+// theTwoMongeElkanScoresShouldDifferByMoreThan asserts
+// |lastScore − lastScore2| > threshold. The LOAD-BEARING asymmetry
+// direction-sensitivity step: with the RV-ME4 vs RV-ME6 input-swap
+// pair at AlgoLevenshtein inner, the actual difference is ≈ 0.5333;
+// threshold 0.1 gates against silent direction-swap regressions while
+// leaving IEEE-754 rounding headroom.
+func (ctx *AlgorithmContext) theTwoMongeElkanScoresShouldDifferByMoreThan(threshold float64) error {
+	delta := math.Abs(ctx.lastScore - ctx.lastScore2)
+	if delta <= threshold {
+		return fmt.Errorf("monge-elkan asymmetry gate FAILED: lastScore=%g, lastScore2=%g, |Δ|=%g; want > %g (the input swap with fixed inner should produce direction-sensitive scores per RV-ME6 KEYSTONE)",
+			ctx.lastScore, ctx.lastScore2, delta, threshold)
+	}
+	return nil
+}
+
+// bothMongeElkanScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetric-variant order-independence scenario after
+// computing ME_sym(a, b, inner) and ME_sym(b, a, inner).
+func (ctx *AlgorithmContext) bothMongeElkanScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("monge-elkan symmetric scores not equal: %g != %g (the symmetric variant must be order-independent by construction — sum of two terms swapped is the same sum)",
+			ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
+// iAttemptToComputeTheMongeElkanScoreBetweenWithInner attempts to
+// compute MongeElkanScore(a, b, inner, opts) and captures any panic
+// into ctx.lastPanicMsg for assertion by
+// theCallShouldPanicWith. Returns nil if the panic was captured;
+// the panic-with-phrase assertion fires after the When step.
+func (ctx *AlgorithmContext) iAttemptToComputeTheMongeElkanScoreBetweenWithInner(a, b, innerName string) error {
+	inner := algoIDByName(innerName)
+	ctx.lastPanicMsg = ""
+	defer func() {
+		if r := recover(); r != nil {
+			if msg, ok := r.(string); ok {
+				ctx.lastPanicMsg = msg
+			} else {
+				ctx.lastPanicMsg = fmt.Sprintf("%v", r)
+			}
+		}
+	}()
+	_ = fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	return nil
+}
+
+// theCallShouldPanicWith asserts that the previous attempt step
+// captured a panic whose message CONTAINS the given phrase. Used by
+// the panic-on-non-permitted-inner scenarios.
+func (ctx *AlgorithmContext) theCallShouldPanicWith(phrase string) error {
+	if ctx.lastPanicMsg == "" {
+		return fmt.Errorf("expected a panic but none was captured")
+	}
+	if !strings.Contains(ctx.lastPanicMsg, phrase) {
+		return fmt.Errorf("panic message %q does not contain phrase %q", ctx.lastPanicMsg, phrase)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -1157,5 +1339,49 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both TokenJaccard scores should be equal$`,
 		a.bothTokenJaccardScoresShouldBeEqual,
+	)
+
+	// Monge-Elkan step definitions (plan 06-05). Parameter-rich pattern
+	// with `with inner Algo<Name>` suffix capturing the inner-metric
+	// AlgoID name (mirrors Tversky's `with n <n> alpha <α> beta <β>`
+	// parameter-rich grammar). Two surfaces ship:
+	//   - MongeElkan           → asymmetric direct (MongeElkanScore)
+	//   - MongeElkanSymmetric  → symmetric (MongeElkanScoreSymmetric)
+	// The asymmetry direction-sensitivity scenario uses the dedicated
+	// "differ by more than X" step; the symmetric-variant order-
+	// independence scenario uses "both equal". The panic-on-non-
+	// permitted-inner scenarios use the "attempt to compute" + "should
+	// panic with" pair.
+	ctx.Step(
+		`^I compute the MongeElkan score between "([^"]*)" and "([^"]*)" with inner Algo([A-Za-z0-9]+)$`,
+		a.iComputeTheMongeElkanScoreBetweenWithInner,
+	)
+	ctx.Step(
+		`^I compute the second MongeElkan score between "([^"]*)" and "([^"]*)" with inner Algo([A-Za-z0-9]+)$`,
+		a.iComputeTheSecondMongeElkanScoreBetweenWithInner,
+	)
+	ctx.Step(
+		`^I compute the MongeElkanSymmetric score between "([^"]*)" and "([^"]*)" with inner Algo([A-Za-z0-9]+)$`,
+		a.iComputeTheMongeElkanSymmetricScoreBetweenWithInner,
+	)
+	ctx.Step(
+		`^I compute the second MongeElkanSymmetric score between "([^"]*)" and "([^"]*)" with inner Algo([A-Za-z0-9]+)$`,
+		a.iComputeTheSecondMongeElkanSymmetricScoreBetweenWithInner,
+	)
+	ctx.Step(
+		`^the two MongeElkan scores should differ by more than (\d+\.?\d*)$`,
+		a.theTwoMongeElkanScoresShouldDifferByMoreThan,
+	)
+	ctx.Step(
+		`^both MongeElkan scores should be equal$`,
+		a.bothMongeElkanScoresShouldBeEqual,
+	)
+	ctx.Step(
+		`^I attempt to compute the MongeElkan score between "([^"]*)" and "([^"]*)" with inner Algo([A-Za-z0-9]+)$`,
+		a.iAttemptToComputeTheMongeElkanScoreBetweenWithInner,
+	)
+	ctx.Step(
+		`^the call should panic with "([^"]*)"$`,
+		a.theCallShouldPanicWith,
 	)
 }

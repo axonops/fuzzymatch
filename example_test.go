@@ -430,3 +430,70 @@ func ExampleTokenJaccardScore() {
 	// Output:
 	// 0.5000
 }
+
+// ExampleMongeElkanScore demonstrates the ASYMMETRIC Monge-Elkan
+// similarity (Monge & Elkan 1996 §3). For each token in A, take the
+// maximum inner-metric similarity over every token in B, then average
+// the per-token maxima. With a fixed inner metric the function is
+// direction-sensitive — the same inputs in swapped order generally
+// produce different scores.
+//
+// Symmetric case (the RV-ME1 canonical example):
+//   - tokens(A) = ["user","create"]; tokens(B) = ["usr","creating"]
+//   - max(JW(user,usr)=0.9333, JW(user,creating)=0.4167)      = 0.9333
+//   - max(JW(create,usr)=0.5,  JW(create,creating)=0.8917)    = 0.8917
+//   - ME(A, B) = (0.9333 + 0.8917) / 2                        ≈ 0.9125
+//
+// Asymmetric case (the RV-ME6 keystone — same tokens, swapped order):
+//   - MongeElkanScore("alpha", "alpha beta gamma", AlgoLevenshtein) = 1.0
+//     (single A-token matches one of three B-tokens exactly; max=1.0)
+//   - MongeElkanScore("alpha beta gamma", "alpha", AlgoLevenshtein) ≈ 0.4667
+//     (three A-tokens, each takes max over the single B-token; the
+//     two non-matching tokens drag the mean down)
+//   - 1.0 ≠ 0.4667 — the input swap with the same inner produces
+//     direction-sensitive scores.
+//
+// The inner AlgoID MUST be one of the 14 permitted inner metrics (9
+// character-tier + 4 q-gram + AlgoRatcliffObershelp). Passing
+// AlgoMongeElkan, any token-tier AlgoID, or any phonetic AlgoID panics
+// with a documented message — see MongeElkanScore's godoc for the full
+// allow-list and the Phase 7 forward-compatibility note.
+func ExampleMongeElkanScore() {
+	opts := fuzzymatch.DefaultNormalisationOptions()
+	// Symmetric-looking case (the RV-ME1 canonical pair).
+	fmt.Printf("%.4f\n", fuzzymatch.MongeElkanScore("user create", "usr creating", fuzzymatch.AlgoJaroWinkler, opts))
+	// Asymmetric direction-sensitivity (RV-ME4 / RV-ME6 keystone pair).
+	fmt.Printf("%.4f\n", fuzzymatch.MongeElkanScore("alpha", "alpha beta gamma", fuzzymatch.AlgoLevenshtein, opts))
+	fmt.Printf("%.4f\n", fuzzymatch.MongeElkanScore("alpha beta gamma", "alpha", fuzzymatch.AlgoLevenshtein, opts))
+	// Output:
+	// 0.9125
+	// 1.0000
+	// 0.4667
+}
+
+// ExampleMongeElkanScoreSymmetric demonstrates the SYMMETRIC variant —
+// the arithmetic mean of MongeElkanScore in the two directions:
+//
+//	ME_sym(A, B, sim) = (ME(A, B, sim) + ME(B, A, sim)) / 2.0
+//
+// This is the variant bound to dispatch[AlgoMongeElkan] per
+// CONTEXT.md §4 LOCKED — AlgoMongeElkan participates in the standard
+// symmetric property-test set without exemption because the symmetric
+// average is invariant under argument swap (the sum of two terms
+// swapped is the same sum).
+//
+// For the RV-ME4 / RV-ME6 asymmetric pair: ME(A, B) = 1.0,
+// ME(B, A) ≈ 0.4667, so ME_sym = (1.0 + 0.4667) / 2 ≈ 0.7333.
+//
+// Consumers using AlgoMongeElkan through the Scorer (Phase 8) get the
+// symmetric variant transparently; consumers needing genuine
+// asymmetric scoring call MongeElkanScore directly or use the Scorer
+// option WithMongeElkanAlgorithm(weight, inner).
+func ExampleMongeElkanScoreSymmetric() {
+	opts := fuzzymatch.DefaultNormalisationOptions()
+	fmt.Printf("%.4f\n", fuzzymatch.MongeElkanScoreSymmetric("alpha", "alpha beta gamma", fuzzymatch.AlgoLevenshtein, opts))
+	fmt.Printf("%.4f\n", fuzzymatch.MongeElkanScoreSymmetric("alpha beta gamma", "alpha", fuzzymatch.AlgoLevenshtein, opts))
+	// Output:
+	// 0.7333
+	// 0.7333
+}

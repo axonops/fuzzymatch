@@ -1,0 +1,73 @@
+// Copyright 2026 AxonOps Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// dispatch_monge_elkan.go registers Monge-Elkan into the dispatch table
+// at package load time. This file MUST be the sole writer to
+// dispatch[AlgoMongeElkan] (slot 13 — see algoid.go for the slot map).
+//
+// The dispatch table maps AlgoID to (a, b string) float64 — a fixed
+// signature with no place for the inner AlgoID parameter NOR for the
+// NormalisationOptions. Per CONTEXT.md §4 LOCKED the dispatch wrapper
+// binds:
+//
+//   - The SYMMETRIC variant (MongeElkanScoreSymmetric), NOT the asymmetric
+//     direct surface — so AlgoMongeElkan participates in the standard
+//     PropAlgorithmScore_Symmetric property test set without exemption.
+//   - AlgoJaroWinkler as the default inner — the standard reference for
+//     fuzzy-name matching in the Monge & Elkan 1996 paper's empirical
+//     evaluation and the most widely-known inner-metric choice across
+//     SecondString / py_stringmatching / RapidFuzz lineages.
+//   - DefaultNormalisationOptions() for opts — Tokenise internally
+//     uses DefaultTokeniseOptions() regardless, so the opts forwarded
+//     to MongeElkanScoreSymmetric is currently informational; Phase 8's
+//     WithMongeElkanAlgorithm(weight, inner) will forward user-supplied
+//     NormalisationOptions through.
+//
+// The asymmetric direct surface (MongeElkanScore) is reachable via the
+// public API but NOT via the dispatch table — direction-sensitive
+// scoring is an advanced use case that requires the caller to be aware
+// of which argument's tokens drive the per-token-max reduction. The
+// dispatch wrapper provides the symmetric "best-of-both-directions"
+// reduction as the safer default for Scorer / Extract integrations.
+//
+// Phase 7 forward-compatibility: when AlgoSoundex / AlgoDoubleMetaphone /
+// AlgoNYSIIS / AlgoMRA land, planners ADD entries to
+// permittedMongeElkanInner (in monge_elkan.go) AND update the panic-test
+// fixture in monge_elkan_test.go (rejected count drops from 9 to 5).
+// The dispatch wrapper itself is UNCHANGED — the JaroWinkler default is
+// preserved.
+//
+// See algoid.go for the dispatch array declaration and its design
+// rationale. The var _ = func() bool { ... }() idiom is the canonical
+// Phase-2-onward form for package-level side effects without init()
+// (per determinism-standards §13.5 and docs/requirements.md §5(12)).
+
+package fuzzymatch
+
+// _ ensures dispatch[AlgoMongeElkan] is populated before any call to the
+// Scorer (Phase 8) or Extract (Phase 10) that reads the dispatch table.
+// Per CONTEXT.md §4 LOCKED:
+//   - the SYMMETRIC variant is dispatched (so AlgoMongeElkan participates
+//     in the standard symmetric property-test set);
+//   - the default inner is AlgoJaroWinkler;
+//   - opts is DefaultNormalisationOptions().
+//
+// See the file-level godoc above for the rationale and the
+// forward-compatibility notes for Phase 7's phonetic-tier additions.
+var _ = func() bool {
+	dispatch[AlgoMongeElkan] = func(a, b string) float64 {
+		return MongeElkanScoreSymmetric(a, b, AlgoJaroWinkler, DefaultNormalisationOptions())
+	}
+	return true
+}()
