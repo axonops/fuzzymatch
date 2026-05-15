@@ -517,6 +517,51 @@ func (ctx *AlgorithmContext) bothSorensenDiceScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Cosine step methods (plan 05-03)
+//
+// Same `with n <n>` shape introduced by plan 05-01 — the q-gram-tier
+// algorithms all carry the n parameter. Both byte and rune surfaces ship;
+// the symmetry scenario uses the standard "second score" / "both equal"
+// pattern from earlier phases. The high-precision Examples in
+// cosine.feature pin actual IEEE-754 factorised-form output (1 ULP from
+// the rational limit per RESEARCH.md "Pitfall 2").
+// ---------------------------------------------------------------------------
+
+// iComputeTheCosineScoreBetweenWithN computes CosineScore(a, b, n) and
+// stores the result in lastScore. The dispatched byte-path surface;
+// multi-byte UTF-8 splits q-grams at byte boundaries.
+func (ctx *AlgorithmContext) iComputeTheCosineScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore = fuzzymatch.CosineScore(a, b, n)
+	return nil
+}
+
+// iComputeTheSecondCosineScoreBetweenWithN computes
+// CosineScore(a, b, n) and stores the result in lastScore2. Used by
+// the symmetry scenario to capture a second score for cos(A, B) ==
+// cos(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondCosineScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore2 = fuzzymatch.CosineScore(a, b, n)
+	return nil
+}
+
+// iComputeTheCosineRunesScoreBetweenWithN computes
+// CosineScoreRunes(a, b, n) and stores the result in lastScore. The
+// rune path; multi-byte UTF-8 windows are compared atomically.
+func (ctx *AlgorithmContext) iComputeTheCosineRunesScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore = fuzzymatch.CosineScoreRunes(a, b, n)
+	return nil
+}
+
+// bothCosineScoresShouldBeEqual asserts lastScore == lastScore2. Used
+// by the symmetry scenario after computing cos(A, B) and cos(B, A).
+func (ctx *AlgorithmContext) bothCosineScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("cosine scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -738,5 +783,29 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both SorensenDice scores should be equal$`,
 		a.bothSorensenDiceScoresShouldBeEqual,
+	)
+
+	// Cosine step definitions (plan 05-03). Same `with n <n>` shape
+	// as plan 05-01's QGramJaccard / plan 05-02's SorensenDice. Both
+	// byte and rune surfaces ship; the symmetry scenario uses the
+	// second-score / both-equal pattern from earlier phases. The
+	// existing approximately-step regex `(\d+\.?\d*)` accepts the
+	// 17-digit IEEE-754 form used by the high-precision examples in
+	// cosine.feature (IN-03 closure carried forward).
+	ctx.Step(
+		`^I compute the Cosine score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheCosineScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^I compute the second Cosine score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheSecondCosineScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^I compute the CosineRunes score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheCosineRunesScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^both Cosine scores should be equal$`,
+		a.bothCosineScoresShouldBeEqual,
 	)
 }
