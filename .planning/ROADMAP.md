@@ -106,6 +106,14 @@
   3. Token Jaccard produces correct set-Jaccard scores over `Tokenise(s)` output; uses `Tokenise` from Phase 1; map iteration discipline verified
   4. All five algorithms ship with unit + property + fuzz + benchmark + BDD; `algorithms.json` golden file extended; worst-case complexity for Monge-Elkan / Partial Ratio / Token Set Ratio (DoS vectors) documented explicitly in their godoc
 
+**Plans**: 6 plans
+  - [ ] 06-01-PLAN.md — Foundation kernel (token_indel.go: lcsLen + indelRatio + rune variants) + TokenSortRatio (simplest Indel consumer) + RapidFuzz cross-validation infra (script + pinned vectors.json + Makefile target + Go loader + docs/cross-validation.md). Closes TOKEN-02.
+  - [ ] 06-02-PLAN.md — TokenSetRatio (three-way Indel max + bug-for-bug RapidFuzz empty-set deviation per issue #110 + DoS godoc + Pathological_AsymmetricSetCardinalities bench fixture). Closes TOKEN-03.
+  - [ ] 06-03-PLAN.md — PartialRatio (byte AND rune surfaces) with three-region iteration (left tail / middle / right tail) + char-set early-skip + DoS godoc + Pathological_LongShortMismatch bench fixture (both surfaces). Closes TOKEN-04.
+  - [ ] 06-04-PLAN.md — TokenJaccard (set-Jaccard over Tokenise output, distinct from Q-Gram Jaccard multiset semantics) + 4-6 hand-derived RV-TJ1..RV-TJ6. Closes TOKEN-05.
+  - [ ] 06-05-PLAN.md — Monge-Elkan (asymmetric + symmetric variants + 14-entry permittedMongeElkanInner allow-list per OQ-4 RESOLUTION + exhaustive panic test for 9 rejected AlgoIDs + dispatch wrapper binding Symmetric+JaroWinkler defaults per CONTEXT §4 + DoS godoc + Pathological_1000Tokens bench fixture). Closes TOKEN-01.
+  - [ ] 06-06-PLAN.md — Finalisation: merge 5 staging goldens into algorithms.json + identifier-similarity 14-to-19 column extension + bench.txt full-replace including 3 pathological fixtures + ≥2 cross-algorithm consistency tests (set-vs-multiset divergence; empty-set deviation pin).
+
 ### Phase 7: Phonetic Algorithms
 **Goal**: Ship the four phonetic algorithms — Soundex (Knuth/Census variant per Knuth TAOCP Vol. 3 §6.4), Double Metaphone (Philips 2000, with primary + alternate codes), NYSIIS (Taft 1970, 6-char truncation), MRA (NBS Tech Note 943). Phonetic algorithms have degenerate score normalisation (typically 0.0/1.0 binary or small discrete sets), so they exercise less of the float-determinism machinery, but they carry the highest licence-discipline risk (Double Metaphone has the largest rule table with ~200 conditional branches across Germanic, Slavic, Romance, Greek branches — the public-domain C reference is the cross-validation source, NOT any GPL/LGPL Go port) and the hardest primary-source-sourcing (NYSIIS Taft 1970 is a NY State Special Report that's difficult to obtain — may require citing Knuth or a secondary review article). Once phonetic algorithms exist, Monge-Elkan's permitted-inner-algorithm set is expanded to include them.
 **Depends on**: Phase 6
@@ -168,7 +176,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Smith-Waterman-Gotoh | 3/3 | Complete    | 2026-05-14 |
 | 4. Remaining Character & Gestalt | 0/5 | Not started | - |
 | 5. Q-gram Algorithms | 5/5 | Complete    | 2026-05-15 |
-| 6. Token-based Algorithms | 0/TBD | Not started | - |
+| 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/TBD | Not started | - |
 | 8. Composite Scorer | 0/TBD | Not started | - |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
