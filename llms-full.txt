@@ -152,6 +152,35 @@ func RatcliffObershelpScore(a, b string) float64
 func RatcliffObershelpScoreRunes(a, b string) float64
 ```
 
+### Phase 5 algorithm surface (q-gram tier — foundation + Jaccard)
+
+The Phase 5 plan 05-01 lands the shared q-gram extraction infrastructure
+(unexported `extractQGrams` / `extractQGramsRunes` per CONTEXT.md §2 LOCKED
+— internal only, no public q-gram helper in v1) and the first algorithmic
+consumer: Q-Gram Jaccard (Ukkonen 1992 §3 / Jaccard 1912). Two new
+exported functions plus two new error sentinels (the latter consumed by
+the Phase 8 Scorer options across all four q-gram algorithms).
+
+```go
+// QGramJaccardScore returns the multiset Jaccard similarity of the
+// q-gram bags of a and b: J(A, B) = |QA ∩ QB| / |QA ∪ QB|, in [0, 1].
+// Operates on bytes; UTF-8 inputs split q-grams at byte boundaries.
+// Identity short-circuit (a == b) covers both-empty. Panics with
+// "fuzzymatch: invalid q-gram size" when n < 1 — the Phase 8 Scorer
+// option WithQGramJaccardAlgorithm returns ErrInvalidQGramSize instead.
+// Reference: QGramJaccardScore("AGCT", "AGCTAGCT", 2) = 3/7 ≈ 0.4286.
+func QGramJaccardScore(a, b string, n int) float64
+```
+
+```go
+// QGramJaccardScoreRunes returns the multiset Jaccard similarity under
+// rune semantics. Multi-byte UTF-8 windows are compared atomically;
+// "café" decomposes to four runes and produces three rune-bigrams at
+// n=2. Allocates two []rune slices on the heap; for ASCII inputs prefer
+// QGramJaccardScore. Same panic-on-n<1 contract.
+func QGramJaccardScoreRunes(a, b string, n int) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go
@@ -248,6 +277,21 @@ var ErrInvalidAlgorithm = errors.New("fuzzymatch: invalid algorithm")
 // algorithm score functions handle empty inputs per their per-algorithm
 // spec and do NOT return this error.
 var ErrEmptyInput = errors.New("fuzzymatch: empty input")
+
+// ErrInvalidQGramSize indicates a q-gram-based algorithm option (Phase
+// 8 Scorer: WithQGramJaccardAlgorithm, WithSorensenDiceAlgorithm,
+// WithCosineAlgorithm, WithTverskyAlgorithm) was constructed with
+// n < 1. Direct algorithm calls (QGramJaccardScore, SorensenDiceScore,
+// CosineScore, TverskyScore) panic with the sentinel's message text
+// instead — direct calls fail loudly on programmer error per
+// CONTEXT.md §5 LOCKED.
+var ErrInvalidQGramSize = errors.New("fuzzymatch: invalid q-gram size")
+
+// ErrInvalidTverskyParam indicates the Tversky algorithm option was
+// constructed with α < 0, β < 0, or α + β == 0. Returned by Phase 8
+// Scorer's WithTverskyAlgorithm; direct TverskyScore / TverskyScoreRunes
+// calls panic with the sentinel's message text instead per CONTEXT.md §5.
+var ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
 ```
 
 ## Sample programs

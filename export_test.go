@@ -95,3 +95,19 @@ func Strcmp95SimilarCharsEntryForTest(i int) (a, b byte, sim float64) {
 // similar-character weight constant to the external test package. Test code
 // asserts every table entry's sim value equals this constant.
 const Strcmp95SimilarCreditForTest = strcmp95SimilarCredit
+
+// ExtractQGramsForTest re-exports the unexported extractQGrams helper from
+// q_gram.go to the external (black-box) test package so q_gram_test.go can
+// assert the multiset semantics, capacity hints, and degenerate-input
+// behaviour of the byte-path q-gram extractor without dragging the helper
+// into the public API.
+//
+// Plan 05-01 introduces this re-export; plans 05-02 (Sørensen-Dice),
+// 05-03 (Cosine), and 05-04 (Tversky) consume the same helper internally
+// and can extend the test re-export pattern as needed.
+var ExtractQGramsForTest = extractQGrams
+
+// ExtractQGramsRunesForTest re-exports the unexported extractQGramsRunes
+// helper for the rune-path q-gram extractor. Pairs with
+// ExtractQGramsForTest above.
+var ExtractQGramsRunesForTest = extractQGramsRunes

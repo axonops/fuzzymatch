@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "QGramJaccard_AGCT_AGCTAGCT",
+      "algorithm": "QGramJaccard",
+      "a": "AGCT",
+      "b": "AGCTAGCT",
+      "expected_score": 0.42857142857142855
+    },
+    {
+      "name": "QGramJaccard_abcd_abxy",
+      "algorithm": "QGramJaccard",
+      "a": "abcd",
+      "b": "abxy",
+      "expected_score": 0.2
+    },
+    {
+      "name": "QGramJaccard_both_empty",
+      "algorithm": "QGramJaccard",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "QGramJaccard_cafe_runes",
+      "algorithm": "QGramJaccard",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.5
+    },
+    {
+      "name": "QGramJaccard_identical",
+      "algorithm": "QGramJaccard",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "QGramJaccard_n_too_large",
+      "algorithm": "QGramJaccard",
+      "a": "ab",
+      "b": "abc",
+      "expected_score": 1
+    },
+    {
+      "name": "QGramJaccard_no_overlap",
+      "algorithm": "QGramJaccard",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "QGramJaccard_one_empty",
+      "algorithm": "QGramJaccard",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    }
+  ]
+}

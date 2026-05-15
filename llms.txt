@@ -109,6 +109,11 @@ scan / Extract (Phases 9–10).
 - func RatcliffObershelpScore(a, b string) float64
 - func RatcliffObershelpScoreRunes(a, b string) float64
 
+### Q-Gram Jaccard (Ukkonen 1992) similarity
+
+- func QGramJaccardScore(a, b string, n int) float64
+- func QGramJaccardScoreRunes(a, b string, n int) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
@@ -127,6 +132,8 @@ scan / Extract (Phases 9–10).
 - var ErrInvalidConfiguration error
 - var ErrInvalidAlgorithm error
 - var ErrEmptyInput error
+- var ErrInvalidQGramSize error
+- var ErrInvalidTverskyParam error
 
 ## Out of v1.0 scope
 

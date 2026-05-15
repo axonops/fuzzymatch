@@ -429,6 +429,50 @@ func (ctx *AlgorithmContext) bothLCSStrScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Q-Gram Jaccard step definitions (plan 05-01)
+//
+// Q-Gram Jaccard takes an additional `n int` parameter that the existing
+// Phase 2/3/4 score-step grammar does not accommodate. New step regexes
+// are registered with a `with n (\d+)` suffix to capture the q-gram size.
+// Both surfaces (byte + rune) ship together; the symmetry scenario uses
+// the standard "second score" / "both equal" pattern from earlier phases.
+// ---------------------------------------------------------------------------
+
+// iComputeTheQGramJaccardScoreBetweenWithN computes
+// QGramJaccardScore(a, b, n) and stores the result in lastScore. The
+// dispatched byte-path surface; multi-byte UTF-8 splits q-grams at
+// byte boundaries.
+func (ctx *AlgorithmContext) iComputeTheQGramJaccardScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore = fuzzymatch.QGramJaccardScore(a, b, n)
+	return nil
+}
+
+// iComputeTheSecondQGramJaccardScoreBetweenWithN computes
+// QGramJaccardScore(a, b, n) and stores the result in lastScore2. Used by
+// the symmetry scenario to capture a second score for J(A, B) == J(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondQGramJaccardScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore2 = fuzzymatch.QGramJaccardScore(a, b, n)
+	return nil
+}
+
+// iComputeTheQGramJaccardRunesScoreBetweenWithN computes
+// QGramJaccardScoreRunes(a, b, n) and stores the result in lastScore.
+// The rune path; multi-byte UTF-8 windows are compared atomically.
+func (ctx *AlgorithmContext) iComputeTheQGramJaccardRunesScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore = fuzzymatch.QGramJaccardScoreRunes(a, b, n)
+	return nil
+}
+
+// bothQGramJaccardScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetry scenario after computing J(A, B) and J(B, A).
+func (ctx *AlgorithmContext) bothQGramJaccardScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("qgram jaccard scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -608,5 +652,26 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^I compute the Ratcliff-Obershelp score for the autojunk-sensitive pair$`,
 		a.iComputeTheRatcliffObershelpScoreForTheAutojunkSensitivePair,
+	)
+
+	// Q-Gram Jaccard step definitions (plan 05-01). Adds the `with n <n>`
+	// suffix to capture the q-gram size that the Phase 2/3/4 grammar does
+	// not carry. Both byte and rune surfaces ship; the symmetry scenario
+	// uses the second-score / both-equal pattern from earlier phases.
+	ctx.Step(
+		`^I compute the QGramJaccard score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheQGramJaccardScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^I compute the second QGramJaccard score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheSecondQGramJaccardScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^I compute the QGramJaccardRunes score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheQGramJaccardRunesScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^both QGramJaccard scores should be equal$`,
+		a.bothQGramJaccardScoresShouldBeEqual,
 	)
 }

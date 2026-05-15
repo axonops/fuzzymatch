@@ -1505,6 +1505,207 @@ func TestProp_RatcliffObershelpScoreRunes_NoNegativeZero(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Q-Gram Jaccard property tests (plan 05-01)
+// ---------------------------------------------------------------------------
+
+// qgramJaccardN coerces an arbitrary int into the [1, 5] inclusive range
+// used by the Q-Gram Jaccard property tests. Negative and zero n values
+// are mapped into the valid range; the n parameter would otherwise
+// panic per CONTEXT.md §5 LOCKED, but that contract is unit-tested
+// separately by TestQGramJaccard_PanicsOnInvalidN — the property tests
+// exercise the [0, 1] score-range invariants.
+func qgramJaccardN(n int) int {
+	if n < 0 {
+		n = -n
+	}
+	return (n % 5) + 1
+}
+
+// TestProp_QGramJaccardScore_RangeBounds asserts the byte-path score
+// stays in [0.0, 1.0] for any (a, b, n) triple. Inline NaN/Inf guards
+// document the joint invariant; dedicated _NoNaN / _NoInf tests below
+// retest each guard in isolation for documentation clarity.
+func TestProp_QGramJaccardScore_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.QGramJaccardScore(a, b, qgramJaccardN(n))
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScore out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScore_Identity asserts Score(x, x, n) == 1.0
+// EXACTLY for any non-empty x and any n >= 1 — the identity short-circuit
+// fires before extraction and the result is the literal 1.0.
+func TestProp_QGramJaccardScore_Identity(t *testing.T) {
+	f := func(x string, n int) bool {
+		if x == "" {
+			return true // both-empty handled by unit tests
+		}
+		return fuzzymatch.QGramJaccardScore(x, x, qgramJaccardN(n)) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScore identity violated: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScore_Symmetric asserts Score(a, b, n) == Score(b, a, n)
+// EXACTLY (not within tolerance) — set-Jaccard is symmetric and the
+// integer-derived single division produces bit-identical output.
+func TestProp_QGramJaccardScore_Symmetric(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := qgramJaccardN(n)
+		return fuzzymatch.QGramJaccardScore(a, b, nn) == fuzzymatch.QGramJaccardScore(b, a, nn)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScore_NoNaN asserts the byte-path score never
+// returns NaN. The both-empty + one-empty + identity short-circuits
+// gate away the only potential 0/0 paths; the explicit
+// jaccardFromQGramMaps len-check provides the secondary guard.
+func TestProp_QGramJaccardScore_NoNaN(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsNaN(fuzzymatch.QGramJaccardScore(a, b, qgramJaccardN(n)))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScore_NoInf asserts the byte-path score never
+// returns ±Inf. Numerator and denominator are bounded integers fitting
+// in float64 (counts up to 2^53 are exact); the single division never
+// overflows.
+func TestProp_QGramJaccardScore_NoInf(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsInf(fuzzymatch.QGramJaccardScore(a, b, qgramJaccardN(n)), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScore_NoNegativeZero asserts that when the byte-path
+// score is 0.0 it is positive zero, not negative zero. The intersection
+// cardinality is a non-negative integer; float64(0) / float64(positive)
+// is +0.0 in IEEE-754.
+func TestProp_QGramJaccardScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.QGramJaccardScore(a, b, qgramJaccardN(n))
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScoreRunes_RangeBounds: rune-path mirror of
+// _RangeBounds.
+func TestProp_QGramJaccardScoreRunes_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.QGramJaccardScoreRunes(a, b, qgramJaccardN(n))
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScoreRunes out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScoreRunes_Identity: rune-path identity.
+func TestProp_QGramJaccardScoreRunes_Identity(t *testing.T) {
+	f := func(x string, n int) bool {
+		if x == "" {
+			return true
+		}
+		return fuzzymatch.QGramJaccardScoreRunes(x, x, qgramJaccardN(n)) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScoreRunes identity violated: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScoreRunes_Symmetric: rune-path symmetry.
+func TestProp_QGramJaccardScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := qgramJaccardN(n)
+		return fuzzymatch.QGramJaccardScoreRunes(a, b, nn) == fuzzymatch.QGramJaccardScoreRunes(b, a, nn)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScoreRunes not symmetric: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScoreRunes_NoNaN: rune-path NaN guard.
+func TestProp_QGramJaccardScoreRunes_NoNaN(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsNaN(fuzzymatch.QGramJaccardScoreRunes(a, b, qgramJaccardN(n)))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScoreRunes produced NaN: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScoreRunes_NoInf: rune-path Inf guard.
+func TestProp_QGramJaccardScoreRunes_NoInf(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsInf(fuzzymatch.QGramJaccardScoreRunes(a, b, qgramJaccardN(n)), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScoreRunes produced Inf: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScoreRunes_NoNegativeZero: rune-path -0.0 guard.
+func TestProp_QGramJaccardScoreRunes_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.QGramJaccardScoreRunes(a, b, qgramJaccardN(n))
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("QGramJaccardScoreRunes produced -0.0: %v", err)
+	}
+}
+
+// TestProp_QGramJaccardScore_DeterministicAcrossRuns asserts that 1000
+// sequential calls on the same (a, b, n) input produce byte-identical
+// output. PITFALLS §14 closure carried forward from Phase 4 — guards
+// against any future regression that might re-introduce map-iteration
+// order dependence on the output path.
+//
+// Compares via math.Float64bits to detect bit-level differences (e.g.
+// +0.0 vs -0.0, signalling vs quiet NaN — even though the algorithm
+// emits neither).
+func TestProp_QGramJaccardScore_DeterministicAcrossRuns(t *testing.T) {
+	const iterations = 1000
+	const a = "AGCT"
+	const b = "AGCTAGCT"
+	const n = 2
+	baseline := fuzzymatch.QGramJaccardScore(a, b, n)
+	baselineBits := math.Float64bits(baseline)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.QGramJaccardScore(a, b, n)
+		if math.Float64bits(got) != baselineBits {
+			t.Fatalf("iteration %d: QGramJaccardScore(%q,%q,%d) = %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, a, b, n, got, math.Float64bits(got), baseline, baselineBits)
+		}
+	}
+	// Mirror gate on the rune surface.
+	baselineR := fuzzymatch.QGramJaccardScoreRunes("café", "cafe", 2)
+	baselineRBits := math.Float64bits(baselineR)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.QGramJaccardScoreRunes("café", "cafe", 2)
+		if math.Float64bits(got) != baselineRBits {
+			t.Fatalf("iteration %d (rune): got %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, got, math.Float64bits(got), baselineR, baselineRBits)
+		}
+	}
+}
+
 // TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment checks the
 // "generally" property from RESEARCH.md: on substring-containment inputs
 // the Ratcliff-Obershelp score is typically ≥ the Levenshtein score

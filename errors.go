@@ -56,6 +56,37 @@ var ErrInvalidInput = errors.New("fuzzymatch: invalid input")
 // Phase 10 (Extract). See docs/requirements.md §8.
 var ErrInvalidConfiguration = errors.New("fuzzymatch: invalid configuration")
 
+// ErrInvalidQGramSize indicates a q-gram-based algorithm option was
+// constructed with n < 1 — q-gram extraction requires a positive window
+// length.
+//
+// Returned by the Phase 8 Scorer options (e.g. WithQGramJaccardAlgorithm,
+// WithSorensenDiceAlgorithm, WithCosineAlgorithm, WithTverskyAlgorithm)
+// when their n parameter is < 1. Direct algorithm calls
+// (QGramJaccardScore, SorensenDiceScore, CosineScore, TverskyScore)
+// instead panic with a message containing the text of this sentinel —
+// per CONTEXT.md §5 LOCKED, direct calls fail loudly on programmer
+// error and the Scorer returns the typed error.
+//
+// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidQGramSize); never
+// match the error message string.
+var ErrInvalidQGramSize = errors.New("fuzzymatch: invalid q-gram size")
+
+// ErrInvalidTverskyParam indicates a Tversky algorithm option was
+// constructed with an invalid α/β parameter pair: either α < 0, β < 0,
+// or α + β == 0. The Tversky formula requires non-negative weights with
+// at least one strictly positive so the denominator does not collapse.
+//
+// Returned by the Phase 8 Scorer option WithTverskyAlgorithm when the
+// supplied (alpha, beta) violate any of the three constraints. Direct
+// calls to TverskyScore / TverskyScoreRunes panic with a message
+// containing the text of this sentinel instead — per CONTEXT.md §5
+// LOCKED, direct calls fail loudly on programmer error.
+//
+// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidTverskyParam);
+// never match the error message string.
+var ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
+
 // ErrInvalidAlgorithm indicates an AlgoID parameter does not match any
 // registered algorithm in the dispatch table. Returned from the
 // package-internal dispatch helpers (Phase 8+) when called with an
