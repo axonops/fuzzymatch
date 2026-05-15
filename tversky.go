@@ -377,13 +377,25 @@ func tverskyFromQGramMaps(qa, qb map[string]int, alpha, beta float64) float64 {
 	// totalA / totalB which preserve the original argument order.
 	aMinusB := totalA - intersection
 	bMinusA := totalB - intersection
-	// Defensive: if every cardinality is zero we already returned 1.0
-	// above (both maps empty). Reaching here with totalA + totalB > 0
-	// guarantees intersection ≤ min(totalA, totalB) and at least one of
-	// aMinusB / bMinusA is non-negative; combined with α + β > 0
-	// (validated by the public-API gate) the denominator is strictly
-	// positive when intersection > 0, AND when intersection == 0 with
-	// totalA + totalB > 0 the denom is α·totalA + β·totalB > 0. No 0/0.
+	// Defensive 0/0 guard: when intersection == 0 AND α·aMinusB +
+	// β·bMinusA == 0, the denominator collapses. This happens when one
+	// side's q-gram multiset is empty (len(s) < n) AND the other
+	// side's residual is weighted by 0 (e.g. α=0 with qb empty so the
+	// only non-zero residual is α·totalA which becomes 0). The
+	// semantically correct answer is 0.0 — the inputs share no q-grams
+	// AND the partial-empty-multiset case mirrors QGramJaccardScore
+	// (which returns 0/totalA = 0.0 on the same input).
+	//
+	// The full-both-empty case (len(qa) == 0 && len(qb) == 0) returned
+	// 1.0 above; this guard only fires when ONE side is empty AND the
+	// non-empty side's residual is α/β-zeroed.
+	if intersection == 0 {
+		denom := (alpha * float64(aMinusB)) + (beta * float64(bMinusA))
+		if denom == 0.0 {
+			return 0.0
+		}
+		return 0.0 // 0 / positive = 0; explicit short-circuit avoids the division.
+	}
 	denom := float64(intersection) + (alpha * float64(aMinusB)) + (beta * float64(bMinusA))
 	// Single division on integer-derived float64 values (with the user-
 	// supplied float64 weights α, β). IEEE-754 correctly-rounded

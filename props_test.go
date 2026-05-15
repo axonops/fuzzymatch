@@ -2116,6 +2116,500 @@ func TestProp_CosineScore_DeterministicAcrossRuns(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Tversky property tests (plan 05-04)
+// ---------------------------------------------------------------------------
+//
+// Tversky carries the largest property-test surface in the q-gram tier
+// because the (α, β) parameter pair adds two new failure modes beyond
+// the standard six invariants:
+//
+//   - Asymmetry-conditional:   when α ≠ β AND |A−B| ≠ |B−A|, the
+//     scores must differ on input swap. Plain symmetry is FALSE for
+//     Tversky in general, so the standard _Symmetric property test
+//     does NOT apply — instead we have _SymmetricWhenAlphaEqBeta
+//     (asserts symmetry only when α = β) AND
+//     _AsymmetricWhenAlphaNeqBeta (asserts asymmetry only when the
+//     residuals also differ).
+//
+//   - Parameter-swap symmetry: T(a, b, α, β) = T(b, a, β, α) ALWAYS.
+//     This is the algebraic identity that pins the asymmetry as a
+//     consequence of α ≠ β rather than a one-sided coding error. If
+//     the implementation silently swapped α and β internally, this
+//     property would still hold (vacuously); the asymmetry-conditional
+//     property is what catches that bug.
+//
+//   - Bit-exact algebraic cross-checks:
+//       * T(a, b, n, 1.0, 1.0) == QGramJaccardScore(a, b, n)
+//       * T(a, b, n, 0.5, 0.5) == SorensenDiceScore(a, b, n)
+//     These hold bit-for-bit on the same multisets — pinned via
+//     math.Float64bits comparison rather than tolerance.
+
+// tverskyN coerces an arbitrary int into the [1, 5] inclusive range
+// used by the Tversky property tests. Negative and zero n values
+// are mapped into the valid range; the n parameter would otherwise
+// panic per CONTEXT.md §5 LOCKED, but that contract is unit-tested
+// separately by TestTversky_PanicsOnInvalidN — the property tests
+// exercise the [0, 1] score-range invariants.
+func tverskyN(n int) int {
+	if n < 0 {
+		n = -n
+	}
+	return (n % 5) + 1
+}
+
+// tverskyAlpha coerces an arbitrary float64 into the [0, 1] inclusive
+// range. The squashing function `|x| / (|x| + 1)` maps R → [0, 1)
+// monotonically; we then clamp to [0, 1]. NaN inputs are mapped to
+// 0.5 (a safe interior point); ±Inf inputs squash to 1.0. Used jointly
+// with tverskyBetaWithMin to ensure α + β > 0 in the property bodies
+// (avoiding the documented panic path).
+func tverskyAlpha(a float64) float64 {
+	if math.IsNaN(a) {
+		return 0.5
+	}
+	if math.IsInf(a, 0) {
+		return 1.0
+	}
+	a = math.Abs(a)
+	return a / (a + 1.0)
+}
+
+// tverskyBetaWithMin coerces an arbitrary float64 into [0, 1] using
+// the same squashing function, but if the resulting (α, β) pair would
+// have α + β == 0, β is forced to 1.0 to satisfy the α + β > 0
+// invariant the public-API gate enforces.
+func tverskyBetaWithMin(b float64, alpha float64) float64 {
+	bb := tverskyAlpha(b)
+	if alpha == 0.0 && bb == 0.0 {
+		return 1.0
+	}
+	return bb
+}
+
+// TestProp_TverskyScore_RangeBounds asserts the byte-path score stays
+// in [0.0, 1.0] for any (a, b, n, α, β) — with α and β coerced into
+// the valid range. Inline NaN/Inf guards document the joint invariant;
+// dedicated _NoNaN / _NoInf tests below retest each guard in isolation.
+func TestProp_TverskyScore_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		s := fuzzymatch.TverskyScore(a, b, tverskyN(n), al, be)
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_Identity asserts Score(x, x, n, α, β) == 1.0
+// EXACTLY for any non-empty x, any n >= 1, and any valid (α, β) — the
+// identity short-circuit fires before extraction and the result is the
+// literal 1.0 (regardless of α, β).
+func TestProp_TverskyScore_Identity(t *testing.T) {
+	f := func(x string, n int, alpha, beta float64) bool {
+		if x == "" {
+			return true // both-empty handled by unit tests
+		}
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		return fuzzymatch.TverskyScore(x, x, tverskyN(n), al, be) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore identity violated: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_NoNaN asserts the byte-path score never
+// returns NaN. The both-empty + one-empty + identity short-circuits
+// gate away the only potential 0/0 paths; the explicit
+// tverskyFromQGramMaps len-check provides the secondary guard.
+func TestProp_TverskyScore_NoNaN(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		return !math.IsNaN(fuzzymatch.TverskyScore(a, b, tverskyN(n), al, be))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_NoInf asserts the byte-path score never
+// returns ±Inf. Numerator and denominator are bounded — counts fit in
+// float64 (≤ 2^53), α and β are coerced into [0, 1] — so the single
+// multiplication + addition + division never overflows.
+func TestProp_TverskyScore_NoInf(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		return !math.IsInf(fuzzymatch.TverskyScore(a, b, tverskyN(n), al, be), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_NoNegativeZero asserts that when the byte-path
+// score is 0.0 it is positive zero, not negative zero. The intersection
+// cardinality is a non-negative integer; float64(0) / float64(positive)
+// is +0.0 in IEEE-754.
+func TestProp_TverskyScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		s := fuzzymatch.TverskyScore(a, b, tverskyN(n), al, be)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_RangeBounds: rune-path mirror of
+// _RangeBounds.
+func TestProp_TverskyScoreRunes_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		s := fuzzymatch.TverskyScoreRunes(a, b, tverskyN(n), al, be)
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_Identity: rune-path identity.
+func TestProp_TverskyScoreRunes_Identity(t *testing.T) {
+	f := func(x string, n int, alpha, beta float64) bool {
+		if x == "" {
+			return true
+		}
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		return fuzzymatch.TverskyScoreRunes(x, x, tverskyN(n), al, be) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes identity violated: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_NoNaN: rune-path NaN guard.
+func TestProp_TverskyScoreRunes_NoNaN(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		return !math.IsNaN(fuzzymatch.TverskyScoreRunes(a, b, tverskyN(n), al, be))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes produced NaN: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_NoInf: rune-path Inf guard.
+func TestProp_TverskyScoreRunes_NoInf(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		return !math.IsInf(fuzzymatch.TverskyScoreRunes(a, b, tverskyN(n), al, be), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes produced Inf: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_NoNegativeZero: rune-path -0.0 guard.
+func TestProp_TverskyScoreRunes_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		s := fuzzymatch.TverskyScoreRunes(a, b, tverskyN(n), al, be)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes produced -0.0: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_SymmetricWhenAlphaEqBeta asserts T(a, b, n, α,
+// α) == T(b, a, n, α, α) bit-for-bit. When α = β the function is
+// symmetric in (a, b) — this is the corollary of the parameter-swap
+// symmetry algebraic identity. Quick.Check over arbitrary (a, b, n, α);
+// β is bound to α inside the closure.
+func TestProp_TverskyScore_SymmetricWhenAlphaEqBeta(t *testing.T) {
+	f := func(a, b string, n int, alpha float64) bool {
+		al := tverskyAlpha(alpha)
+		if al == 0.0 {
+			al = 0.5 // satisfy α + β > 0 with both at 0.5
+		}
+		nn := tverskyN(n)
+		fwd := fuzzymatch.TverskyScore(a, b, nn, al, al)
+		rev := fuzzymatch.TverskyScore(b, a, nn, al, al)
+		return math.Float64bits(fwd) == math.Float64bits(rev)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore α=β symmetry violated: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_SymmetricWhenAlphaEqBeta: rune-path
+// mirror of _SymmetricWhenAlphaEqBeta.
+func TestProp_TverskyScoreRunes_SymmetricWhenAlphaEqBeta(t *testing.T) {
+	f := func(a, b string, n int, alpha float64) bool {
+		al := tverskyAlpha(alpha)
+		if al == 0.0 {
+			al = 0.5
+		}
+		nn := tverskyN(n)
+		fwd := fuzzymatch.TverskyScoreRunes(a, b, nn, al, al)
+		rev := fuzzymatch.TverskyScoreRunes(b, a, nn, al, al)
+		return math.Float64bits(fwd) == math.Float64bits(rev)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes α=β symmetry violated: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_AsymmetricWhenAlphaNeqBeta is the asymmetry-
+// conditional property test. With fixed α=0.8, β=0.2 (the LOAD-BEARING
+// asymmetric configuration), the implication is:
+//
+//   IF the multiset residuals differ (|A−B| ≠ |B−A|) on the q-gram
+//   extraction THEN swapping inputs MUST produce a different score
+//   (T(a, b, ...) ≠ T(b, a, ...)).
+//
+// Detecting whether residuals differ from inside the property body
+// without re-implementing extraction: the multiset total cardinality
+// equals len(s)−n+1 for any non-empty s with len(s) ≥ n. The residual
+// imbalance |A−B| vs |B−A| is asymmetric iff totalA ≠ totalB iff
+// len(a) ≠ len(b) (when both ≥ n; when one is shorter than n, the
+// extraction returns an empty multiset and the symmetric branch fires).
+//
+// This gives a clean implication: when len(a) ≠ len(b) AND both ≥ n
+// AND the multisets have at least one shared key (otherwise both
+// scores collapse to 0/(α·totalA + β·totalB) which is symmetric in
+// (a, b) only when α=β — which is NOT our case here, so even orthogonal
+// pairs exercise the asymmetry).
+//
+// Edge case: when intersection = 0, T = 0 / (α·totalA + β·totalB) = 0
+// for both directions; this is structurally symmetric. So the
+// implication captures only the partial-overlap, length-mismatched
+// case.
+func TestProp_TverskyScore_AsymmetricWhenAlphaNeqBeta(t *testing.T) {
+	const alpha = 0.8
+	const beta = 0.2
+	f := func(a, b string, n int) bool {
+		nn := tverskyN(n)
+		// Skip identity / one-empty (short-circuit branches).
+		if a == b || a == "" || b == "" {
+			return true
+		}
+		fwd := fuzzymatch.TverskyScore(a, b, nn, alpha, beta)
+		rev := fuzzymatch.TverskyScore(b, a, nn, alpha, beta)
+		// Premise: residuals must differ. Approximate: len(a) != len(b)
+		// AND both at least n bytes long (so extraction is non-empty)
+		// AND fwd > 0 (so there's some shared multiset content; if
+		// fwd == 0 it's an orthogonal pair and rev is also 0 — the
+		// 0/(α·tA + β·tB) = 0 collapse).
+		if len(a) == len(b) || len(a) < nn || len(b) < nn || fwd == 0.0 {
+			// Premise false → vacuous truth.
+			return true
+		}
+		// Premise holds (residuals likely differ AND there's overlap).
+		// Conclusion: scores must differ.
+		return fwd != rev
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore asymmetry-conditional property violated: %v", err)
+	}
+	// Spot-check on the canonical RV-T1/RV-T2 pair to confirm the
+	// property body actively detects asymmetric inputs (a degenerate
+	// `return true` would otherwise slip past quick.Check).
+	rvT1 := fuzzymatch.TverskyScore("abcd", "abcdef", 2, alpha, beta)
+	rvT2 := fuzzymatch.TverskyScore("abcdef", "abcd", 2, alpha, beta)
+	if rvT1 == rvT2 {
+		t.Errorf("asymmetry spot-check failed: T(abcd,abcdef,2,%g,%g)=%.17g equals T(abcdef,abcd,...)=%.17g — RV-T1/RV-T2 should differ",
+			alpha, beta, rvT1, rvT2)
+	}
+}
+
+// TestProp_TverskyScoreRunes_AsymmetricWhenAlphaNeqBeta: rune-path
+// mirror of _AsymmetricWhenAlphaNeqBeta. The premise uses rune count
+// (utf8.RuneCountInString equivalent via len([]rune(...))) instead of
+// byte length, since the rune extractor's multiset total is
+// runeCount−n+1.
+func TestProp_TverskyScoreRunes_AsymmetricWhenAlphaNeqBeta(t *testing.T) {
+	const alpha = 0.8
+	const beta = 0.2
+	f := func(a, b string, n int) bool {
+		nn := tverskyN(n)
+		if a == b || a == "" || b == "" {
+			return true
+		}
+		fwd := fuzzymatch.TverskyScoreRunes(a, b, nn, alpha, beta)
+		rev := fuzzymatch.TverskyScoreRunes(b, a, nn, alpha, beta)
+		// Rune-count premise. []rune(s) decodes UTF-8; invalid bytes
+		// become U+FFFD. The premise is "rune length differs AND both
+		// at least n runes long AND scores show overlap" (mirroring
+		// the byte-path premise).
+		ra := len([]rune(a))
+		rb := len([]rune(b))
+		if ra == rb || ra < nn || rb < nn || fwd == 0.0 {
+			return true
+		}
+		return fwd != rev
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes asymmetry-conditional property violated: %v", err)
+	}
+	// Spot-check via the rune surface on the same RV-T1/RV-T2 pair
+	// (ASCII inputs; rune and byte paths produce equivalent multisets).
+	rvT1 := fuzzymatch.TverskyScoreRunes("abcd", "abcdef", 2, alpha, beta)
+	rvT2 := fuzzymatch.TverskyScoreRunes("abcdef", "abcd", 2, alpha, beta)
+	if rvT1 == rvT2 {
+		t.Errorf("rune asymmetry spot-check failed: T(abcd,abcdef)=%.17g equals T(abcdef,abcd)=%.17g", rvT1, rvT2)
+	}
+}
+
+// TestProp_TverskyScore_ParameterSwapSymmetry pins the Tversky 1977 §2
+// algebraic identity T(a, b, n, α, β) = T(b, a, n, β, α) bit-for-bit
+// for ANY valid (a, b, n, α, β). This is the load-bearing property
+// that proves the asymmetry is a consequence of α ≠ β rather than a
+// one-sided coding error; if the implementation silently swapped α and
+// β internally, this property would still hold (vacuously true for
+// the swapped state), but combined with the asymmetry-discriminating
+// unit test it forms the parameter-order regression detector.
+func TestProp_TverskyScore_ParameterSwapSymmetry(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		nn := tverskyN(n)
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		fwd := fuzzymatch.TverskyScore(a, b, nn, al, be)
+		rev := fuzzymatch.TverskyScore(b, a, nn, be, al)
+		return math.Float64bits(fwd) == math.Float64bits(rev)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore parameter-swap symmetry violated: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_ParameterSwapSymmetry: rune-path mirror.
+func TestProp_TverskyScoreRunes_ParameterSwapSymmetry(t *testing.T) {
+	f := func(a, b string, n int, alpha, beta float64) bool {
+		nn := tverskyN(n)
+		al := tverskyAlpha(alpha)
+		be := tverskyBetaWithMin(beta, al)
+		fwd := fuzzymatch.TverskyScoreRunes(a, b, nn, al, be)
+		rev := fuzzymatch.TverskyScoreRunes(b, a, nn, be, al)
+		return math.Float64bits(fwd) == math.Float64bits(rev)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes parameter-swap symmetry violated: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_JaccardCrossCheck asserts the algebraic
+// identity T(a, b, n, 1.0, 1.0) == QGramJaccardScore(a, b, n)
+// bit-for-bit (via math.Float64bits comparison) for any (a, b, n).
+// Tversky 1977 §2 with α=β=1 reduces to the Jaccard coefficient on
+// multisets — pinned at the property level (in addition to the unit-
+// test TestTversky_JaccardCrossCheck) so a regression on either side
+// of the equivalence surfaces immediately.
+func TestProp_TverskyScore_JaccardCrossCheck(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := tverskyN(n)
+		tv := fuzzymatch.TverskyScore(a, b, nn, 1.0, 1.0)
+		jc := fuzzymatch.QGramJaccardScore(a, b, nn)
+		return math.Float64bits(tv) == math.Float64bits(jc)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore(α=β=1) ≠ QGramJaccardScore: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_JaccardCrossCheck: rune-path mirror.
+func TestProp_TverskyScoreRunes_JaccardCrossCheck(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := tverskyN(n)
+		tv := fuzzymatch.TverskyScoreRunes(a, b, nn, 1.0, 1.0)
+		jc := fuzzymatch.QGramJaccardScoreRunes(a, b, nn)
+		return math.Float64bits(tv) == math.Float64bits(jc)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes(α=β=1) ≠ QGramJaccardScoreRunes: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_DiceCrossCheck asserts the algebraic identity
+// T(a, b, n, 0.5, 0.5) == SorensenDiceScore(a, b, n) bit-for-bit. With
+// α=β=0.5 the Tversky denominator collapses to (totalA + totalB)/2,
+// matching the Dice coefficient exactly.
+func TestProp_TverskyScore_DiceCrossCheck(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := tverskyN(n)
+		tv := fuzzymatch.TverskyScore(a, b, nn, 0.5, 0.5)
+		dc := fuzzymatch.SorensenDiceScore(a, b, nn)
+		return math.Float64bits(tv) == math.Float64bits(dc)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScore(α=β=0.5) ≠ SorensenDiceScore: %v", err)
+	}
+}
+
+// TestProp_TverskyScoreRunes_DiceCrossCheck: rune-path mirror.
+func TestProp_TverskyScoreRunes_DiceCrossCheck(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := tverskyN(n)
+		tv := fuzzymatch.TverskyScoreRunes(a, b, nn, 0.5, 0.5)
+		dc := fuzzymatch.SorensenDiceScoreRunes(a, b, nn)
+		return math.Float64bits(tv) == math.Float64bits(dc)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TverskyScoreRunes(α=β=0.5) ≠ SorensenDiceScoreRunes: %v", err)
+	}
+}
+
+// TestProp_TverskyScore_DeterministicAcrossRuns asserts that 1000
+// sequential calls on the same (a, b, n, α, β) input produce
+// byte-identical output. PITFALLS §14 closure carried forward from
+// plans 05-01/05-02/05-03 — guards against any future regression that
+// might re-introduce map-iteration order dependence on the output
+// path.
+//
+// Compares via math.Float64bits to detect bit-level differences (e.g.
+// +0.0 vs -0.0, signalling vs quiet NaN — even though the algorithm
+// emits neither). Uses the load-bearing RV-T1 input pair on the byte
+// surface, mirrored on the café/cafe rune surface.
+func TestProp_TverskyScore_DeterministicAcrossRuns(t *testing.T) {
+	const iterations = 1000
+	const a = "abcd"
+	const b = "abcdef"
+	const n = 2
+	const alpha = 0.8
+	const beta = 0.2
+	baseline := fuzzymatch.TverskyScore(a, b, n, alpha, beta)
+	baselineBits := math.Float64bits(baseline)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.TverskyScore(a, b, n, alpha, beta)
+		if math.Float64bits(got) != baselineBits {
+			t.Fatalf("iteration %d: TverskyScore(%q,%q,%d,%g,%g) = %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, a, b, n, alpha, beta, got, math.Float64bits(got), baseline, baselineBits)
+		}
+	}
+	// Mirror gate on the rune surface.
+	baselineR := fuzzymatch.TverskyScoreRunes("café", "cafe", 2, 0.5, 0.5)
+	baselineRBits := math.Float64bits(baselineR)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.TverskyScoreRunes("café", "cafe", 2, 0.5, 0.5)
+		if math.Float64bits(got) != baselineRBits {
+			t.Fatalf("iteration %d (rune): got %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, got, math.Float64bits(got), baselineR, baselineRBits)
+		}
+	}
+}
+
 // TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment checks the
 // "generally" property from RESEARCH.md: on substring-containment inputs
 // the Ratcliff-Obershelp score is typically ≥ the Levenshtein score
