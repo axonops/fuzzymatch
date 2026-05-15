@@ -124,6 +124,13 @@
   3. `NYSIIS` truncates at 6 characters per Taft 1970; reference vectors match either Knuth or a documented secondary-source citation (source choice recorded in block comment)
   4. `MRA` Match Rating Approach matches NBS Tech Note 943 reference cases; rule tables declared as package-level `var` (NOT in `init()`); Monge-Elkan's permitted-inner-list is updated to include the four phonetic AlgoIDs; all four algorithms have full unit + property + fuzz + benchmark + BDD coverage and `algorithms.json` entries
 
+**Plans**: 5 plans
+  - [ ] 07-01-PLAN.md — Soundex (Knuth/Census variant, Tymczak→T522 gate, Ashcraft/Ashcroft→A261 H/W pair) + cross-validation foundation (dual-pin jellyfish==1.2.1 + Metaphone==0.6 generator + vectors.json + phonetic-codes.json + Go loaders + Makefile + docs) + permittedMongeElkanInner 14→15 in lockstep. Closes PHON-01.
+  - [ ] 07-02-PLAN.md — Double Metaphone (Philips 2000, ~400 LOC, 5 language-origin branches, Schmidt→XMT/SMT + Catherine=Katherine→K0RN/KTRN + Pacheco→PXK gates) with rule-table provenance line (SWI-Prolog C reference) + 5 MIT-Go-port negative-attribution + algorithm-licensing-reviewer sign-off + --depth=deep code review per CONTEXT.md §3 LOCKED. Closes PHON-02.
+  - [ ] 07-03-PLAN.md — NYSIIS (Taft 1970, 6-char truncation, Brown/Browne→BRAN + Robert→RABAD) with Knuth TAOCP §6.4 as canonical algorithm description + variant_divergence handling for ~40-60% of jellyfish corpus (untruncated modified-NYSIIS variant) + PropNYSIIS_CodeLength truncation invariant. Closes PHON-03.
+  - [ ] 07-04-PLAN.md — MRA (NBS Tech Note 943) with three public surfaces: MRACode (string) + MRACompare (bool, int — catalogue's only non-float64 return) + MRAScore (float64) + var mraThresholdTable at package level (NOT init()) with explicit sum>12→2 clamp comment (Pitfall 7.C) + PropMRA_ThresholdMonotonic + length-diff>=3 auto-mismatch gate. Closes PHON-04.
+  - [ ] 07-05-PLAN.md — Finalisation: merge 4 staging goldens into algorithms.json + identifier-similarity 19-to-23 column extension + new examples/phonetic-keys educational program + bench.txt full-replace including 4 new phonetic benchmarks + monge_elkan_phonetic_inner.feature BDD coverage + ai_friendly_test.go meta-test confirming 9 Phase 7 exported symbols synced to llms.txt + llms-full.txt.
+
 ### Phase 8: Composite Scorer
 **Goal**: Ship the composite weighted Scorer (Layer 2 of the three-layer architecture) — `NewScorer(opts ...ScorerOption)` functional-options constructor, immutable after construction, concurrent-safe, dispatch against the AlgoID table established in Phase 1 and used by Monge-Elkan since Phase 6. `DefaultScorer()` provides the opinionated default; `DefaultScorerOptions()` returns the underlying option slice for "default minus algorithm X" customisation. `Score`, `ScoreAll`, `Match`, `Threshold`, `Algorithms` methods. Weights auto-normalise to sum-to-1. Cross-platform `scorer-default.json` golden file pinned. BDD module sees its first heavy use (godog + goleak + testify in `tests/bdd/`).
 **Depends on**: Phase 7
@@ -177,7 +184,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Remaining Character & Gestalt | 0/5 | Not started | - |
 | 5. Q-gram Algorithms | 5/5 | Complete    | 2026-05-15 |
 | 6. Token-based Algorithms | 0/6 | Not started | - |
-| 7. Phonetic Algorithms | 0/TBD | Not started | - |
+| 7. Phonetic Algorithms | 0/5 | Not started | - |
 | 8. Composite Scorer | 0/TBD | Not started | - |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
