@@ -562,6 +562,75 @@ func (ctx *AlgorithmContext) bothCosineScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Tversky step methods (plan 05-04)
+//
+// Carries the `with n <n> alpha <alpha> beta <beta>` shape — Tversky
+// is the only q-gram-tier algorithm that ships an asymmetric (α/β)
+// surface, so the BDD step grammar adds two float captures. The
+// asymmetry direction-sensitivity scenario uses a dedicated
+// "two scores should differ by more than X" step that asserts a
+// MINIMUM separation between lastScore and lastScore2 — the
+// LOAD-BEARING regression detector for parameter-order correctness
+// (RV-T1 vs RV-T2 input swap). The parameter-swap symmetry scenario
+// reuses the standard "both equal" pattern from earlier phases.
+// ---------------------------------------------------------------------------
+
+// iComputeTheTverskyScoreBetweenWithNAlphaBeta computes
+// TverskyScore(a, b, n, alpha, beta) and stores the result in
+// lastScore. The dispatched byte-path surface; multi-byte UTF-8
+// splits q-grams at byte boundaries.
+func (ctx *AlgorithmContext) iComputeTheTverskyScoreBetweenWithNAlphaBeta(a, b string, n int, alpha, beta float64) error {
+	ctx.lastScore = fuzzymatch.TverskyScore(a, b, n, alpha, beta)
+	return nil
+}
+
+// iComputeTheSecondTverskyScoreBetweenWithNAlphaBeta computes
+// TverskyScore(a, b, n, alpha, beta) and stores the result in
+// lastScore2. Used by the asymmetry direction-sensitivity scenario
+// (RV-T1 vs RV-T2 input swap with same α/β) AND by the parameter-
+// swap symmetry scenario (input swap WITH α/β swap).
+func (ctx *AlgorithmContext) iComputeTheSecondTverskyScoreBetweenWithNAlphaBeta(a, b string, n int, alpha, beta float64) error {
+	ctx.lastScore2 = fuzzymatch.TverskyScore(a, b, n, alpha, beta)
+	return nil
+}
+
+// iComputeTheTverskyRunesScoreBetweenWithNAlphaBeta computes
+// TverskyScoreRunes(a, b, n, alpha, beta) and stores the result in
+// lastScore. The rune path; multi-byte UTF-8 windows are compared
+// atomically.
+func (ctx *AlgorithmContext) iComputeTheTverskyRunesScoreBetweenWithNAlphaBeta(a, b string, n int, alpha, beta float64) error {
+	ctx.lastScore = fuzzymatch.TverskyScoreRunes(a, b, n, alpha, beta)
+	return nil
+}
+
+// theTwoTverskyScoresShouldDifferByMoreThan asserts |lastScore −
+// lastScore2| > threshold. The LOAD-BEARING asymmetry direction-
+// sensitivity step: with the canonical RV-T1 vs RV-T2 input-swap pair
+// at α=0.8/β=0.2, the actual difference is ≈ 0.2302; threshold 0.1
+// gates against silent α/β swap regressions while leaving headroom
+// for any future tightening of the IEEE-754 rounding behaviour.
+func (ctx *AlgorithmContext) theTwoTverskyScoresShouldDifferByMoreThan(threshold float64) error {
+	delta := math.Abs(ctx.lastScore - ctx.lastScore2)
+	if delta <= threshold {
+		return fmt.Errorf("Tversky asymmetry gate FAILED: lastScore=%g, lastScore2=%g, |Δ|=%g; want > %g (the input swap with fixed α/β should produce direction-sensitive scores)",
+			ctx.lastScore, ctx.lastScore2, delta, threshold)
+	}
+	return nil
+}
+
+// bothTverskyScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the parameter-swap symmetry scenario after computing
+// T(a, b, α, β) and T(b, a, β, α) — the algebraic identity from
+// Tversky 1977 §2 that holds bit-for-bit.
+func (ctx *AlgorithmContext) bothTverskyScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("Tversky scores not equal: %f != %f (parameter-swap symmetry violated — T(a,b,α,β) should equal T(b,a,β,α))",
+			ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -807,5 +876,36 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both Cosine scores should be equal$`,
 		a.bothCosineScoresShouldBeEqual,
+	)
+
+	// Tversky step definitions (plan 05-04). Adds the `alpha <alpha>
+	// beta <beta>` suffix to the q-gram-tier `with n <n>` shape —
+	// Tversky is the only q-gram algorithm that ships an asymmetric
+	// (α/β) surface. The `differ by more than` step is the LOAD-BEARING
+	// asymmetry direction-sensitivity gate at the BDD layer; the
+	// `both equal` step is reused by the parameter-swap symmetry
+	// scenario. The float captures use `(\d+\.?\d*)` (same shape as
+	// the existing approximately-step regex) — Tversky requires α >= 0
+	// and β >= 0, so unsigned floats suffice for the BDD grammar
+	// (the panic-on-negative-α/β contract is unit-tested separately).
+	ctx.Step(
+		`^I compute the Tversky score between "([^"]*)" and "([^"]*)" with n (\d+) alpha (\d+\.?\d*) beta (\d+\.?\d*)$`,
+		a.iComputeTheTverskyScoreBetweenWithNAlphaBeta,
+	)
+	ctx.Step(
+		`^I compute the second Tversky score between "([^"]*)" and "([^"]*)" with n (\d+) alpha (\d+\.?\d*) beta (\d+\.?\d*)$`,
+		a.iComputeTheSecondTverskyScoreBetweenWithNAlphaBeta,
+	)
+	ctx.Step(
+		`^I compute the TverskyRunes score between "([^"]*)" and "([^"]*)" with n (\d+) alpha (\d+\.?\d*) beta (\d+\.?\d*)$`,
+		a.iComputeTheTverskyRunesScoreBetweenWithNAlphaBeta,
+	)
+	ctx.Step(
+		`^the two Tversky scores should differ by more than (\d+\.?\d*)$`,
+		a.theTwoTverskyScoresShouldDifferByMoreThan,
+	)
+	ctx.Step(
+		`^both Tversky scores should be equal$`,
+		a.bothTverskyScoresShouldBeEqual,
 	)
 }
