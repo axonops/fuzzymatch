@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "SorensenDice_abcdef_abcXef_n3",
+      "algorithm": "SorensenDice",
+      "a": "abcdef",
+      "b": "abcXef",
+      "expected_score": 0.25
+    },
+    {
+      "name": "SorensenDice_abcdef_bcdefg",
+      "algorithm": "SorensenDice",
+      "a": "abcdef",
+      "b": "bcdefg",
+      "expected_score": 0.8
+    },
+    {
+      "name": "SorensenDice_both_empty",
+      "algorithm": "SorensenDice",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "SorensenDice_cafe_runes",
+      "algorithm": "SorensenDice",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "SorensenDice_identical",
+      "algorithm": "SorensenDice",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "SorensenDice_night_nacht",
+      "algorithm": "SorensenDice",
+      "a": "night",
+      "b": "nacht",
+      "expected_score": 0.25
+    },
+    {
+      "name": "SorensenDice_no_overlap",
+      "algorithm": "SorensenDice",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "SorensenDice_one_empty",
+      "algorithm": "SorensenDice",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    }
+  ]
+}

@@ -181,6 +181,39 @@ func QGramJaccardScore(a, b string, n int) float64
 func QGramJaccardScoreRunes(a, b string, n int) float64
 ```
 
+### Phase 5 algorithm surface (q-gram tier — Sørensen-Dice)
+
+Plan 05-02 lands Sørensen-Dice (Dice 1945 §3 / Sørensen 1948 §3 —
+independent rediscoveries) as the second q-gram-tier algorithm. Builds
+on the shared `extractQGrams` / `extractQGramsRunes` helpers from plan
+05-01. Two new exported functions plus a third dispatch slot
+(AlgoSorensenDice) registered with the default-n=3 trigram wrapper per
+CONTEXT.md Deferred §4. Sørensen-Dice weights the intersection more
+heavily than Jaccard (DSC = 2·|∩|/(|QA|+|QB|) vs J = |∩|/|∪|), which
+is the right default for many fuzzy name-matching workloads.
+
+```go
+// SorensenDiceScore returns the Sørensen-Dice coefficient of the
+// q-gram multisets of a and b: DSC(A, B) = 2·|QA ∩ QB| / (|QA| + |QB|),
+// in [0, 1]. Operates on bytes; UTF-8 inputs split q-grams at byte
+// boundaries. Identity short-circuit (a == b) covers both-empty.
+// Panics with "fuzzymatch: invalid q-gram size" when n < 1 — the
+// Phase 8 Scorer option WithSorensenDiceAlgorithm returns
+// ErrInvalidQGramSize instead.
+// Reference: SorensenDiceScore("night", "nacht", 2) = 0.25.
+func SorensenDiceScore(a, b string, n int) float64
+```
+
+```go
+// SorensenDiceScoreRunes returns the Sørensen-Dice coefficient under
+// rune semantics. Multi-byte UTF-8 windows are compared atomically;
+// "café" decomposes to four runes and produces three rune-bigrams at
+// n=2. Allocates two []rune slices on the heap; for ASCII inputs
+// prefer SorensenDiceScore. Same panic-on-n<1 contract.
+// Reference: SorensenDiceScoreRunes("café", "cafe", 2) = 4/6 ≈ 0.6667.
+func SorensenDiceScoreRunes(a, b string, n int) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go

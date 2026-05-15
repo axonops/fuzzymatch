@@ -214,3 +214,28 @@ func ExampleQGramJaccardScoreRunes() {
 	// Output:
 	// 0.5000
 }
+
+// ExampleSorensenDiceScore demonstrates the Sørensen-Dice coefficient on
+// the canonical NLP-textbook bigram pair. The bigram multisets are
+// QA={"ni","ig","gh","ht"} and QB={"na","ac","ch","ht"}; intersection = 1
+// (only "ht" shared); DSC = 2·1/(4+4) = 0.2500. Sørensen-Dice weights
+// the intersection more heavily than Jaccard (DSC = 2·|∩|/(|QA|+|QB|)
+// vs J = |∩|/|∪|), making it the canonical default for many fuzzy
+// name-matching workloads.
+func ExampleSorensenDiceScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.SorensenDiceScore("night", "nacht", 2))
+	// Output:
+	// 0.2500
+}
+
+// ExampleSorensenDiceScoreRunes demonstrates the rune-path variant on
+// the café/cafe pair. The rune-bigram multisets are QA={"ca","af","fé"}
+// and QB={"ca","af","fe"}; intersection = 2 ("ca" + "af");
+// DSC = 2·2/(3+3) = 4/6 ≈ 0.6667. The byte path would split "é"
+// mid-codepoint and produce a different score; the rune variant
+// guarantees rune-boundary alignment.
+func ExampleSorensenDiceScoreRunes() {
+	fmt.Printf("%.4f\n", fuzzymatch.SorensenDiceScoreRunes("café", "cafe", 2))
+	// Output:
+	// 0.6667
+}

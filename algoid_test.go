@@ -343,22 +343,42 @@ func TestDispatch_QGramJaccardRegistered(t *testing.T) {
 	}
 }
 
+// TestDispatch_SorensenDiceRegistered asserts that
+// dispatch[AlgoSorensenDice] (slot 10) is non-nil after Phase 5 plan
+// 05-02 registers a SorensenDiceScore wrapper. The dispatch wrapper
+// binds default n = 3 (the canonical trigram value) per CONTEXT.md
+// Deferred §4 — the dispatch signature has no place for the n parameter,
+// so n overrides happen via the Phase 8 Scorer option
+// WithSorensenDiceAlgorithm(weight, n).
+//
+// Only SorensenDiceScore is dispatched — SorensenDiceScoreRunes is
+// public but not dispatched (the dispatch table maps AlgoID to
+// (a, b string) float64).
+func TestDispatch_SorensenDiceRegistered(t *testing.T) {
+	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoSorensenDice)) {
+		t.Errorf("dispatch[AlgoSorensenDice] (%d) is nil — dispatch_sorensen_dice.go must register a SorensenDiceScore wrapper at package load time",
+			int(fuzzymatch.AlgoSorensenDice))
+	}
+}
+
 // TestDispatch_UnregisteredSlotsAreNil asserts that all dispatch slots except
 // AlgoLevenshtein (slot 0), AlgoDamerauLevenshteinOSA (slot 1),
 // AlgoDamerauLevenshteinFull (slot 2), AlgoHamming (slot 3), AlgoJaro
 // (slot 4), AlgoJaroWinkler (slot 5), AlgoStrcmp95 (slot 6 — registered by
 // Phase 4 plan 04-01), AlgoSmithWatermanGotoh (slot 7 — registered by Phase
 // 3 plan 03-01), AlgoLCSStr (slot 8 — registered by Phase 4 plan 04-02),
-// AlgoQGramJaccard (slot 9 — registered by Phase 5 plan 05-01), and
+// AlgoQGramJaccard (slot 9 — registered by Phase 5 plan 05-01),
+// AlgoSorensenDice (slot 10 — registered by Phase 5 plan 05-02), and
 // AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by Phase 4
 // plan 04-03) are still nil.
 //
-// Plan 05-01 flips slot 9 to registered. Slots 10..21 remain nil pending
-// later phases (remaining q-gram algorithms 05-02..05-04, plus token and
+// Plan 05-02 flips slot 10 to registered. Slots 11..21 remain nil pending
+// later plans (remaining q-gram algorithms 05-03..05-04, plus token and
 // phonetic algorithms).
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
-	// plan 04-02, plan 04-03, and plan 05-01 respectively; all others nil.
+	// plan 04-02, plan 04-03, plan 05-01, and plan 05-02 respectively;
+	// all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -370,13 +390,14 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoSmithWatermanGotoh):     true,
 		int(fuzzymatch.AlgoLCSStr):                 true,
 		int(fuzzymatch.AlgoQGramJaccard):           true,
+		int(fuzzymatch.AlgoSorensenDice):           true,
 		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, or plan 05-01)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, or plan 05-02)", i)
 			}
 		} else {
 			if !isNil {

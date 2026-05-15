@@ -114,6 +114,11 @@ scan / Extract (Phases 9–10).
 - func QGramJaccardScore(a, b string, n int) float64
 - func QGramJaccardScoreRunes(a, b string, n int) float64
 
+### Sørensen-Dice (Dice 1945; Sørensen 1948) similarity
+
+- func SorensenDiceScore(a, b string, n int) float64
+- func SorensenDiceScoreRunes(a, b string, n int) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

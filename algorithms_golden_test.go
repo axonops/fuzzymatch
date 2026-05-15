@@ -1034,3 +1034,111 @@ func TestGolden_QGramJaccard_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/qgram_jaccard.json", file)
 }
+
+// buildSorensenDiceStagingEntries returns the eight Sørensen-Dice
+// entries used by TestGolden_SorensenDice_Staging. ExpectedScore is
+// computed from the current implementation so the staging file stays
+// in sync with actual output. Eight entries (sorted by Name in the test):
+//
+//   - SorensenDice_abcdef_abcXef_n3   (RV-D3; trigram variant; n=3;
+//                                      2·1/(4+4) = 0.25)
+//   - SorensenDice_abcdef_bcdefg      (RV-D2; high-overlap analogue;
+//                                      n=2; 2·4/(5+5) = 0.8)
+//   - SorensenDice_both_empty         (n=2; both-empty convention; 1.0)
+//   - SorensenDice_cafe_runes         (rune-path canary; n=2;
+//                                      2·2/(3+3) = 4/6 ≈ 0.6667)
+//   - SorensenDice_identical          (RV-D4; identity short-circuit;
+//                                      n=2; 1.0)
+//   - SorensenDice_night_nacht        (RV-D1; load-bearing canonical
+//                                      NLP-textbook bigram pair; n=2;
+//                                      2·1/(4+4) = 0.25)
+//   - SorensenDice_no_overlap         (n=2; 2·0/(2+2) = 0.0)
+//   - SorensenDice_one_empty          (n=2; one-empty convention; 0.0)
+//
+// Plan 05-05 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file. The cafe_runes entry is the
+// rune-path canary; all others are byte-path.
+func buildSorensenDiceStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "SorensenDice_abcdef_abcXef_n3",
+			Algorithm:     "SorensenDice",
+			A:             "abcdef",
+			B:             "abcXef",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("abcdef", "abcXef", 3),
+		},
+		{
+			Name:          "SorensenDice_abcdef_bcdefg",
+			Algorithm:     "SorensenDice",
+			A:             "abcdef",
+			B:             "bcdefg",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("abcdef", "bcdefg", 2),
+		},
+		{
+			Name:          "SorensenDice_both_empty",
+			Algorithm:     "SorensenDice",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("", "", 2),
+		},
+		{
+			Name:          "SorensenDice_cafe_runes",
+			Algorithm:     "SorensenDice",
+			A:             "café",
+			B:             "cafe",
+			ExpectedScore: fuzzymatch.SorensenDiceScoreRunes("café", "cafe", 2),
+		},
+		{
+			Name:          "SorensenDice_identical",
+			Algorithm:     "SorensenDice",
+			A:             "hello",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("hello", "hello", 2),
+		},
+		{
+			Name:          "SorensenDice_night_nacht",
+			Algorithm:     "SorensenDice",
+			A:             "night",
+			B:             "nacht",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("night", "nacht", 2),
+		},
+		{
+			Name:          "SorensenDice_no_overlap",
+			Algorithm:     "SorensenDice",
+			A:             "abc",
+			B:             "xyz",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("abc", "xyz", 2),
+		},
+		{
+			Name:          "SorensenDice_one_empty",
+			Algorithm:     "SorensenDice",
+			A:             "",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.SorensenDiceScore("", "abc", 2),
+		},
+	}
+}
+
+// TestGolden_SorensenDice_Staging produces
+// testdata/golden/_staging/sorensen_dice.json for plan 05-05's merge
+// step. Entries are sorted alphabetically by Name. Eight entries cover:
+// abcdef_abcXef_n3 (RV-D3 trigram variant), abcdef_bcdefg (RV-D2
+// high-overlap analogue), both_empty, cafe_runes (rune-path canary),
+// identical (RV-D4), night_nacht (RV-D1 load-bearing canonical
+// NLP-textbook bigram pair), no_overlap, one_empty.
+//
+// Plan 05-05 owns the canonical algorithms.json merge; this plan only
+// writes the staging file. Do NOT update TestGolden_Algorithms_Merge's
+// stagingFiles slice here — that's plan 05-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_SorensenDice_Staging(t *testing.T) {
+	entries := buildSorensenDiceStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/sorensen_dice.json", file)
+}
