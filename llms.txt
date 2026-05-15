@@ -151,6 +151,11 @@ scan / Extract (Phases 9–10).
 - func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64
 - func MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64
 
+### Soundex (Russell 1918 / Knuth TAOCP §6.4) — Knuth/Census variant
+
+- func SoundexCode(s string) string
+- func SoundexScore(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

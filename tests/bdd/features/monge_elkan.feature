@@ -138,22 +138,23 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 14 permitted inner Algo
 
   @token @monge-elkan
   Scenario Outline: non-permitted inner AlgoIDs panic with the documented message
-    # RESEARCH.md Pitfall 4 + CONTEXT.md §3 LOCKED — exhaustive
-    # rejection of the 9 non-permitted inner AlgoIDs:
+    # RESEARCH.md Pitfall 4 + CONTEXT.md §3 LOCKED — rejection of non-permitted
+    # inner AlgoIDs:
     #   - AlgoMongeElkan: self-recursion (infinite loop guard)
     #   - AlgoTokenSortRatio / AlgoTokenSetRatio / AlgoPartialRatio /
     #     AlgoTokenJaccard: token-on-token meaningless
-    #   - AlgoSoundex / AlgoDoubleMetaphone / AlgoNYSIIS / AlgoMRA:
-    #     reserved for Phase 7's additive allow-list expansion
+    #   - AlgoDoubleMetaphone / AlgoNYSIIS / AlgoMRA:
+    #     reserved for Phase 7 plans 07-02..07-04 additive allow-list expansion
+    # Note: AlgoSoundex is now PERMITTED (plan 07-01 added it to the allow-list
+    # — 14 → 15 entries). The BDD scenario uses AlgoDoubleMetaphone as the
+    # representative non-permitted phonetic AlgoID until plan 07-02 lands.
     # The panic contract is fully exercised by
-    # TestMongeElkan_PanicsOnNonPermittedInner; the BDD scenario above
-    # documents the contract at the feature-spec layer with one
-    # representative non-permitted AlgoID per category.
+    # TestMongeElkan_PanicsOnNonPermittedInner.
     When I attempt to compute the MongeElkan score between "a b" and "c d" with inner Algo<inner>
     Then the call should panic with "<phrase>"
 
     Examples:
-      | inner          | phrase                                            |
-      | MongeElkan     | not permitted as Monge-Elkan inner metric         |
-      | TokenSortRatio | not permitted as Monge-Elkan inner metric         |
-      | Soundex        | not permitted as Monge-Elkan inner metric         |
+      | inner           | phrase                                            |
+      | MongeElkan      | not permitted as Monge-Elkan inner metric         |
+      | TokenSortRatio  | not permitted as Monge-Elkan inner metric         |
+      | DoubleMetaphone | not permitted as Monge-Elkan inner metric         |

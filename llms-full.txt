@@ -709,6 +709,56 @@ func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float
 func MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64
 ```
 
+### Phase 7 algorithm surface (phonetic tier — Soundex)
+
+Plan 07-01 lands Soundex, the first of four Phase 7 phonetic algorithms.
+Soundex encodes a name as a 4-character phonetic code (1 uppercase letter
++ 3 digits). The **Knuth/Census variant** is used — H and W are transparent
+skips (NOT separators). This is the distinguishing choice from the SQL/MySQL
+variant (where H and W are separators).
+
+**Variant gate (LOAD-BEARING):**
+- `SoundexCode("Tymczak") == "T522"` (SQL/MySQL returns "T520")
+- `SoundexCode("Ashcraft") == SoundexCode("Ashcroft") == "A261"` (H/W transparent)
+- `SoundexCode("Robert") == SoundexCode("Rupert") == "R163"` (Knuth p. 393)
+
+**Non-ASCII handling:** non-ASCII runes are silently dropped before encoding.
+`SoundexCode("Müller")` sees `"Mller"` after dropping `ü`. For Unicode-aware
+similarity compose with `Normalise` + diacritic stripping first, or use a
+character-based algorithm (Levenshtein, Jaro-Winkler).
+
+**Score semantics:** binary 0.0 / 1.0. Returns 1.0 if both codes are
+non-empty and equal, 0.0 otherwise. Both-empty returns 1.0 (identity
+short-circuit). One-empty returns 0.0.
+
+**Dispatch:** `AlgoSoundex` (slot 23) binds `SoundexScore`. `SoundexCode`
+is public but not dispatched (returns `string`, not `float64`).
+
+**Monge-Elkan inner:** `AlgoSoundex` is permitted as a Monge-Elkan inner
+metric (plan 07-01 adds it to `permittedMongeElkanInner`; the allow-list
+grows from 14 → 15 entries).
+
+```go
+// SoundexCode returns the 4-character Soundex phonetic code for s using
+// the Knuth/Census variant (Knuth TAOCP Vol. 3 §6.4). Returns "" for
+// empty input or input containing no ASCII letters.
+//
+// Non-ASCII input handling: this algorithm operates on ASCII letters
+// [A-Za-z] only. Non-ASCII runes (accented characters, emoji,
+// combining marks) are dropped silently before encoding.
+func SoundexCode(s string) string
+```
+
+```go
+// SoundexScore returns 1.0 if a and b share the same non-empty Soundex
+// code (Knuth/Census variant), and 0.0 otherwise. Identity short-circuit
+// covers both-empty (1.0). One-empty returns 0.0.
+//
+// Non-ASCII input handling: this algorithm operates on ASCII letters
+// [A-Za-z] only. Non-ASCII runes are dropped silently before encoding.
+func SoundexScore(a, b string) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go

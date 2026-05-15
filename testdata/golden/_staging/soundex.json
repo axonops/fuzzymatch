@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Soundex_Ashcraft_Ashcroft_match",
+      "algorithm": "Soundex",
+      "a": "Ashcraft",
+      "b": "Ashcroft",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_both_empty",
+      "algorithm": "Soundex",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_Catherine_Katherine_nomatch",
+      "algorithm": "Soundex",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_identical_Robert",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "Robert",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_one_empty_a",
+      "algorithm": "Soundex",
+      "a": "",
+      "b": "Robert",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_one_empty_b",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Robert_Rupert_match",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "Rupert",
+      "expected_score": 1
+    },
+    {
+      "name": "Soundex_Robert_Smith_nomatch",
+      "algorithm": "Soundex",
+      "a": "Robert",
+      "b": "Smith",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Smith_Jones_nomatch",
+      "algorithm": "Soundex",
+      "a": "Smith",
+      "b": "Jones",
+      "expected_score": 0
+    },
+    {
+      "name": "Soundex_Tymczak_self_match",
+      "algorithm": "Soundex",
+      "a": "Tymczak",
+      "b": "Tymczak",
+      "expected_score": 1
+    }
+  ]
+}

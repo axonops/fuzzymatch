@@ -497,3 +497,26 @@ func ExampleMongeElkanScoreSymmetric() {
 	// 0.7333
 	// 0.7333
 }
+
+// ExampleSoundexCode demonstrates SoundexCode on the canonical Knuth TAOCP
+// Vol. 3 §6.4 reference pair. "Robert" encodes as "R163". "Rupert" also
+// encodes as "R163" — illustrating that two phonetically similar names share
+// the same Soundex code.
+func ExampleSoundexCode() {
+	fmt.Println(fuzzymatch.SoundexCode("Robert"))
+	fmt.Println(fuzzymatch.SoundexCode("Rupert"))
+	// Output:
+	// R163
+	// R163
+}
+
+// ExampleSoundexScore demonstrates SoundexScore on the canonical Robert/Rupert
+// pair. Both names encode as R163 → score 1.0. Smith encodes as S530 →
+// no match with Robert → score 0.0.
+func ExampleSoundexScore() {
+	fmt.Printf("%.1f\n", fuzzymatch.SoundexScore("Robert", "Rupert"))
+	fmt.Printf("%.1f\n", fuzzymatch.SoundexScore("Robert", "Smith"))
+	// Output:
+	// 1.0
+	// 0.0
+}
