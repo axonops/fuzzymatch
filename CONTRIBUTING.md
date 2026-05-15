@@ -102,6 +102,18 @@ removal here.
   Python 3.7+ (difflib is stdlib — no `pip install` needed). NOT
   part of `make check`; CI consumes the committed JSON via
   `TestRatcliffObershelp_CrossValidation` and does not require Python.
+- `make regen-token-ratio-cross-validation` — developer-only;
+  regenerate `testdata/cross-validation/token-ratios/vectors.json`
+  (TokenSortRatio, TokenSetRatio, PartialRatio bytes, PartialRatio
+  runes — all four scores per entry per 06-CONTEXT.md §1 LOCKED)
+  from `rapidfuzz==3.14.5` via
+  `scripts/gen-token-ratio-cross-validation.py`. The script refuses
+  to run on any other rapidfuzz version. Requires Python 3.7+ and
+  `python3 -m pip install --user rapidfuzz==3.14.5`. NOT part of
+  `make check`; CI consumes the committed JSON via
+  `TestTokenRatios_CrossValidation` and does not require Python.
+  See `docs/cross-validation.md` for the OQ-1 tokeniser-divergence
+  resolution and the regeneration protocol.
 - `make release-check` — validate `.goreleaser.yml` parses; never
   invokes a release locally (releases ship via CI only — see below).
 - `make clean` — clear test cache and coverage outputs.

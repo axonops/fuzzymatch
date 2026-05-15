@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "_metadata": {
+    "rapidfuzz_version": "3.14.5",
+    "python_version": "3.12.12",
+    "regenerated_at": "2026-05-15T10:21:25.669278+00:00"
+  },
+  "entries": [
+    {
+      "name": "identity_short",
+      "a": "hello world",
+      "b": "hello world",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "both_empty",
+      "a": "",
+      "b": "",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 0.0,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "one_empty_a",
+      "a": "",
+      "b": "hello world",
+      "token_sort_ratio": 0.0,
+      "token_set_ratio": 0.0,
+      "partial_ratio_bytes": 0.0,
+      "partial_ratio_runes": 0.0,
+      "partial_only": false
+    },
+    {
+      "name": "one_empty_b",
+      "a": "hello world",
+      "b": "",
+      "token_sort_ratio": 0.0,
+      "token_set_ratio": 0.0,
+      "partial_ratio_bytes": 0.0,
+      "partial_ratio_runes": 0.0,
+      "partial_only": false
+    },
+    {
+      "name": "tokens_reordered_two",
+      "a": "alpha beta",
+      "b": "beta alpha",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 0.6666666666666667,
+      "partial_ratio_runes": 0.6666666666666667,
+      "partial_only": false
+    },
+    {
+      "name": "tokens_reordered_canonical",
+      "a": "fuzzy wuzzy was a bear",
+      "b": "wuzzy fuzzy was a bear",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 0.9302325581395349,
+      "partial_ratio_runes": 0.9302325581395349,
+      "partial_only": false
+    },
+    {
+      "name": "subset_a_in_b",
+      "a": "alpha beta",
+      "b": "alpha beta gamma",
+      "token_sort_ratio": 0.7692307692307692,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "subset_b_in_a",
+      "a": "alpha beta gamma",
+      "b": "alpha beta",
+      "token_sort_ratio": 0.7692307692307692,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "tokenset_diff_dominates",
+      "a": "the cat sat on the mat",
+      "b": "the cat sat on the rug",
+      "token_sort_ratio": 0.8181818181818181,
+      "token_set_ratio": 0.875,
+      "partial_ratio_bytes": 0.926829268292683,
+      "partial_ratio_runes": 0.926829268292683,
+      "partial_only": false
+    },
+    {
+      "name": "tokenset_subset_shortcircuit",
+      "a": "alpha beta",
+      "b": "alpha beta alpha beta",
+      "token_sort_ratio": 0.6451612903225806,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "tokens_disjoint",
+      "a": "abc def",
+      "b": "xyz qrs",
+      "token_sort_ratio": 0.1428571428571429,
+      "token_set_ratio": 0.1428571428571429,
+      "partial_ratio_bytes": 0.18181818181818177,
+      "partial_ratio_runes": 0.18181818181818177,
+      "partial_only": false
+    },
+    {
+      "name": "tokens_low_overlap",
+      "a": "hello world",
+      "b": "world peace",
+      "token_sort_ratio": 0.6363636363636364,
+      "token_set_ratio": 0.6363636363636364,
+      "partial_ratio_bytes": 0.625,
+      "partial_ratio_runes": 0.625,
+      "partial_only": false
+    },
+    {
+      "name": "long_token_reorder",
+      "a": "alpha beta gamma delta epsilon zeta",
+      "b": "zeta epsilon delta gamma beta alpha",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 0.6,
+      "partial_ratio_runes": 0.6,
+      "partial_only": false
+    },
+    {
+      "name": "ascii_medium",
+      "a": "the quick brown fox jumps over the lazy dog",
+      "b": "the quick brown dog jumps over the lazy fox",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 0.9176470588235294,
+      "partial_ratio_runes": 0.9176470588235294,
+      "partial_only": false
+    },
+    {
+      "name": "ascii_long",
+      "a": "alpha beta gamma delta epsilon zeta eta theta iota kappa",
+      "b": "kappa iota theta eta zeta epsilon delta gamma beta alpha",
+      "token_sort_ratio": 1.0,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 0.6407766990291262,
+      "partial_ratio_runes": 0.6407766990291262,
+      "partial_only": false
+    },
+    {
+      "name": "unicode_lowercase_ascii_safe",
+      "a": "alpha beta",
+      "b": "beta gamma alpha",
+      "token_sort_ratio": 0.7692307692307692,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 0.6666666666666667,
+      "partial_ratio_runes": 0.6666666666666667,
+      "partial_only": false
+    },
+    {
+      "name": "partial_left_tail_wins",
+      "a": "ab",
+      "b": "abc",
+      "token_sort_ratio": 0.8,
+      "token_set_ratio": 0.8,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "partial_right_tail_wins",
+      "a": "bc",
+      "b": "abc",
+      "token_sort_ratio": 0.8,
+      "token_set_ratio": 0.8,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "partial_middle_wins",
+      "a": "lazy",
+      "b": "the lazy dog",
+      "token_sort_ratio": 0.5,
+      "token_set_ratio": 1.0,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    },
+    {
+      "name": "long_short_mismatch",
+      "a": "x",
+      "b": "the very long quick brown fox jumps over the lazy dog",
+      "token_sort_ratio": 0.03703703703703709,
+      "token_set_ratio": 0.04,
+      "partial_ratio_bytes": 1.0,
+      "partial_ratio_runes": 1.0,
+      "partial_only": false
+    }
+  ]
+}
