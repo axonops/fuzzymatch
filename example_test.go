@@ -547,3 +547,25 @@ func ExampleDoubleMetaphoneScore() {
 	// 1.0
 	// 0.0
 }
+
+// ExampleNYSIISCode demonstrates NYSIISCode on the canonical Brown/Browne pair
+// from Knuth TAOCP Vol. 3 §6.4. Both names encode to "BRAN" because the
+// original Taft-1970 6-char truncation rules produce the same code.
+func ExampleNYSIISCode() {
+	fmt.Println(fuzzymatch.NYSIISCode("Brown"))
+	fmt.Println(fuzzymatch.NYSIISCode("Browne"))
+	// Output:
+	// BRAN
+	// BRAN
+}
+
+// ExampleNYSIISScore demonstrates NYSIISScore on the canonical Brown/Browne pair.
+// Both names encode to "BRAN" → score 1.0. Brown and Robert encode to different
+// codes → score 0.0.
+func ExampleNYSIISScore() {
+	fmt.Printf("%.1f\n", fuzzymatch.NYSIISScore("Brown", "Browne"))
+	fmt.Printf("%.1f\n", fuzzymatch.NYSIISScore("Brown", "Robert"))
+	// Output:
+	// 1.0
+	// 0.0
+}

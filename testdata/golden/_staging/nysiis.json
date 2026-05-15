@@ -1,0 +1,12 @@
+[
+  {"algorithm": "NYSIIS", "a": "", "b": "", "expected_score": 1.0},
+  {"algorithm": "NYSIIS", "a": "Brown", "b": "Brown", "expected_score": 1.0},
+  {"algorithm": "NYSIIS", "a": "Brown", "b": "Browne", "expected_score": 1.0},
+  {"algorithm": "NYSIIS", "a": "Robert", "b": "Robert", "expected_score": 1.0},
+  {"algorithm": "NYSIIS", "a": "Catherine", "b": "Katherine", "expected_score": 1.0},
+  {"algorithm": "NYSIIS", "a": "Brown", "b": "Robert", "expected_score": 0.0},
+  {"algorithm": "NYSIIS", "a": "Smith", "b": "Jones", "expected_score": 0.0},
+  {"algorithm": "NYSIIS", "a": "", "b": "Brown", "expected_score": 0.0},
+  {"algorithm": "NYSIIS", "a": "Brown", "b": "", "expected_score": 0.0},
+  {"algorithm": "NYSIIS", "a": "John", "b": "Jon", "expected_score": 1.0}
+]

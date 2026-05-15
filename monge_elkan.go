@@ -276,9 +276,9 @@ package fuzzymatch
 // it ADDS its entry here AND updates the panic-test fixture in
 // monge_elkan_test.go in the SAME COMMIT (per CONTEXT.md §4 LOCKED).
 //
-// 16 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 2 phonetic-tier
+// 17 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 3 phonetic-tier
 // — plan 07-01 adds AlgoSoundex; plan 07-02 adds AlgoDoubleMetaphone;
-// plans 07-03..07-04 add NYSIIS/MRA additively → 18 total after Phase 7 completes).
+// plan 07-03 adds AlgoNYSIIS; plan 07-04 adds AlgoMRA → 18 total after Phase 7 completes).
 //
 // EXPLICITLY NOT permitted (verified by exhaustive panic test):
 //
@@ -288,8 +288,8 @@ package fuzzymatch
 //     receives single tokens from the outer Tokenise; re-tokenising
 //     single tokens is a no-op / identity-equivalent at best, recursive
 //     at worst)
-//   - Phase 7 phonetic remaining (AlgoNYSIIS / AlgoMRA): added in
-//     Phase 7 plans 07-03..07-04 ADDITIVELY
+//   - Phase 7 phonetic remaining (AlgoMRA): added in
+//     Phase 7 plan 07-04 ADDITIVELY
 var permittedMongeElkanInner = map[AlgoID]bool{
 	// Character tier (9):
 	AlgoLevenshtein:            true, // Levenshtein 1965
@@ -314,6 +314,7 @@ var permittedMongeElkanInner = map[AlgoID]bool{
 	// Phonetic tier (Phase 7) — additive per CONTEXT.md §4 LOCKED:
 	AlgoSoundex:         true, // Russell 1918 / Knuth TAOCP §6.4 — plan 07-01
 	AlgoDoubleMetaphone: true, // Philips 2000 — plan 07-02
+	AlgoNYSIIS:          true, // Taft 1970 / Knuth TAOCP §6.4 — plan 07-03
 }
 
 // MongeElkanScore returns the asymmetric Monge-Elkan similarity between

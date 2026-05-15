@@ -811,6 +811,50 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string)
 func DoubleMetaphoneScore(a, b string) float64
 ```
 
+---
+
+### NYSIIS (nysiis.go) — Taft 1970 / Knuth TAOCP Vol. 3 §6.4
+
+**Algorithm:** NYSIIS (New York State Identification and Intelligence System).
+Original Taft-1970 variant: 6-character truncation, each rule applied once.
+Modified-NYSIIS (no truncation, iterate-to-fixed-point) is explicitly rejected.
+
+**Source-Origin:**
+- *Algorithmic origin:* Taft, R. L. (1970). Name search techniques. NYSIIS Special Report No. 1.
+- *Canonical description:* Knuth, D. E. (1973). The Art of Computer Programming, Vol. 3, §6.4.
+- *Note:* Taft 1970 is a NY State Special Report not available through academic publishers;
+  Knuth's secondary description in TAOCP Vol. 3 §6.4 is the authoritative algorithm description.
+- *Cross-validation:* jellyfish==1.2.1 (BSD-2-Clause) — reference vectors only.
+- *MIT-licensed Go ports NOT consulted:* github.com/UjjwalAyyangar/go-jellyfish
+
+**Load-bearing variant gate:**
+`NYSIISCode("Catherine") == "CATARA"` (6 chars, NOT "CATARAN" which jellyfish returns).
+`NYSIISCode("Brown") == NYSIISCode("Browne") == "BRAN"` (canonical Knuth pair).
+
+**Non-ASCII:** non-ASCII runes dropped silently; ASCII [A-Za-z] only.
+
+```go
+// NYSIISCode returns the NYSIIS phonetic code for s, truncated to a maximum
+// of 6 uppercase ASCII letters using the original Taft-1970 algorithm per
+// Knuth TAOCP Vol. 3 §6.4. Output matches ^[A-Z]{0,6}$.
+//
+// Variant: original NYSIIS-1970, 6-character truncation, each rule applied once.
+// NYSIISCode("Catherine") == "CATARA" (6 chars, NOT 7 as in modified-NYSIIS).
+func NYSIISCode(s string) string
+
+// NYSIISScore returns 1.0 if a and b share the same non-empty NYSIIS code
+// (original Taft-1970 variant, 6-char truncation), and 0.0 otherwise.
+// Both-empty returns 1.0 (identity short-circuit). One-empty returns 0.0.
+func NYSIISScore(a, b string) float64
+```
+
+**Dispatch:** `AlgoNYSIIS` (slot 25) binds `NYSIISScore`.
+
+**Monge-Elkan inner:** `AlgoNYSIIS` is permitted as a Monge-Elkan
+inner metric (added to `permittedMongeElkanInner` in plan 07-03).
+
+---
+
 ### Normalisation (normalise.go)
 
 ```go

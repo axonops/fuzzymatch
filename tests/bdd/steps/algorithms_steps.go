@@ -1045,6 +1045,21 @@ func (ctx *AlgorithmContext) bothKeysShouldBeNonEmpty() error {
 	return nil
 }
 
+// iComputeTheNYSIISCodeOf computes NYSIISCode(s) and stores the result
+// in ctx.lastCode. Used by plan 07-03 NYSIIS BDD scenarios. The shared
+// `^the code should be "..."$` step (from plan 07-01) covers assertion.
+func (ctx *AlgorithmContext) iComputeTheNYSIISCodeOf(s string) error {
+	ctx.lastCode = fuzzymatch.NYSIISCode(s)
+	return nil
+}
+
+// iComputeTheNYSIISScoreBetween computes NYSIISScore(a, b) and stores the
+// result in ctx.lastScore. Used by plan 07-03 NYSIIS BDD scenarios.
+func (ctx *AlgorithmContext) iComputeTheNYSIISScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.NYSIISScore(a, b)
+	return nil
+}
+
 // theCallShouldPanicWith asserts that the previous attempt step
 // captured a panic whose message CONTAINS the given phrase. Used by
 // the panic-on-non-permitted-inner scenarios.
@@ -1506,5 +1521,17 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both keys should be non-empty$`,
 		a.bothKeysShouldBeNonEmpty,
+	)
+
+	// NYSIIS step definitions (plan 07-03). Code step writes to ctx.lastCode;
+	// the shared `^the code should be "..."$` assertion step from plan 07-01
+	// covers assertion. Score step uses standard lastScore + theScoreShouldBeExactly.
+	ctx.Step(
+		`^I compute the NYSIIS code of "([^"]*)"$`,
+		a.iComputeTheNYSIISCodeOf,
+	)
+	ctx.Step(
+		`^I compute the NYSIIS score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheNYSIISScoreBetween,
 	)
 }

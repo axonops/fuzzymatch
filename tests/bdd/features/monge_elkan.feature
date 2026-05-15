@@ -28,7 +28,7 @@
 # CONTEXT.md §4 LOCKED.
 
 @token
-Feature: Monge-Elkan (asymmetric per-token-max-mean with 14 permitted inner AlgoIDs + symmetric variant)
+Feature: Monge-Elkan (asymmetric per-token-max-mean with 17 permitted inner AlgoIDs + symmetric variant)
   Monge-Elkan tokenises each side and, for each token in A, takes the
   maximum inner-metric similarity over every token in B; then averages
   those per-token maxima. With a fixed inner metric the function is
@@ -143,12 +143,12 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 14 permitted inner Algo
     #   - AlgoMongeElkan: self-recursion (infinite loop guard)
     #   - AlgoTokenSortRatio / AlgoTokenSetRatio / AlgoPartialRatio /
     #     AlgoTokenJaccard: token-on-token meaningless
-    #   - AlgoDoubleMetaphone / AlgoNYSIIS / AlgoMRA:
-    #     reserved for Phase 7 plans 07-02..07-04 additive allow-list expansion
+    #   - AlgoMRA: reserved for Phase 7 plan 07-04 additive allow-list expansion
     # Note: AlgoSoundex is PERMITTED (plan 07-01 added it — 14→15 entries).
     # AlgoDoubleMetaphone is now PERMITTED (plan 07-02 added it — 15→16 entries).
-    # The BDD scenario uses AlgoNYSIIS as the representative non-permitted phonetic
-    # AlgoID (until plan 07-03 lands). The panic contract is fully exercised by
+    # AlgoNYSIIS is now PERMITTED (plan 07-03 added it — 16→17 entries).
+    # The BDD scenario uses AlgoMRA as the representative non-permitted phonetic
+    # AlgoID (until plan 07-04 lands). The panic contract is fully exercised by
     # TestMongeElkan_PanicsOnNonPermittedInner.
     When I attempt to compute the MongeElkan score between "a b" and "c d" with inner Algo<inner>
     Then the call should panic with "<phrase>"
@@ -157,4 +157,4 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 14 permitted inner Algo
       | inner           | phrase                                            |
       | MongeElkan      | not permitted as Monge-Elkan inner metric         |
       | TokenSortRatio  | not permitted as Monge-Elkan inner metric         |
-      | NYSIIS          | not permitted as Monge-Elkan inner metric         |
+      | MRA             | not permitted as Monge-Elkan inner metric         |
