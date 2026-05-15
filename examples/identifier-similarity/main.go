@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main demonstrates all nineteen Phase 2 + 3 + 4 + 5 + 6 character-based,
-// gestalt, q-gram, and token-based similarity algorithms from
+// Package main demonstrates all twenty-three Phase 2 + 3 + 4 + 5 + 6 + 7 character-based,
+// gestalt, q-gram, token-based, and phonetic similarity algorithms from
 // github.com/axonops/fuzzymatch side-by-side on database column-name identifier pairs.
 //
 // The example was designed for axonops/audit, the primary downstream
@@ -23,11 +23,12 @@
 // or abbreviation style.
 //
 // Each row in the printed table represents a pair of database identifiers;
-// each column represents one of the nineteen algorithms (Phase 2 six +
+// each column represents one of the twenty-three algorithms (Phase 2 six +
 // Smith-Waterman-Gotoh + Strcmp95 + LCSStr + Ratcliff-Obershelp + the four
 // Phase 5 q-gram algorithms QGramJ / Dice / Cos / Tversky at default n=3 +
 // the five Phase 6 token-based algorithms TokenSort / TokenSet / Partial /
-// TokenJac / MongeElk). Cell values are similarity scores in [0.0, 1.0]
+// TokenJac / MongeElk + the four Phase 7 phonetic algorithms Soundex /
+// DblMetaph / NYSIIS / MRA). Cell values are similarity scores in [0.0, 1.0]
 // rounded to 4 decimal places.
 //
 // Note: CONTEXT.md <deferred> identifier-similarity format spec'd
@@ -69,12 +70,13 @@ var pairs = []struct{ a, b string }{
 	{"is_deleted", "is_active"},
 }
 
-// algorithms is the ordered list of nineteen Phase 2 + 3 + 4 + 5 + 6 scoring
+// algorithms is the ordered list of twenty-three Phase 2 + 3 + 4 + 5 + 6 + 7 scoring
 // functions with their display names. The order matches the column layout in
 // the printed table: Levenshtein, DL-OSA, DL-Full, Hamming, Jaro, Jaro-Winkler,
 // SWG (Smith-Waterman-Gotoh), Strcmp95, LCSStr, RO (Ratcliff-Obershelp),
 // QGramJ (q-gram Jaccard), Dice (Sørensen-Dice), Cos (Cosine), Tversky,
-// TokenSort, TokenSet, Partial, TokenJac, MongeElk.
+// TokenSort, TokenSet, Partial, TokenJac, MongeElk, Soundex, DblMetaph,
+// NYSIIS, MRA.
 //
 // "RO" is the short label for Ratcliff-Obershelp — the function name
 // "RatcliffObershelpScore" overflows the algoWidth=13 column budget by
@@ -128,6 +130,11 @@ var algorithms = []struct {
 	{"MongeElk", func(a, b string) float64 { // Phase 6 CONTEXT §4 LOCKED dispatch defaults
 		return fuzzymatch.MongeElkanScoreSymmetric(a, b, fuzzymatch.AlgoJaroWinkler, fuzzymatch.DefaultNormalisationOptions())
 	}},
+	// Phase 7 phonetic tier (binary 0/1 scores):
+	{"Soundex", fuzzymatch.SoundexScore},
+	{"DblMetaph", fuzzymatch.DoubleMetaphoneScore},
+	{"NYSIIS", fuzzymatch.NYSIISScore},
+	{"MRA", fuzzymatch.MRAScore},
 }
 
 func main() {
