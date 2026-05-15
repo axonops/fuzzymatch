@@ -166,6 +166,12 @@ scan / Extract (Phases 9–10).
 - func NYSIISCode(s string) string
 - func NYSIISScore(a, b string) float64
 
+### MRA (Moore 1977 / NBS Tech Note 943)
+
+- func MRACode(s string) string
+- func MRACompare(a, b string) (matched bool, simScore int)
+- func MRAScore(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

@@ -173,6 +173,56 @@
       "algorithm": "NYSIIS",
       "input": "Smith",
       "code": "SNAT"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "",
+      "code": ""
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Byrne",
+      "code": "BYRN"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Boern",
+      "code": "BRN"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Smith",
+      "code": "SMTH"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Smyth",
+      "code": "SMYTH"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Catherine",
+      "code": "CTHRN"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Kathrynoglin",
+      "code": "KTHGLN"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Robert",
+      "code": "RBRT"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "William",
+      "code": "WLM"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Katherine",
+      "code": "KTHRN"
     }
   ]
 }

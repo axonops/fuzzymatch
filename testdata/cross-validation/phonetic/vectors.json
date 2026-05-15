@@ -533,8 +533,126 @@
     },
     {
       "algorithm": "MRA",
+      "input": "Byrne",
+      "code": "BYRN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Boern",
+      "code": "BRN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Smith",
+      "code": "SMTH",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Smyth",
+      "code": "SMYTH",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Catherine",
+      "code": "CTHRN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Katherine",
+      "code": "KTHRN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Kathrynoglin",
+      "code": "KTHGLN",
+      "variant_divergence": false,
+      "_note": "First-3-last-3 truncation gate (pre-truncation len 9 > 6)"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Robert",
+      "code": "RBRT",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "William",
+      "code": "WLM",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "John",
+      "code": "JHN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "James",
+      "code": "JMS",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Thompson",
+      "code": "THMPSN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Margaret",
+      "code": "MRGRT",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Sarah",
+      "code": "SRH",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Patterson",
+      "code": "PTRSN",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Frederick",
+      "code": "FRDRCK",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Lee",
+      "code": "L",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "MRA",
+      "input": "Ad",
+      "code": "AD",
+      "variant_divergence": false,
+      "_note": "Short input for length-difference gate testing"
+    },
+    {
+      "algorithm": "MRA",
+      "input": "ZachariahMontgomery",
+      "code": "ZCHMRY",
+      "variant_divergence": false,
+      "_note": "Long input: pre-truncation ZCHRHMNTGMRY (len 12 > 6) → first-3-last-3 → ZCHMRY; diff from AD=|2-6|=4>=3 → length-diff gate"
+    },
+    {
+      "algorithm": "MRA",
       "input": "",
-      "code": ""
+      "code": "",
+      "variant_divergence": false
     }
   ]
 }

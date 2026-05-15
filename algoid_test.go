@@ -453,8 +453,9 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // and AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by
 // Phase 4 plan 04-03) are still nil.
 //
-// Plan 06-05 flips slot 13 (AlgoMongeElkan) to registered. Slots
-// 18..21 remain nil pending Phase 7 (the phonetic tier).
+// Plan 06-05 flips slot 13 (AlgoMongeElkan) to registered.
+// Plans 07-01..07-04 flip slots 18..21 (phonetic tier) to registered.
+// FINAL Phase 7 state: all 23 slots registered.
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
 	// plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03,
@@ -482,6 +483,7 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoSoundex):                true, // registered by Phase 7 plan 07-01
 		int(fuzzymatch.AlgoDoubleMetaphone):        true, // registered by Phase 7 plan 07-02
 		int(fuzzymatch.AlgoNYSIIS):                 true, // registered by Phase 7 plan 07-03
+		int(fuzzymatch.AlgoMRA):                    true, // registered by Phase 7 plan 07-04
 		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {

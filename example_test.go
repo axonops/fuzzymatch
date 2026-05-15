@@ -569,3 +569,42 @@ func ExampleNYSIISScore() {
 	// 1.0
 	// 0.0
 }
+
+// ExampleMRACode demonstrates MRACode on the canonical Byrne reference vector
+// from NBS Tech Note 943 (Moore, Kuhns, Trefftzs, Montgomery 1977).
+// "Byrne" encodes to "BYRN": B stays (leading), y→Y (consonant), r→R, n→N,
+// e is dropped (non-leading vowel). "Kathrynoglin" demonstrates the first-3 +
+// last-3 truncation gate (pre-truncation KTHRYNGLN len 9 > 6).
+func ExampleMRACode() {
+	fmt.Println(fuzzymatch.MRACode("Byrne"))
+	fmt.Println(fuzzymatch.MRACode("Kathrynoglin"))
+	// Output:
+	// BYRN
+	// KTHGLN
+}
+
+// ExampleMRACompare demonstrates the (bool, int) return shape of MRACompare —
+// the only public function in the fuzzymatch catalogue with a non-float64 return.
+// The bool is the NBS-943 match decision; the int is the raw 0-6 similarity
+// counter. Smith/Smyth match (sim=5, threshold=3 for sum_len=9).
+// Both-empty matches with sim=6 (no characters to eliminate; max_unmatched=0).
+func ExampleMRACompare() {
+	matched, sim := fuzzymatch.MRACompare("Smith", "Smyth")
+	fmt.Printf("matched=%v sim=%d\n", matched, sim)
+	matched2, sim2 := fuzzymatch.MRACompare("", "")
+	fmt.Printf("matched=%v sim=%d\n", matched2, sim2)
+	// Output:
+	// matched=true sim=5
+	// matched=true sim=6
+}
+
+// ExampleMRAScore demonstrates MRAScore, the binary 0.0/1.0 dispatch-table
+// wrapper around MRACompare. Smith/Smyth match → 1.0. Ad/ZachariahMontgomery
+// length-diff >= 3 auto-mismatch → 0.0.
+func ExampleMRAScore() {
+	fmt.Printf("%.1f\n", fuzzymatch.MRAScore("Smith", "Smyth"))
+	fmt.Printf("%.1f\n", fuzzymatch.MRAScore("Ad", "ZachariahMontgomery"))
+	// Output:
+	// 1.0
+	// 0.0
+}

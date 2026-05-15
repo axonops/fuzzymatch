@@ -276,9 +276,9 @@ package fuzzymatch
 // it ADDS its entry here AND updates the panic-test fixture in
 // monge_elkan_test.go in the SAME COMMIT (per CONTEXT.md §4 LOCKED).
 //
-// 17 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 3 phonetic-tier
+// 18 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 4 phonetic-tier
 // — plan 07-01 adds AlgoSoundex; plan 07-02 adds AlgoDoubleMetaphone;
-// plan 07-03 adds AlgoNYSIIS; plan 07-04 adds AlgoMRA → 18 total after Phase 7 completes).
+// plan 07-03 adds AlgoNYSIIS; plan 07-04 adds AlgoMRA → FINAL Phase 7 state).
 //
 // EXPLICITLY NOT permitted (verified by exhaustive panic test):
 //
@@ -288,8 +288,6 @@ package fuzzymatch
 //     receives single tokens from the outer Tokenise; re-tokenising
 //     single tokens is a no-op / identity-equivalent at best, recursive
 //     at worst)
-//   - Phase 7 phonetic remaining (AlgoMRA): added in
-//     Phase 7 plan 07-04 ADDITIVELY
 var permittedMongeElkanInner = map[AlgoID]bool{
 	// Character tier (9):
 	AlgoLevenshtein:            true, // Levenshtein 1965
@@ -315,6 +313,7 @@ var permittedMongeElkanInner = map[AlgoID]bool{
 	AlgoSoundex:         true, // Russell 1918 / Knuth TAOCP §6.4 — plan 07-01
 	AlgoDoubleMetaphone: true, // Philips 2000 — plan 07-02
 	AlgoNYSIIS:          true, // Taft 1970 / Knuth TAOCP §6.4 — plan 07-03
+	AlgoMRA:             true, // Moore 1977 / NBS Tech Note 943 — plan 07-04 (FINAL Phase 7 state)
 }
 
 // MongeElkanScore returns the asymmetric Monge-Elkan similarity between
@@ -331,13 +330,11 @@ var permittedMongeElkanInner = map[AlgoID]bool{
 // |tokens(b)| or when the inner-metric matrix is asymmetric across the
 // token positions. For a symmetric variant call MongeElkanScoreSymmetric.
 //
-// The inner AlgoID MUST be one of the 14 permitted inner metrics (see
+// The inner AlgoID MUST be one of the 18 permitted inner metrics (see
 // permittedMongeElkanInner in monge_elkan.go). Passing AlgoMongeElkan
-// (self-reference), any token-tier AlgoID (AlgoTokenSortRatio /
-// AlgoTokenSetRatio / AlgoPartialRatio / AlgoTokenJaccard), or any
-// phonetic AlgoID (AlgoSoundex / AlgoDoubleMetaphone / AlgoNYSIIS /
-// AlgoMRA — reserved for Phase 7's additive allow-list expansion) panics
-// with the message
+// (self-reference) or any token-tier AlgoID (AlgoTokenSortRatio /
+// AlgoTokenSetRatio / AlgoPartialRatio / AlgoTokenJaccard) panics with
+// the message
 //
 //	"fuzzymatch: AlgoID <name> not permitted as Monge-Elkan inner metric"
 //

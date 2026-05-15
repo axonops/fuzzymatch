@@ -148,12 +148,12 @@ func TestDoubleMetaphoneKeys_LanguageBranches(t *testing.T) {
 // Andrew Collins' translation of Lawrence Philips' C++ reference).
 func TestDoubleMetaphoneKeys_LiteratureReferenceVectors(t *testing.T) {
 	tests := []struct {
-		name              string
-		in                string
-		wantPrimary       string
-		wantSecondary     string
-		branch            string
-		note              string
+		name          string
+		in            string
+		wantPrimary   string
+		wantSecondary string
+		branch        string
+		note          string
 	}{
 		// RV-DM1 — docs/requirements.md §7.4.2 line 667; CONTEXT.md §3 mandatory
 		{"RV-DM1/Schmidt", "Schmidt", "XMT", "SMT", "germanic",
@@ -280,13 +280,13 @@ func TestDoubleMetaphoneScore_NumericalRegression(t *testing.T) {
 		a, b string
 		want float64
 	}{
-		{"Schmidt", "Smith", 1.0},    // XMT cross-match
+		{"Schmidt", "Smith", 1.0},       // XMT cross-match
 		{"Catherine", "Katherine", 1.0}, // Greek exact match
-		{"Robert", "Robert", 1.0},    // identity
-		{"", "", 1.0},                // both-empty
-		{"Schmidt", "", 0.0},         // one-empty
-		{"", "Smith", 0.0},           // one-empty
-		{"Smith", "Garcia", 0.0},     // different keys
+		{"Robert", "Robert", 1.0},       // identity
+		{"", "", 1.0},                   // both-empty
+		{"Schmidt", "", 0.0},            // one-empty
+		{"", "Smith", 0.0},              // one-empty
+		{"Smith", "Garcia", 0.0},        // different keys
 	}
 	for _, tt := range tests {
 		got := fuzzymatch.DoubleMetaphoneScore(tt.a, tt.b)
