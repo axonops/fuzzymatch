@@ -137,6 +137,11 @@ scan / Extract (Phases 9–10).
 
 - func TokenSetRatioScore(a, b string) float64
 
+### PartialRatio (RapidFuzz sliding-window with three-region iteration + char-set early-skip)
+
+- func PartialRatioScore(a, b string) float64
+- func PartialRatioScoreRunes(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
