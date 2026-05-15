@@ -524,6 +524,75 @@ func PartialRatioScore(a, b string) float64
 func PartialRatioScoreRunes(a, b string) float64
 ```
 
+### Phase 6 algorithm surface (token tier — TokenJaccard)
+
+Plan 06-04 lands TokenJaccard, the simplest Phase 6 algorithm — no
+shared kernel beyond `Tokenise(s, DefaultTokeniseOptions())`, no LCS DP,
+no three-way max, no sliding window. It computes the Jaccard
+coefficient |A ∩ B| / |A ∪ B| (Jaccard 1912 New Phytologist 11(2):37-50
+p. 43, the SAME primary source as Phase 5's Q-Gram Jaccard) over the
+deduplicated SET of tokens produced by Tokenise.
+
+**Set vs Multiset distinction (LOCKED 2026-05-15):** TokenJaccard uses
+SET semantics — token-presence is a binary signal, multiplicity is
+collapsed via `map[string]struct{}`. This is DISTINCT from Phase 5's
+Q-Gram Jaccard (`QGramJaccardScore`) which uses MULTISET semantics
+over q-gram counts. The semantic divergence is intentional per
+06-RESEARCH.md Pattern 8: a token appearing twice in the input doesn't
+make it "more present"; q-gram presence is a multiplicity signal
+because longer overlapping runs of identical q-grams indicate stronger
+similarity. The KEYSTONE regression gate RV-TJ3 ("a a b" vs "a b" →
+1.0) is pinned in four surfaces (algorithm godoc, unit test
+`TestTokenJaccardScore_SetVsMultisetDistinction`, BDD scenario "set
+semantics deduplicate repeated tokens", staging-golden entry); the
+same inputs under multiset Jaccard would yield 2/3 ≈ 0.667.
+
+**Both-empty STANDARD convention (LOCKED 2026-05-15):** TokenJaccard
+follows the STANDARD catalogue both-empty → 1.0 convention. It does
+NOT deviate like TokenSetRatio (which returns 0.0 per the LOCKED
+RapidFuzz issue #110 bug-for-bug compatibility). The identity
+short-circuit `if a == b { return 1.0 }` covers the both-empty case
+directly; a post-Tokenise both-empty guard handles pure-separator
+inputs where the raw strings differ but Tokenise produces empty slices.
+
+**DET-03 intersection-cardinality (LOCKED 2026-05-15):** `|A ∩ B|` is
+computed via integer-counter loop over the SMALLER set —
+`for k := range small { if _, ok := large[k]; ok { intersection++ } }`.
+The output is a scalar `int` (associative integer addition; map
+iteration order does not affect the result); no slice is ever built
+from set iteration on the output path. The union is then computed via
+set inclusion-exclusion: `union := len(setA) + len(setB) - intersection`.
+DET-03 satisfied without any sort.
+
+**Hand-derived reference vectors (LOCKED 2026-05-15):** six
+hand-derived `(a, b)` pairs RV-TJ1..RV-TJ6 per 06-CONTEXT.md §1b
+LOCKED (no RapidFuzz cross-validation — the RapidFuzz cross-validation
+corpus does NOT include TokenJaccard entries; the set-Jaccard formula
+is unambiguous from Jaccard 1912). Each test case carries the formula
+derivation in the test comment per algorithm-correctness-standards.
+
+```go
+// TokenJaccardScore returns the TokenJaccard similarity between a and b
+// in [0.0, 1.0]: tokenise both sides using DefaultTokeniseOptions(),
+// deduplicate each token list to a set, then compute |A ∩ B| / |A ∪ B|
+// over the two sets (Jaccard 1912 set coefficient). Conventions:
+// both-empty → 1.0 (STANDARD catalogue convention — NOT the
+// TokenSetRatio 0.0 deviation); identity → 1.0 (a == b short-circuit);
+// one-empty → 0.0. Symmetric across argument order — bit-for-bit
+// equality, no float tolerance needed. SET semantics (deduped) —
+// distinct from Q-Gram Jaccard's MULTISET semantics over q-grams.
+//
+// Reference vector:
+//   TokenJaccardScore("a b c", "b c d") = 0.5
+//     (set A={a,b,c}; set B={b,c,d}; |∩|=2; |∪|=4; J=2/4=0.5)
+//
+// Reference vector (set-vs-multiset KEYSTONE — RV-TJ3):
+//   TokenJaccardScore("a a b", "a b") = 1.0
+//     (left tokens dedup to {a,b}; right tokens {a,b}; J=2/2=1.0;
+//      a multiset implementation would yield 2/3 here)
+func TokenJaccardScore(a, b string) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go

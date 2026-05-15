@@ -759,6 +759,43 @@ func (ctx *AlgorithmContext) bothPartialRatioRunesScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// TokenJaccard step methods (plan 06-04)
+//
+// TokenJaccard is parameter-free (no n, no α/β): the step grammar
+// reverts to the Phase 2/3/4 score-step shape (no `with n …` suffix),
+// mirroring TokenSortRatio from plan 06-01 / TokenSetRatio from plan
+// 06-02 / PartialRatio from plan 06-03. Only one surface ships (no
+// rune-path variant — Tokenise is UTF-8-aware so the rune semantic is
+// preserved at the tokenisation layer; same convention as TokenSortRatio
+// and TokenSetRatio).
+// ---------------------------------------------------------------------------
+
+// iComputeTheTokenJaccardScoreBetween computes
+// TokenJaccardScore(a, b) and stores the result in lastScore.
+func (ctx *AlgorithmContext) iComputeTheTokenJaccardScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.TokenJaccardScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondTokenJaccardScoreBetween computes
+// TokenJaccardScore(a, b) and stores the result in lastScore2. Used by
+// the symmetry scenario to capture a second score for
+// T(A, B) == T(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondTokenJaccardScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.TokenJaccardScore(a, b)
+	return nil
+}
+
+// bothTokenJaccardScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetry scenario after computing T(A, B) and T(B, A).
+func (ctx *AlgorithmContext) bothTokenJaccardScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("token jaccard scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -1100,5 +1137,25 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both PartialRatioRunes scores should be equal$`,
 		a.bothPartialRatioRunesScoresShouldBeEqual,
+	)
+
+	// TokenJaccard step definitions (plan 06-04). Parameter-free shape
+	// (no `with n …` suffix) — TokenJaccard takes only (a, b string)
+	// per CONTEXT.md §6 LOCKED. Both the score, second-score, and
+	// both-equal helpers mirror the TokenSortRatio / TokenSetRatio
+	// pattern from plans 06-01 / 06-02. No rune-path variant — Tokenise
+	// is UTF-8-aware so the rune semantic is preserved at the
+	// tokenisation layer.
+	ctx.Step(
+		`^I compute the TokenJaccard score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheTokenJaccardScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second TokenJaccard score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondTokenJaccardScoreBetween,
+	)
+	ctx.Step(
+		`^both TokenJaccard scores should be equal$`,
+		a.bothTokenJaccardScoresShouldBeEqual,
 	)
 }

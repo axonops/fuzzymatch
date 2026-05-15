@@ -142,6 +142,10 @@ scan / Extract (Phases 9–10).
 - func PartialRatioScore(a, b string) float64
 - func PartialRatioScoreRunes(a, b string) float64
 
+### TokenJaccard (Jaccard 1912 set-Jaccard over Tokenise output — distinct from Q-Gram Jaccard multiset)
+
+- func TokenJaccardScore(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct
