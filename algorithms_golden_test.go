@@ -161,6 +161,7 @@ func buildAlgorithmGoldenEntries(t *testing.T) []goldenAlgorithmEntry {
 // Re-running without `-update` must exit 0 (file is byte-stable).
 func TestGolden_Algorithms_Merge(t *testing.T) {
 	stagingFiles := []string{
+		"_staging/cosine.json",
 		"_staging/damerau_full.json",
 		"_staging/damerau_osa.json",
 		"_staging/hamming.json",
@@ -168,9 +169,12 @@ func TestGolden_Algorithms_Merge(t *testing.T) {
 		"_staging/jarowinkler.json",
 		"_staging/lcsstr.json",
 		"_staging/levenshtein.json",
+		"_staging/qgram_jaccard.json",
 		"_staging/ratcliff_obershelp.json",
+		"_staging/sorensen_dice.json",
 		"_staging/strcmp95.json",
 		"_staging/swg.json",
+		"_staging/tversky.json",
 	}
 	var allEntries []goldenAlgorithmEntry
 	for _, f := range stagingFiles {
@@ -934,16 +938,16 @@ func TestGolden_RatcliffObershelp_Staging(t *testing.T) {
 // in sync with actual output. Eight entries (sorted by Name in the test):
 //
 //   - QGramJaccard_AGCT_AGCTAGCT      (RV-J1; Ukkonen 1992 §3 worked
-//                                      example; n=2; 3/7 ≈ 0.4286)
+//     example; n=2; 3/7 ≈ 0.4286)
 //   - QGramJaccard_abcd_abxy          (RV-J4; single-shared bigram;
-//                                      n=2; 1/5 = 0.2)
+//     n=2; 1/5 = 0.2)
 //   - QGramJaccard_both_empty         (n=2; both-empty convention; 1.0)
 //   - QGramJaccard_cafe_runes         (RV-J5-Runes; rune path;
-//                                      n=2; 2/4 = 0.5)
+//     n=2; 2/4 = 0.5)
 //   - QGramJaccard_identical          (RV-J2; identity short-circuit;
-//                                      n=2; 1.0)
+//     n=2; 1.0)
 //   - QGramJaccard_n_too_large        (RV-J6; n > min length; both-empty
-//                                      convention; 1.0)
+//     convention; 1.0)
 //   - QGramJaccard_no_overlap         (RV-J3; n=2; 0/4 = 0.0)
 //   - QGramJaccard_one_empty          (n=2; one-empty convention; 0.0)
 //
@@ -1041,17 +1045,17 @@ func TestGolden_QGramJaccard_Staging(t *testing.T) {
 // in sync with actual output. Eight entries (sorted by Name in the test):
 //
 //   - SorensenDice_abcdef_abcXef_n3   (RV-D3; trigram variant; n=3;
-//                                      2·1/(4+4) = 0.25)
+//     2·1/(4+4) = 0.25)
 //   - SorensenDice_abcdef_bcdefg      (RV-D2; high-overlap analogue;
-//                                      n=2; 2·4/(5+5) = 0.8)
+//     n=2; 2·4/(5+5) = 0.8)
 //   - SorensenDice_both_empty         (n=2; both-empty convention; 1.0)
 //   - SorensenDice_cafe_runes         (rune-path canary; n=2;
-//                                      2·2/(3+3) = 4/6 ≈ 0.6667)
+//     2·2/(3+3) = 4/6 ≈ 0.6667)
 //   - SorensenDice_identical          (RV-D4; identity short-circuit;
-//                                      n=2; 1.0)
+//     n=2; 1.0)
 //   - SorensenDice_night_nacht        (RV-D1; load-bearing canonical
-//                                      NLP-textbook bigram pair; n=2;
-//                                      2·1/(4+4) = 0.25)
+//     NLP-textbook bigram pair; n=2;
+//     2·1/(4+4) = 0.25)
 //   - SorensenDice_no_overlap         (n=2; 2·0/(2+2) = 0.0)
 //   - SorensenDice_one_empty          (n=2; one-empty convention; 0.0)
 //
@@ -1151,31 +1155,31 @@ func TestGolden_SorensenDice_Staging(t *testing.T) {
 // and RESEARCH.md §2.3 slate:
 //
 //   - Cosine_ascii_n2_irrational    ("abc"/"abcd"/n=2/byte; RV-C1;
-//                                    2/sqrt(6) ≈ 0.8164965809277261)
+//     2/sqrt(6) ≈ 0.8164965809277261)
 //   - Cosine_ascii_n3_large_intersection ("abcdefgh"/"abcdefgi"/n=3/byte;
-//                                    RV-C2; 5/6 = 0.8333333333333334)
+//     RV-C2; 5/6 = 0.8333333333333334)
 //   - Cosine_ascii_n4_exact         ("abcde"/"abcdf"/n=4/byte; RV-C4;
-//                                    1/(sqrt(2)·sqrt(2)) =
-//                                    0.49999999999999989 — see
-//                                    cosine_test.go RV-C4 derivation
-//                                    block; RESEARCH.md "Pitfall 2")
+//     1/(sqrt(2)·sqrt(2)) =
+//     0.49999999999999989 — see
+//     cosine_test.go RV-C4 derivation
+//     block; RESEARCH.md "Pitfall 2")
 //   - Cosine_both_empty             (""/""/n=2/byte; both-empty
-//                                    convention; 1.0)
+//     convention; 1.0)
 //   - Cosine_identical              ("hello"/"hello"/n=2/byte; identity
-//                                    short-circuit; 1.0)
+//     short-circuit; 1.0)
 //   - Cosine_one_empty              (""/"abc"/n=2/byte; one-empty
-//                                    convention; 0.0)
+//     convention; 0.0)
 //   - Cosine_orthogonal             ("abc"/"xyz"/n=2/byte; empty
-//                                    intersection → cos=0)
+//     intersection → cos=0)
 //   - Cosine_unicode_n2_runes       ("café"/"cafe"/n=2/rune; RV-C3;
-//                                    2/3 = 0.6666666666666666)
+//     2/3 = 0.6666666666666666)
 //   - Cosine_unicode_n3_runes       ("héllo"/"hello"/n=3/rune;
-//                                    1/3 = 0.3333333333333333 —
-//                                    rune-trigrams: ["hél","éll","llo"]
-//                                    vs ["hel","ell","llo"];
-//                                    intersection sorted = ["llo"];
-//                                    dot=1; ‖A‖²=‖B‖²=3;
-//                                    cos = 1/(sqrt(3)·sqrt(3)) = 1/3)
+//     1/3 = 0.3333333333333333 —
+//     rune-trigrams: ["hél","éll","llo"]
+//     vs ["hel","ell","llo"];
+//     intersection sorted = ["llo"];
+//     dot=1; ‖A‖²=‖B‖²=3;
+//     cos = 1/(sqrt(3)·sqrt(3)) = 1/3)
 //
 // Plan 05-05 owns the merge into testdata/golden/algorithms.json — this
 // plan only writes the staging file. The unicode entries are rune-path;
@@ -1287,25 +1291,25 @@ func TestGolden_Cosine_Staging(t *testing.T) {
 // Eight entries (sorted by Name in the test):
 //
 //   - Tversky_abcd_abce_dice_eq        (RV-T4; α=β=0.5 → Sørensen-Dice;
-//                                       n=2; 2/3 ≈ 0.6667)
+//     n=2; 2/3 ≈ 0.6667)
 //   - Tversky_abcd_abce_jaccard_eq     (RV-T3; α=β=1.0 → Jaccard;
-//                                       n=2; 2/4 = 0.5)
+//     n=2; 2/4 = 0.5)
 //   - Tversky_abcd_abcdef_asym         (RV-T1; LOAD-BEARING asymmetry
-//                                       gate first half; α=0.8, β=0.2;
-//                                       n=2; 0.8823529411764706)
+//     gate first half; α=0.8, β=0.2;
+//     n=2; 0.8823529411764706)
 //   - Tversky_abcdef_abcd_asym_swap    (RV-T2; LOAD-BEARING asymmetry
-//                                       gate second half — input swap
-//                                       of RV-T1 with same (α, β);
-//                                       n=2; 0.6521739130434783)
+//     gate second half — input swap
+//     of RV-T1 with same (α, β);
+//     n=2; 0.6521739130434783)
 //   - Tversky_both_empty               (n=2; α=β=0.5; both-empty
-//                                       convention; 1.0)
+//     convention; 1.0)
 //   - Tversky_cafe_runes               (rune-path canary; n=2;
-//                                       α=β=0.5; 2/3 ≈ 0.6667)
+//     α=β=0.5; 2/3 ≈ 0.6667)
 //   - Tversky_identical                ("hello"/"hello"/n=2;
-//                                       α=0.8/β=0.2; identity
-//                                       short-circuit; 1.0)
+//     α=0.8/β=0.2; identity
+//     short-circuit; 1.0)
 //   - Tversky_one_empty                (n=2; α=β=0.5; one-empty
-//                                       convention; 0.0)
+//     convention; 0.0)
 //
 // The two asymmetry-pair rows (Tversky_abcd_abcdef_asym at the head
 // of the alphabetical sort and Tversky_abcdef_abcd_asym_swap two rows
