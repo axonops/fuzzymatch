@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Cosine_ascii_n2_irrational",
+      "algorithm": "Cosine",
+      "a": "abc",
+      "b": "abcd",
+      "expected_score": 0.8164965809277259
+    },
+    {
+      "name": "Cosine_ascii_n3_large_intersection",
+      "algorithm": "Cosine",
+      "a": "abcdefgh",
+      "b": "abcdefgi",
+      "expected_score": 0.8333333333333335
+    },
+    {
+      "name": "Cosine_ascii_n4_exact",
+      "algorithm": "Cosine",
+      "a": "abcde",
+      "b": "abcdf",
+      "expected_score": 0.4999999999999999
+    },
+    {
+      "name": "Cosine_both_empty",
+      "algorithm": "Cosine",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Cosine_identical",
+      "algorithm": "Cosine",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "Cosine_one_empty",
+      "algorithm": "Cosine",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    },
+    {
+      "name": "Cosine_orthogonal",
+      "algorithm": "Cosine",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "Cosine_unicode_n2_runes",
+      "algorithm": "Cosine",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.6666666666666667
+    },
+    {
+      "name": "Cosine_unicode_n3_runes",
+      "algorithm": "Cosine",
+      "a": "héllo",
+      "b": "hello",
+      "expected_score": 0.33333333333333337
+    }
+  ]
+}

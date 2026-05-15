@@ -239,3 +239,33 @@ func ExampleSorensenDiceScoreRunes() {
 	// Output:
 	// 0.6667
 }
+
+// ExampleCosineScore demonstrates the Cosine similarity over q-gram
+// frequency vectors on the load-bearing RV-C1 hand-derivation pair
+// (Salton & McGill 1983 §4.1 eq. 4.4 p.121). The bigram multisets are
+// QA={"ab":1,"bc":1} (‖A‖²=2) and QB={"ab":1,"bc":1,"cd":1} (‖B‖²=3);
+// intersection (sorted) = ["ab","bc"]; dot = 2;
+// cos = 2/(sqrt(2)·sqrt(3)) ≈ 0.8164965809277259 (the IEEE-754 actual
+// from the factorised form is 1 ULP from the rational limit
+// 2/sqrt(6) = 0.8164965809277261 — see cosine_test.go RV-C1 derivation
+// for the full precision discussion). Printed to 16 digits to show the
+// load-bearing precision.
+func ExampleCosineScore() {
+	fmt.Printf("%.16f\n", fuzzymatch.CosineScore("abc", "abcd", 2))
+	// Output:
+	// 0.8164965809277259
+}
+
+// ExampleCosineScoreRunes demonstrates the rune-path variant on the
+// café/cafe pair (RV-C3). The rune-bigram multisets are
+// QA={"ca","af","fé"} (‖A‖²=3) and QB={"ca","af","fe"} (‖B‖²=3);
+// intersection (sorted byte-lex) = ["af","ca"]; dot = 2;
+// cos = 2/(sqrt(3)·sqrt(3)) ≈ 0.6666666666666667 (the IEEE-754 actual
+// from the factorised form is 1 ULP from the rational limit
+// 2/3 = 0.6666666666666666 — same precision discussion as RV-C1). The
+// byte path would split "é" mid-codepoint and yield a different score.
+func ExampleCosineScoreRunes() {
+	fmt.Printf("%.16f\n", fuzzymatch.CosineScoreRunes("café", "cafe", 2))
+	// Output:
+	// 0.6666666666666667
+}
