@@ -139,16 +139,16 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 17 permitted inner Algo
   @token @monge-elkan
   Scenario Outline: non-permitted inner AlgoIDs panic with the documented message
     # RESEARCH.md Pitfall 4 + CONTEXT.md §3 LOCKED — rejection of non-permitted
-    # inner AlgoIDs:
+    # inner AlgoIDs (FINAL Phase 7 state — 5 rejected entries):
     #   - AlgoMongeElkan: self-recursion (infinite loop guard)
     #   - AlgoTokenSortRatio / AlgoTokenSetRatio / AlgoPartialRatio /
     #     AlgoTokenJaccard: token-on-token meaningless
-    #   - AlgoMRA: reserved for Phase 7 plan 07-04 additive allow-list expansion
-    # Note: AlgoSoundex is PERMITTED (plan 07-01 added it — 14→15 entries).
-    # AlgoDoubleMetaphone is now PERMITTED (plan 07-02 added it — 15→16 entries).
-    # AlgoNYSIIS is now PERMITTED (plan 07-03 added it — 16→17 entries).
-    # The BDD scenario uses AlgoMRA as the representative non-permitted phonetic
-    # AlgoID (until plan 07-04 lands). The panic contract is fully exercised by
+    # All 4 phonetic AlgoIDs are PERMITTED as of Phase 7:
+    #   - AlgoSoundex: plan 07-01 (14→15 entries)
+    #   - AlgoDoubleMetaphone: plan 07-02 (15→16 entries)
+    #   - AlgoNYSIIS: plan 07-03 (16→17 entries)
+    #   - AlgoMRA: plan 07-04 (17→18 entries, FINAL)
+    # The exhaustive permitted/rejected coverage lives in
     # TestMongeElkan_PanicsOnNonPermittedInner.
     When I attempt to compute the MongeElkan score between "a b" and "c d" with inner Algo<inner>
     Then the call should panic with "<phrase>"
@@ -157,4 +157,4 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 17 permitted inner Algo
       | inner           | phrase                                            |
       | MongeElkan      | not permitted as Monge-Elkan inner metric         |
       | TokenSortRatio  | not permitted as Monge-Elkan inner metric         |
-      | MRA             | not permitted as Monge-Elkan inner metric         |
+      | TokenJaccard    | not permitted as Monge-Elkan inner metric         |
