@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "TokenSortRatio_both_empty",
+      "algorithm": "TokenSortRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_identity",
+      "algorithm": "TokenSortRatio",
+      "a": "hello world",
+      "b": "hello world",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_one_empty_a",
+      "algorithm": "TokenSortRatio",
+      "a": "",
+      "b": "hello world",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSortRatio_one_empty_b",
+      "algorithm": "TokenSortRatio",
+      "a": "hello world",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSortRatio_token_reorder_two",
+      "algorithm": "TokenSortRatio",
+      "a": "alpha beta",
+      "b": "beta alpha",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_token_reorder_canonical",
+      "algorithm": "TokenSortRatio",
+      "a": "fuzzy wuzzy was a bear",
+      "b": "wuzzy fuzzy was a bear",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSortRatio_subset_short",
+      "algorithm": "TokenSortRatio",
+      "a": "alpha",
+      "b": "alpha beta",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "TokenSortRatio_subset_mid",
+      "algorithm": "TokenSortRatio",
+      "a": "alpha beta",
+      "b": "alpha beta gamma",
+      "expected_score": 0.7692307692307693
+    },
+    {
+      "name": "TokenSortRatio_disjoint",
+      "algorithm": "TokenSortRatio",
+      "a": "abc",
+      "b": "xyz",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSortRatio_low_overlap",
+      "algorithm": "TokenSortRatio",
+      "a": "hello",
+      "b": "world",
+      "expected_score": 0.2
+    }
+  ]
+}

@@ -2646,3 +2646,92 @@ func TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment(t *tes
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TokenSortRatio property tests (plan 06-01)
+// ---------------------------------------------------------------------------
+
+// TestProp_TokenSortRatioScore_RangeBounds asserts the score stays in
+// [0.0, 1.0] for any (a, b) pair. Joint NaN/Inf gate documents the
+// composite invariant; dedicated _NoNaN / _NoInf tests below retest
+// each guard in isolation.
+func TestProp_TokenSortRatioScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.TokenSortRatioScore(a, b)
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSortRatioScore out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_TokenSortRatioScore_Identity asserts Score(x, x) == 1.0
+// EXACTLY for any string x — the identity short-circuit fires before
+// Tokenise and the result is the literal 1.0. This includes all
+// strings: empty, all-separator, mixed UTF-8, identifier-style. The
+// property is stronger than the Q-Gram Jaccard identity (which skips
+// the empty case) because TokenSortRatio's short-circuit covers
+// every input.
+func TestProp_TokenSortRatioScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		return fuzzymatch.TokenSortRatioScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSortRatioScore identity violated: %v", err)
+	}
+}
+
+// TestProp_TokenSortRatioScore_Symmetric asserts Score(a, b) ==
+// Score(b, a) EXACTLY (bit-for-bit). Tokenise is deterministic;
+// sort.Strings is stable byte-lex; strings.Join is order-preserving;
+// indelRatio is symmetric — every composition step preserves
+// symmetry, so the IEEE-754 division produces identical output
+// regardless of argument order.
+func TestProp_TokenSortRatioScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.TokenSortRatioScore(a, b) == fuzzymatch.TokenSortRatioScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSortRatioScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_TokenSortRatioScore_NoNaN asserts the score never returns
+// NaN. The identity / both-empty / one-empty guards gate away the only
+// potential 0/0 paths; the indelRatio sum-check provides the
+// secondary guard.
+func TestProp_TokenSortRatioScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.TokenSortRatioScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSortRatioScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_TokenSortRatioScore_NoInf asserts the score never returns
+// ±Inf. Numerator and denominator are bounded integers fitting in
+// float64 (counts up to 2^53 are exact for typical input sizes); the
+// single division never overflows.
+func TestProp_TokenSortRatioScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.TokenSortRatioScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSortRatioScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_TokenSortRatioScore_NoNegativeZero asserts that when the
+// score is 0.0 it is positive zero, not negative zero. The
+// numerator (2 · lcsLen) is a non-negative integer; float64(0) /
+// float64(positive) is +0.0 in IEEE-754.
+func TestProp_TokenSortRatioScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.TokenSortRatioScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSortRatioScore produced -0.0: %v", err)
+	}
+}

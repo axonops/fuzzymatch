@@ -323,6 +323,55 @@ func TverskyScore(a, b string, n int, alpha, beta float64) float64
 func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64
 ```
 
+### Phase 6 algorithm surface (token tier — TokenSortRatio)
+
+Plan 06-01 lands the shared `token_indel.go` foundation kernel
+(unexported `lcsLen` / `indelRatio` / `lcsLenRunes` / `indelRatioRunes`
+helpers per 06-CONTEXT.md §2 LOCKED — internal only, no public
+LCS-subsequence or Indel-ratio helper in v1) and the first token-tier
+algorithm: TokenSortRatio. The kernel is the LCS-subsequence
+Wagner-Fischer 1974 DP wrapped in RapidFuzz's canonical "Indel"
+normalisation 2·LCS / (|a|+|b|), shared by TokenSortRatio (this plan),
+TokenSetRatio (plan 06-02), and PartialRatio (plan 06-03).
+
+TokenSortRatio composes against the kernel via the simplest possible
+pipeline: tokenise both sides using `DefaultTokeniseOptions()`
+(Lowercase: true, SplitCamelCase: true, SplitConsecutiveUpper: true,
+SeparatorChars: `"_-.:/ \t\n\r"`), sort each token slice byte-lex
+ascending via `sort.Strings`, join with a single space, then apply
+`indelRatio` over the byte slices of the two joined strings.
+Per-plan llms-sync discipline (per 06-CONTEXT.md §6 reinforcement)
+lands the symbol and full godoc-style description in the same
+plan that introduces TokenSortRatioScore.
+
+Tokeniser-divergence note (OQ-1 RESOLUTION LOCKED in plan 06-01):
+RapidFuzz tokenises via Python `str.split()` (whitespace-only,
+case-preserving); fuzzymatch's `Tokenise` is identifier-aware
+(camelCase / snake_case / kebab-case / dot-case + lowercasing). For
+whitespace-only lowercase ASCII inputs the two agree and the
+cross-validation corpus at
+`testdata/cross-validation/token-ratios/vectors.json` asserts
+byte-stable agreement against RapidFuzz 3.14.5 within `epsilon = 1e-9`.
+For inputs with mixed identifier styles the project tokenisation
+produces semantically richer splits.
+
+```go
+// TokenSortRatioScore returns the Token Sort Ratio similarity between
+// a and b in [0.0, 1.0]: tokenise both sides using
+// DefaultTokeniseOptions(), sort each token slice byte-lex ascending,
+// join with a single space, then apply the Indel formula
+// 2·LCS / (|joinedA|+|joinedB|) (Wagner & Fischer 1974
+// LCS-subsequence DP over bytes; RapidFuzz-canonical normalisation).
+// Conventions: both-empty / identity → 1.0 (a == b short-circuit
+// covers both); one-empty → 0.0; token-reorder → 1.0 (sorted-joined
+// strings identical). Symmetric across argument order — bit-for-bit
+// equality, no float tolerance needed.
+//
+// Reference vector:
+//   TokenSortRatioScore("fuzzy wuzzy was a bear", "wuzzy fuzzy was a bear") = 1.0
+func TokenSortRatioScore(a, b string) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go
