@@ -440,6 +440,9 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // AlgoSorensenDice (slot 10 — registered by Phase 5 plan 05-02),
 // AlgoCosine (slot 11 — registered by Phase 5 plan 05-03),
 // AlgoTversky (slot 12 — registered by Phase 5 plan 05-04),
+// AlgoMongeElkan (slot 13 — registered by Phase 6 plan 06-05; binds
+// MongeElkanScoreSymmetric with AlgoJaroWinkler default inner +
+// DefaultNormalisationOptions per CONTEXT §4 LOCKED),
 // AlgoTokenSortRatio (slot 14 — registered by Phase 6 plan 06-01),
 // AlgoTokenSetRatio (slot 15 — registered by Phase 6 plan 06-02),
 // AlgoPartialRatio (slot 16 — registered by Phase 6 plan 06-03; only
@@ -450,14 +453,13 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // and AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by
 // Phase 4 plan 04-03) are still nil.
 //
-// Plan 06-04 flips slot 17 (AlgoTokenJaccard) to registered. Slots
-// 13 and 18..21 remain nil pending later plans (Monge-Elkan,
-// and the phonetic tier).
+// Plan 06-05 flips slot 13 (AlgoMongeElkan) to registered. Slots
+// 18..21 remain nil pending Phase 7 (the phonetic tier).
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
 	// plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03,
-	// plan 05-04, plan 06-01, plan 06-02, plan 06-03, and plan 06-04
-	// respectively; all others nil.
+	// plan 05-04, plan 06-01, plan 06-02, plan 06-03, plan 06-04, and
+	// plan 06-05 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -472,6 +474,7 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoSorensenDice):           true,
 		int(fuzzymatch.AlgoCosine):                 true,
 		int(fuzzymatch.AlgoTversky):                true,
+		int(fuzzymatch.AlgoMongeElkan):             true,
 		int(fuzzymatch.AlgoTokenSortRatio):         true,
 		int(fuzzymatch.AlgoTokenSetRatio):          true,
 		int(fuzzymatch.AlgoPartialRatio):           true,
@@ -482,7 +485,7 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		isNil := fuzzymatch.DispatchEntryNilForTest(i)
 		if registered[i] {
 			if isNil {
-				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03, plan 05-04, plan 06-01, plan 06-02, plan 06-03, or plan 06-04)", i)
+				t.Errorf("dispatch[%d] is nil; expected non-nil (registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01, plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03, plan 05-04, plan 06-01, plan 06-02, plan 06-03, plan 06-04, or plan 06-05)", i)
 			}
 		} else {
 			if !isNil {

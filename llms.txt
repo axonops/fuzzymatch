@@ -146,6 +146,11 @@ scan / Extract (Phases 9–10).
 
 - func TokenJaccardScore(a, b string) float64
 
+### Monge-Elkan (Monge & Elkan 1996) per-token-max with pluggable inner metric
+
+- func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64
+- func MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

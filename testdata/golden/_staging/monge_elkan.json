@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "MongeElkan_RV-ME1_user_create_vs_usr_creating_symmetric",
+      "algorithm": "MongeElkan",
+      "a": "user create",
+      "b": "usr creating",
+      "expected_score": 0.9125000000000001
+    },
+    {
+      "name": "MongeElkan_RV-ME2_identity",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta",
+      "b": "alpha beta",
+      "expected_score": 1.0
+    },
+    {
+      "name": "MongeElkan_RV-ME3_disjoint_greek_symmetric",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta",
+      "b": "gamma delta",
+      "expected_score": 0.6916666666666667
+    },
+    {
+      "name": "MongeElkan_RV-ME4_RV-ME6_asymmetric_symmetric_average",
+      "algorithm": "MongeElkan",
+      "a": "alpha",
+      "b": "alpha beta gamma",
+      "expected_score": 0.8472222222222223
+    },
+    {
+      "name": "MongeElkan_RV-ME6_RV-ME4_swapped_symmetric_same_average",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta gamma",
+      "b": "alpha",
+      "expected_score": 0.8472222222222223
+    },
+    {
+      "name": "MongeElkan_both_empty_standard",
+      "algorithm": "MongeElkan",
+      "a": "",
+      "b": "",
+      "expected_score": 1.0
+    },
+    {
+      "name": "MongeElkan_one_empty_a",
+      "algorithm": "MongeElkan",
+      "a": "",
+      "b": "hello world",
+      "expected_score": 0.0
+    },
+    {
+      "name": "MongeElkan_one_empty_b",
+      "algorithm": "MongeElkan",
+      "a": "hello world",
+      "b": "",
+      "expected_score": 0.0
+    },
+    {
+      "name": "MongeElkan_pure_separators_both_empty_tokens",
+      "algorithm": "MongeElkan",
+      "a": "___",
+      "b": "...",
+      "expected_score": 1.0
+    },
+    {
+      "name": "MongeElkan_token_reorder_symmetric",
+      "algorithm": "MongeElkan",
+      "a": "alpha beta gamma",
+      "b": "gamma alpha beta",
+      "expected_score": 1.0
+    }
+  ]
+}
