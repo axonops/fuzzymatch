@@ -1280,3 +1280,138 @@ func TestGolden_Cosine_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/cosine.json", file)
 }
+
+// buildTverskyStagingEntries returns the eight Tversky entries used by
+// TestGolden_Tversky_Staging. ExpectedScore is computed from the current
+// implementation so the staging file stays in sync with actual output.
+// Eight entries (sorted by Name in the test):
+//
+//   - Tversky_abcd_abce_dice_eq        (RV-T4; α=β=0.5 → Sørensen-Dice;
+//                                       n=2; 2/3 ≈ 0.6667)
+//   - Tversky_abcd_abce_jaccard_eq     (RV-T3; α=β=1.0 → Jaccard;
+//                                       n=2; 2/4 = 0.5)
+//   - Tversky_abcd_abcdef_asym         (RV-T1; LOAD-BEARING asymmetry
+//                                       gate first half; α=0.8, β=0.2;
+//                                       n=2; 0.8823529411764706)
+//   - Tversky_abcdef_abcd_asym_swap    (RV-T2; LOAD-BEARING asymmetry
+//                                       gate second half — input swap
+//                                       of RV-T1 with same (α, β);
+//                                       n=2; 0.6521739130434783)
+//   - Tversky_both_empty               (n=2; α=β=0.5; both-empty
+//                                       convention; 1.0)
+//   - Tversky_cafe_runes               (rune-path canary; n=2;
+//                                       α=β=0.5; 2/3 ≈ 0.6667)
+//   - Tversky_identical                ("hello"/"hello"/n=2;
+//                                       α=0.8/β=0.2; identity
+//                                       short-circuit; 1.0)
+//   - Tversky_one_empty                (n=2; α=β=0.5; one-empty
+//                                       convention; 0.0)
+//
+// The two asymmetry-pair rows (Tversky_abcd_abcdef_asym at the head
+// of the alphabetical sort and Tversky_abcdef_abcd_asym_swap two rows
+// later) form the LOAD-BEARING asymmetry-direction-sensitivity fixture
+// at the golden-file level: same (α, β), inputs swapped, scores
+// differ. The adjacency-by-prefix is intentional — both names start
+// with "Tversky_abcd" so they sort together; the cross-check
+// degeneracy rows (dice_eq, jaccard_eq) are interleaved by the
+// alphabetical sort but are unrelated to the asymmetry gate. This
+// fixture is the third-layer regression detector, alongside the
+// unit-test (TestTversky_AsymmetryDirectionSensitive) and BDD
+// (tversky.feature asymmetry scenario) gates.
+//
+// Plan 05-05 owns the merge into testdata/golden/algorithms.json — this
+// plan only writes the staging file. The cafe_runes entry is the
+// rune-path canary; all others are byte-path.
+func buildTverskyStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "Tversky_abcd_abce_dice_eq",
+			Algorithm:     "Tversky",
+			A:             "abcd",
+			B:             "abce",
+			ExpectedScore: fuzzymatch.TverskyScore("abcd", "abce", 2, 0.5, 0.5),
+		},
+		{
+			Name:          "Tversky_abcd_abce_jaccard_eq",
+			Algorithm:     "Tversky",
+			A:             "abcd",
+			B:             "abce",
+			ExpectedScore: fuzzymatch.TverskyScore("abcd", "abce", 2, 1.0, 1.0),
+		},
+		{
+			Name:          "Tversky_abcd_abcdef_asym",
+			Algorithm:     "Tversky",
+			A:             "abcd",
+			B:             "abcdef",
+			ExpectedScore: fuzzymatch.TverskyScore("abcd", "abcdef", 2, 0.8, 0.2),
+		},
+		{
+			Name:          "Tversky_abcdef_abcd_asym_swap",
+			Algorithm:     "Tversky",
+			A:             "abcdef",
+			B:             "abcd",
+			ExpectedScore: fuzzymatch.TverskyScore("abcdef", "abcd", 2, 0.8, 0.2),
+		},
+		{
+			Name:          "Tversky_both_empty",
+			Algorithm:     "Tversky",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.TverskyScore("", "", 2, 0.5, 0.5),
+		},
+		{
+			Name:          "Tversky_cafe_runes",
+			Algorithm:     "Tversky",
+			A:             "café",
+			B:             "cafe",
+			ExpectedScore: fuzzymatch.TverskyScoreRunes("café", "cafe", 2, 0.5, 0.5),
+		},
+		{
+			Name:          "Tversky_identical",
+			Algorithm:     "Tversky",
+			A:             "hello",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.TverskyScore("hello", "hello", 2, 0.8, 0.2),
+		},
+		{
+			Name:          "Tversky_one_empty",
+			Algorithm:     "Tversky",
+			A:             "",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.TverskyScore("", "abc", 2, 0.5, 0.5),
+		},
+	}
+}
+
+// TestGolden_Tversky_Staging produces
+// testdata/golden/_staging/tversky.json for plan 05-05's merge step.
+// Entries are sorted alphabetically by Name. Eight entries cover:
+// abcd_abce_dice_eq (RV-T4 Dice-equivalent), abcd_abce_jaccard_eq
+// (RV-T3 Jaccard-equivalent), abcd_abcdef_asym (RV-T1 — first half of
+// LOAD-BEARING asymmetry gate), abcdef_abcd_asym_swap (RV-T2 — input
+// swap of RV-T1; the two asymmetry rows are adjacent in the sort for
+// reviewer clarity), both_empty, cafe_runes (rune-path canary),
+// identical, one_empty.
+//
+// LOAD-BEARING per CONTEXT.md §5: the asymmetry-pair rows
+// (Tversky_abcd_abcdef_asym and Tversky_abcdef_abcd_asym_swap) form
+// the asymmetry-direction-sensitivity gate at the golden-file level.
+// A silent α/β swap inside TverskyScore would cause both rows to
+// flip values (RV-T1 → RV-T2's score and vice versa) and the staging
+// file regeneration would surface the regression as a byte-diff.
+//
+// Plan 05-05 owns the canonical algorithms.json merge; this plan only
+// writes the staging file. Do NOT update TestGolden_Algorithms_Merge's
+// stagingFiles slice here — that's plan 05-05's responsibility.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_Tversky_Staging(t *testing.T) {
+	entries := buildTverskyStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/tversky.json", file)
+}

@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "name": "Tversky_abcd_abcdef_asym",
+      "algorithm": "Tversky",
+      "a": "abcd",
+      "b": "abcdef",
+      "expected_score": 0.8823529411764706
+    },
+    {
+      "name": "Tversky_abcd_abce_dice_eq",
+      "algorithm": "Tversky",
+      "a": "abcd",
+      "b": "abce",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "Tversky_abcd_abce_jaccard_eq",
+      "algorithm": "Tversky",
+      "a": "abcd",
+      "b": "abce",
+      "expected_score": 0.5
+    },
+    {
+      "name": "Tversky_abcdef_abcd_asym_swap",
+      "algorithm": "Tversky",
+      "a": "abcdef",
+      "b": "abcd",
+      "expected_score": 0.6521739130434783
+    },
+    {
+      "name": "Tversky_both_empty",
+      "algorithm": "Tversky",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "Tversky_cafe_runes",
+      "algorithm": "Tversky",
+      "a": "café",
+      "b": "cafe",
+      "expected_score": 0.6666666666666666
+    },
+    {
+      "name": "Tversky_identical",
+      "algorithm": "Tversky",
+      "a": "hello",
+      "b": "hello",
+      "expected_score": 1
+    },
+    {
+      "name": "Tversky_one_empty",
+      "algorithm": "Tversky",
+      "a": "",
+      "b": "abc",
+      "expected_score": 0
+    }
+  ]
+}

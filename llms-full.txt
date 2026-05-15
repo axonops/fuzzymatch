@@ -265,6 +265,64 @@ func CosineScore(a, b string, n int) float64
 func CosineScoreRunes(a, b string, n int) float64
 ```
 
+### Phase 5 algorithm surface (q-gram tier — Tversky)
+
+Plan 05-04 lands Tversky asymmetric similarity (Tversky 1977 §2 eq. (1)
+p. 332) as the fourth and final q-gram-tier algorithm. Builds on the
+shared `extractQGrams` / `extractQGramsRunes` helpers from plan 05-01.
+Two new exported functions plus a fifth dispatch slot (AlgoTversky)
+registered with a default-n=3, α=β=1.0 (Jaccard-equivalent) wrapper per
+CONTEXT.md "Claude's Discretion" — the dispatch signature has no place
+for n, α, or β, so the real direction-sensitive use case lands in
+Phase 8 via WithTverskyAlgorithm(weight, alpha, beta).
+
+Tversky is the parameterised q-gram metric:
+T(A, B, α, β) = |A∩B| / (|A∩B| + α·|A−B| + β·|B−A|). With α ≠ β the
+function is direction-sensitive — swapping (a, b) with fixed (α, β)
+generally yields a DIFFERENT score (the load-bearing RV-T1 / RV-T2 pair
+asserts this: 0.8823 vs 0.6521 for inputs swapped). With α = β = 1 the
+function reduces to Q-Gram Jaccard (bit-for-bit equality on the same
+multisets); with α = β = 0.5 it reduces to Sørensen-Dice (also bit-for-
+bit). The asymmetry is exercised at THREE layers: unit test
+(TestTversky_AsymmetryDirectionSensitive in tversky_test.go), property
+test (TestProp_TverskyScore_AsymmetricWhenAlphaNeqBeta + the
+ParameterSwapSymmetry algebraic identity), AND the Gherkin asymmetry
+direction-sensitivity scenario in tests/bdd/features/tversky.feature.
+
+```go
+// TverskyScore returns the Tversky asymmetric similarity of the q-gram
+// multisets of a and b: T(A, B, α, β) = |QA ∩ QB| / (|QA ∩ QB| +
+// α·|QA − QB| + β·|QB − QA|), in [0, 1] (Tversky 1977 §2 eq. (1)
+// p. 332). Operates on bytes; UTF-8 inputs split q-grams at byte
+// boundaries. Identity short-circuit (a == b) covers both-empty.
+// Symmetric when α = β; direction-sensitive when α ≠ β. Special cases:
+// α=β=1.0 reduces to Q-Gram Jaccard (bit-for-bit); α=β=0.5 reduces to
+// Sørensen-Dice (bit-for-bit). Panics with "fuzzymatch: invalid q-gram
+// size" when n < 1; panics with "fuzzymatch: invalid tversky parameter"
+// when α < 0, β < 0, or α + β == 0 — the Phase 8 Scorer option
+// WithTverskyAlgorithm returns ErrInvalidQGramSize / ErrInvalidTverskyParam
+// instead. The α/β surface is the asymmetric-similarity feature; the
+// dispatch table wraps with α=β=1.0 (Jaccard-equivalent) as a
+// deliberate compromise — see dispatch_tversky.go.
+// Reference (load-bearing asymmetry pair):
+//   TverskyScore("abcd",   "abcdef", 2, 0.8, 0.2) = 0.8823529411764706
+//   TverskyScore("abcdef", "abcd",   2, 0.8, 0.2) = 0.6521739130434783
+func TverskyScore(a, b string, n int, alpha, beta float64) float64
+```
+
+```go
+// TverskyScoreRunes returns the Tversky asymmetric similarity of the
+// q-gram multisets of a and b under rune semantics. Multi-byte UTF-8
+// windows are compared atomically; "café" decomposes to four runes
+// and produces three rune-bigrams at n=2. Allocates two []rune slices
+// on the heap plus the two multiset maps. For ASCII inputs prefer
+// TverskyScore. Same panic contracts (n<1; α<0/β<0/α+β==0). Same
+// asymmetry surface — the rune path is the rune-aware twin, NOT a
+// symmetric variant.
+// Reference: TverskyScoreRunes("café", "cafe", 2, 0.5, 0.5) = 2/3 ≈ 0.66667.
+func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go
