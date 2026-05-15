@@ -321,3 +321,21 @@ func ExampleTverskyScoreRunes() {
 	// Output:
 	// 0.6667
 }
+
+// ExampleTokenSortRatioScore demonstrates the Token Sort Ratio
+// similarity on the canonical RapidFuzz-documentation reorder pair.
+// Both sides tokenise to {fuzzy, wuzzy, was, a, bear}; sorting and
+// joining gives identical strings "a bear fuzzy was wuzzy" on each
+// side; the Indel-formula reduces to 2·n/(2n) = 1.0 (identity over
+// the sorted-joined representation).
+//
+// Token Sort Ratio is the simplest of the three Indel-based ratios in
+// the catalogue: TokenSetRatio (plan 06-02) extends it with a
+// three-way max over intersection / diff-A / diff-B token reconstructions;
+// PartialRatio (plan 06-03) drops tokenisation and applies the Indel
+// formula over the best-aligned substring of the longer input.
+func ExampleTokenSortRatioScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.TokenSortRatioScore("fuzzy wuzzy was a bear", "wuzzy fuzzy was a bear"))
+	// Output:
+	// 1.0000
+}

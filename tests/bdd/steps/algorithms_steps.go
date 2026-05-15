@@ -619,6 +619,40 @@ func (ctx *AlgorithmContext) theTwoTverskyScoresShouldDifferByMoreThan(threshold
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// TokenSortRatio step methods (plan 06-01)
+//
+// Token Sort Ratio is parameter-free (no n, no α/β): the step grammar
+// reverts to the Phase 2/3/4 score-step shape (no `with n …` suffix).
+// Both the second-score and both-equal helpers mirror the
+// Levenshtein / Jaro pattern from earlier phases.
+// ---------------------------------------------------------------------------
+
+// iComputeTheTokenSortRatioScoreBetween computes
+// TokenSortRatioScore(a, b) and stores the result in lastScore.
+func (ctx *AlgorithmContext) iComputeTheTokenSortRatioScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.TokenSortRatioScore(a, b)
+	return nil
+}
+
+// iComputeTheSecondTokenSortRatioScoreBetween computes
+// TokenSortRatioScore(a, b) and stores the result in lastScore2. Used
+// by the symmetry scenario to capture a second score for
+// T(A, B) == T(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondTokenSortRatioScoreBetween(a, b string) error {
+	ctx.lastScore2 = fuzzymatch.TokenSortRatioScore(a, b)
+	return nil
+}
+
+// bothTokenSortRatioScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetry scenario after computing T(A, B) and T(B, A).
+func (ctx *AlgorithmContext) bothTokenSortRatioScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("token sort ratio scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // bothTverskyScoresShouldBeEqual asserts lastScore == lastScore2.
 // Used by the parameter-swap symmetry scenario after computing
 // T(a, b, α, β) and T(b, a, β, α) — the algebraic identity from
@@ -907,5 +941,22 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both Tversky scores should be equal$`,
 		a.bothTverskyScoresShouldBeEqual,
+	)
+
+	// TokenSortRatio step definitions (plan 06-01). Parameter-free shape
+	// (no `with n …` suffix) — Token Sort Ratio takes only (a, b string)
+	// per CONTEXT.md §6 LOCKED. Both the score, second-score, and
+	// both-equal helpers mirror the Levenshtein/Jaro Phase 2/3/4 pattern.
+	ctx.Step(
+		`^I compute the TokenSortRatio score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheTokenSortRatioScoreBetween,
+	)
+	ctx.Step(
+		`^I compute the second TokenSortRatio score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheSecondTokenSortRatioScoreBetween,
+	)
+	ctx.Step(
+		`^both TokenSortRatio scores should be equal$`,
+		a.bothTokenSortRatioScoresShouldBeEqual,
 	)
 }
