@@ -14,7 +14,7 @@
 - [ ] **Phase 2: Core Character Algorithms (six)** - Levenshtein, Damerau-Levenshtein OSA + Full, Hamming, Jaro, Jaro-Winkler
 - [x] **Phase 3: Smith-Waterman-Gotoh** - Isolated for Gotoh 1982 erratum cross-validation against EMBOSS/biopython (completed 2026-05-14)
 - [ ] **Phase 4: Remaining Character & Gestalt** - Strcmp95, LCSStr, Ratcliff-Obershelp
-- [ ] **Phase 5: Q-gram Algorithms** - Shared q-gram infrastructure + Jaccard, Sørensen-Dice, Cosine, Tversky
+- [x] **Phase 5: Q-gram Algorithms** - Shared q-gram infrastructure + Jaccard, Sørensen-Dice, Cosine, Tversky (completed 2026-05-15)
 - [ ] **Phase 6: Token-based Algorithms** - Monge-Elkan, Token Sort Ratio, Token Set Ratio, Partial Ratio, Token Jaccard
 - [ ] **Phase 7: Phonetic Algorithms** - Soundex, Double Metaphone, NYSIIS, MRA
 - [ ] **Phase 8: Composite Scorer** - Functional-options weighted Scorer, ScoreAll, Match, normalisation control
@@ -167,7 +167,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Core Character Algorithms (six) | 0/7 | Not started | - |
 | 3. Smith-Waterman-Gotoh | 3/3 | Complete    | 2026-05-14 |
 | 4. Remaining Character & Gestalt | 0/5 | Not started | - |
-| 5. Q-gram Algorithms | 4/5 | In Progress|  |
+| 5. Q-gram Algorithms | 5/5 | Complete   | 2026-05-15 |
 | 6. Token-based Algorithms | 0/TBD | Not started | - |
 | 7. Phonetic Algorithms | 0/TBD | Not started | - |
 | 8. Composite Scorer | 0/TBD | Not started | - |
