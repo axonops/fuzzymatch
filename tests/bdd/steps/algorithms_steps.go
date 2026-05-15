@@ -473,6 +473,50 @@ func (ctx *AlgorithmContext) bothQGramJaccardScoresShouldBeEqual() error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Sørensen-Dice step methods (plan 05-02)
+//
+// Same `with n <n>` shape introduced by plan 05-01 — the q-gram-tier
+// algorithms all carry the n parameter. Both byte and rune surfaces ship;
+// the symmetry scenario uses the standard "second score" / "both equal"
+// pattern from earlier phases.
+// ---------------------------------------------------------------------------
+
+// iComputeTheSorensenDiceScoreBetweenWithN computes
+// SorensenDiceScore(a, b, n) and stores the result in lastScore. The
+// dispatched byte-path surface; multi-byte UTF-8 splits q-grams at byte
+// boundaries.
+func (ctx *AlgorithmContext) iComputeTheSorensenDiceScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore = fuzzymatch.SorensenDiceScore(a, b, n)
+	return nil
+}
+
+// iComputeTheSecondSorensenDiceScoreBetweenWithN computes
+// SorensenDiceScore(a, b, n) and stores the result in lastScore2. Used
+// by the symmetry scenario to capture a second score for
+// DSC(A, B) == DSC(B, A).
+func (ctx *AlgorithmContext) iComputeTheSecondSorensenDiceScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore2 = fuzzymatch.SorensenDiceScore(a, b, n)
+	return nil
+}
+
+// iComputeTheSorensenDiceRunesScoreBetweenWithN computes
+// SorensenDiceScoreRunes(a, b, n) and stores the result in lastScore.
+// The rune path; multi-byte UTF-8 windows are compared atomically.
+func (ctx *AlgorithmContext) iComputeTheSorensenDiceRunesScoreBetweenWithN(a, b string, n int) error {
+	ctx.lastScore = fuzzymatch.SorensenDiceScoreRunes(a, b, n)
+	return nil
+}
+
+// bothSorensenDiceScoresShouldBeEqual asserts lastScore == lastScore2.
+// Used by the symmetry scenario after computing DSC(A, B) and DSC(B, A).
+func (ctx *AlgorithmContext) bothSorensenDiceScoresShouldBeEqual() error {
+	if ctx.lastScore != ctx.lastScore2 {
+		return fmt.Errorf("sorensen dice scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
+	}
+	return nil
+}
+
 // InitializeScenario wires step definitions into the godog suite. Each call
 // creates a fresh AlgorithmContext bound to the scenario, ensuring per-scenario
 // isolation. Wave 2 plans append their algorithm's step regexes here.
@@ -673,5 +717,26 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both QGramJaccard scores should be equal$`,
 		a.bothQGramJaccardScoresShouldBeEqual,
+	)
+
+	// Sørensen-Dice step definitions (plan 05-02). Same `with n <n>`
+	// shape as plan 05-01's QGramJaccard. Both byte and rune surfaces
+	// ship; the symmetry scenario uses the second-score / both-equal
+	// pattern from earlier phases.
+	ctx.Step(
+		`^I compute the SorensenDice score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheSorensenDiceScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^I compute the second SorensenDice score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheSecondSorensenDiceScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^I compute the SorensenDiceRunes score between "([^"]*)" and "([^"]*)" with n (\d+)$`,
+		a.iComputeTheSorensenDiceRunesScoreBetweenWithN,
+	)
+	ctx.Step(
+		`^both SorensenDice scores should be equal$`,
+		a.bothSorensenDiceScoresShouldBeEqual,
 	)
 }

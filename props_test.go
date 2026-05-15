@@ -1706,6 +1706,209 @@ func TestProp_QGramJaccardScore_DeterministicAcrossRuns(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Sørensen-Dice property tests (plan 05-02)
+// ---------------------------------------------------------------------------
+
+// sorensenDiceN coerces an arbitrary int into the [1, 5] inclusive range
+// used by the Sørensen-Dice property tests. Negative and zero n values
+// are mapped into the valid range; the n parameter would otherwise
+// panic per CONTEXT.md §5 LOCKED, but that contract is unit-tested
+// separately by TestSorensenDice_PanicsOnInvalidN — the property tests
+// exercise the [0, 1] score-range invariants.
+func sorensenDiceN(n int) int {
+	if n < 0 {
+		n = -n
+	}
+	return (n % 5) + 1
+}
+
+// TestProp_SorensenDiceScore_RangeBounds asserts the byte-path score
+// stays in [0.0, 1.0] for any (a, b, n) triple. Inline NaN/Inf guards
+// document the joint invariant; dedicated _NoNaN / _NoInf tests below
+// retest each guard in isolation for documentation clarity.
+func TestProp_SorensenDiceScore_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.SorensenDiceScore(a, b, sorensenDiceN(n))
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScore out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScore_Identity asserts Score(x, x, n) == 1.0
+// EXACTLY for any non-empty x and any n >= 1 — the identity short-circuit
+// fires before extraction and the result is the literal 1.0.
+func TestProp_SorensenDiceScore_Identity(t *testing.T) {
+	f := func(x string, n int) bool {
+		if x == "" {
+			return true // both-empty handled by unit tests
+		}
+		return fuzzymatch.SorensenDiceScore(x, x, sorensenDiceN(n)) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScore identity violated: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScore_Symmetric asserts Score(a, b, n) == Score(b, a, n)
+// EXACTLY (not within tolerance) — Sørensen-Dice is symmetric and the
+// integer-derived single multiplication-then-division produces
+// bit-identical output.
+func TestProp_SorensenDiceScore_Symmetric(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := sorensenDiceN(n)
+		return fuzzymatch.SorensenDiceScore(a, b, nn) == fuzzymatch.SorensenDiceScore(b, a, nn)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScore_NoNaN asserts the byte-path score never
+// returns NaN. The both-empty + one-empty + identity short-circuits
+// gate away the only potential 0/0 paths; the explicit
+// diceFromQGramMaps len-check provides the secondary guard.
+func TestProp_SorensenDiceScore_NoNaN(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsNaN(fuzzymatch.SorensenDiceScore(a, b, sorensenDiceN(n)))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScore_NoInf asserts the byte-path score never
+// returns ±Inf. Numerator and denominator are bounded integers fitting
+// in float64 (counts up to 2^53 are exact); the single
+// multiplication-then-division never overflows.
+func TestProp_SorensenDiceScore_NoInf(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsInf(fuzzymatch.SorensenDiceScore(a, b, sorensenDiceN(n)), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScore_NoNegativeZero asserts that when the
+// byte-path score is 0.0 it is positive zero, not negative zero. The
+// intersection cardinality is a non-negative integer; 2·0/(positive)
+// is +0.0 in IEEE-754.
+func TestProp_SorensenDiceScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.SorensenDiceScore(a, b, sorensenDiceN(n))
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScore produced -0.0: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScoreRunes_RangeBounds: rune-path mirror of
+// _RangeBounds.
+func TestProp_SorensenDiceScoreRunes_RangeBounds(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.SorensenDiceScoreRunes(a, b, sorensenDiceN(n))
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScoreRunes out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScoreRunes_Identity: rune-path identity.
+func TestProp_SorensenDiceScoreRunes_Identity(t *testing.T) {
+	f := func(x string, n int) bool {
+		if x == "" {
+			return true
+		}
+		return fuzzymatch.SorensenDiceScoreRunes(x, x, sorensenDiceN(n)) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScoreRunes identity violated: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScoreRunes_Symmetric: rune-path symmetry.
+func TestProp_SorensenDiceScoreRunes_Symmetric(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		nn := sorensenDiceN(n)
+		return fuzzymatch.SorensenDiceScoreRunes(a, b, nn) == fuzzymatch.SorensenDiceScoreRunes(b, a, nn)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScoreRunes not symmetric: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScoreRunes_NoNaN: rune-path NaN guard.
+func TestProp_SorensenDiceScoreRunes_NoNaN(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsNaN(fuzzymatch.SorensenDiceScoreRunes(a, b, sorensenDiceN(n)))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScoreRunes produced NaN: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScoreRunes_NoInf: rune-path Inf guard.
+func TestProp_SorensenDiceScoreRunes_NoInf(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		return !math.IsInf(fuzzymatch.SorensenDiceScoreRunes(a, b, sorensenDiceN(n)), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScoreRunes produced Inf: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScoreRunes_NoNegativeZero: rune-path -0.0 guard.
+func TestProp_SorensenDiceScoreRunes_NoNegativeZero(t *testing.T) {
+	f := func(a, b string, n int) bool {
+		s := fuzzymatch.SorensenDiceScoreRunes(a, b, sorensenDiceN(n))
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("SorensenDiceScoreRunes produced -0.0: %v", err)
+	}
+}
+
+// TestProp_SorensenDiceScore_DeterministicAcrossRuns asserts that 1000
+// sequential calls on the same (a, b, n) input produce byte-identical
+// output. PITFALLS §14 closure carried forward from plan 05-01 — guards
+// against any future regression that might re-introduce map-iteration
+// order dependence on the output path.
+//
+// Compares via math.Float64bits to detect bit-level differences (e.g.
+// +0.0 vs -0.0, signalling vs quiet NaN — even though the algorithm
+// emits neither). Uses the load-bearing RV-D1 night/nacht/n=2 pair on
+// the byte surface, mirrored on the café/cafe/n=2 rune surface.
+func TestProp_SorensenDiceScore_DeterministicAcrossRuns(t *testing.T) {
+	const iterations = 1000
+	const a = "night"
+	const b = "nacht"
+	const n = 2
+	baseline := fuzzymatch.SorensenDiceScore(a, b, n)
+	baselineBits := math.Float64bits(baseline)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.SorensenDiceScore(a, b, n)
+		if math.Float64bits(got) != baselineBits {
+			t.Fatalf("iteration %d: SorensenDiceScore(%q,%q,%d) = %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, a, b, n, got, math.Float64bits(got), baseline, baselineBits)
+		}
+	}
+	// Mirror gate on the rune surface.
+	baselineR := fuzzymatch.SorensenDiceScoreRunes("café", "cafe", 2)
+	baselineRBits := math.Float64bits(baselineR)
+	for i := 0; i < iterations; i++ {
+		got := fuzzymatch.SorensenDiceScoreRunes("café", "cafe", 2)
+		if math.Float64bits(got) != baselineRBits {
+			t.Fatalf("iteration %d (rune): got %.17g (bits=%x); baseline = %.17g (bits=%x)",
+				i, got, math.Float64bits(got), baselineR, baselineRBits)
+		}
+	}
+}
+
 // TestRatcliffObershelpScore_AtLeastLevenshtein_OnSubstringContainment checks the
 // "generally" property from RESEARCH.md: on substring-containment inputs
 // the Ratcliff-Obershelp score is typically ≥ the Levenshtein score
