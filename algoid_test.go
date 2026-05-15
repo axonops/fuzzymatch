@@ -441,16 +441,17 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // AlgoCosine (slot 11 — registered by Phase 5 plan 05-03),
 // AlgoTversky (slot 12 — registered by Phase 5 plan 05-04),
 // AlgoTokenSortRatio (slot 14 — registered by Phase 6 plan 06-01),
+// AlgoTokenSetRatio (slot 15 — registered by Phase 6 plan 06-02),
 // and AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by
 // Phase 4 plan 04-03) are still nil.
 //
-// Plan 06-01 flips slot 14 (AlgoTokenSortRatio) to registered. Slots
-// 13, 15..21 remain nil pending later plans (Monge-Elkan, TokenSet,
+// Plan 06-02 flips slot 15 (AlgoTokenSetRatio) to registered. Slots
+// 13, 16..21 remain nil pending later plans (Monge-Elkan,
 // PartialRatio, TokenJaccard, and the phonetic tier).
 func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 	// Registered by Wave 1, plan 02-02..02-06, plan 03-01, plan 04-01,
 	// plan 04-02, plan 04-03, plan 05-01, plan 05-02, plan 05-03,
-	// plan 05-04, and plan 06-01 respectively; all others nil.
+	// plan 05-04, plan 06-01, and plan 06-02 respectively; all others nil.
 	registered := map[int]bool{
 		int(fuzzymatch.AlgoLevenshtein):            true,
 		int(fuzzymatch.AlgoDamerauLevenshteinOSA):  true,
@@ -466,6 +467,7 @@ func TestDispatch_UnregisteredSlotsAreNil(t *testing.T) {
 		int(fuzzymatch.AlgoCosine):                 true,
 		int(fuzzymatch.AlgoTversky):                true,
 		int(fuzzymatch.AlgoTokenSortRatio):         true,
+		int(fuzzymatch.AlgoTokenSetRatio):          true,
 		int(fuzzymatch.AlgoRatcliffObershelp):      true,
 	}
 	for i := 0; i < fuzzymatch.DispatchLenForTest(); i++ {

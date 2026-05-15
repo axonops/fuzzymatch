@@ -2735,3 +2735,110 @@ func TestProp_TokenSortRatioScore_NoNegativeZero(t *testing.T) {
 		t.Errorf("TokenSortRatioScore produced -0.0: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TokenSetRatio property tests (plan 06-02)
+// ---------------------------------------------------------------------------
+
+// TestProp_TokenSetRatioScore_RangeBounds asserts the score stays in
+// [0.0, 1.0] for any (a, b) pair. Joint NaN/Inf gate documents the
+// composite invariant; dedicated _NoNaN / _NoInf tests below retest
+// each guard in isolation.
+func TestProp_TokenSetRatioScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.TokenSetRatioScore(a, b)
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSetRatioScore out of [0,1] or non-finite: %v", err)
+	}
+}
+
+// TestProp_TokenSetRatioScore_Identity asserts Score(x, x) == 1.0 for
+// any NON-EMPTY string x. The empty case is GUARDED: when x == "" the
+// LOCKED RapidFuzz issue #110 DEVIATION fires first and returns 0.0,
+// NOT 1.0 (the empty-input gate runs before the identity
+// short-circuit per the LOCKED deviation). Per RESEARCH.md Pitfall 2,
+// this is the documented exception from the catalogue's
+// unconditional Score(x, x) == 1.0 property.
+//
+// Pure-separator strings (e.g. " ", "___") that Tokenise to an empty
+// slice ALSO return 0.0 via the post-Tokenise empty-set gate. The
+// guard `if x == "" return true` only skips the literal-empty case;
+// the property is then false for pure-separator strings too. We
+// therefore guard on `len(Tokenise(x, opts)) == 0` to skip all
+// post-Tokenise-empty inputs — the deviation is documented elsewhere
+// (algorithm godoc, BDD scenarios, staging-golden, unit tests, and
+// this docstring).
+func TestProp_TokenSetRatioScore_Identity(t *testing.T) {
+	opts := fuzzymatch.DefaultTokeniseOptions()
+	f := func(x string) bool {
+		// Guard the LOCKED DEVIATION: when Tokenise(x) is empty
+		// (literal-empty x or pure-separator x), the function
+		// returns 0.0 not 1.0. The identity property is
+		// vacuously true for those inputs per RESEARCH.md Pitfall
+		// 2.
+		if len(fuzzymatch.Tokenise(x, opts)) == 0 {
+			return true
+		}
+		return fuzzymatch.TokenSetRatioScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSetRatioScore identity violated: %v", err)
+	}
+}
+
+// TestProp_TokenSetRatioScore_Symmetric asserts Score(a, b) ==
+// Score(b, a) EXACTLY (bit-for-bit). Tokenise is deterministic; set
+// construction is order-independent; the three-way max operator is
+// order-insensitive; r1 and r2 swap when (a, b) → (b, a) but
+// max(r1, r2, r3) is invariant; r3 is symmetric in its argument order
+// via indelRatio's own symmetry.
+func TestProp_TokenSetRatioScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.TokenSetRatioScore(a, b) == fuzzymatch.TokenSetRatioScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSetRatioScore not symmetric: %v", err)
+	}
+}
+
+// TestProp_TokenSetRatioScore_NoNaN asserts the score never returns
+// NaN. The identity / empty-set / subset short-circuit guards gate
+// away every 0/0 path; the indelRatio sum-check provides the secondary
+// guard.
+func TestProp_TokenSetRatioScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.TokenSetRatioScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSetRatioScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_TokenSetRatioScore_NoInf asserts the score never returns
+// ±Inf. Numerator and denominator are bounded integers fitting in
+// float64; the three divisions never overflow.
+func TestProp_TokenSetRatioScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.TokenSetRatioScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSetRatioScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_TokenSetRatioScore_NoNegativeZero asserts that when the
+// score is 0.0 it is positive zero, not negative zero. The numerator
+// (2 · lcsLen) is a non-negative integer; float64(0) / float64(positive)
+// is +0.0 in IEEE-754. The empty-set DEVIATION returns the literal
+// 0.0 (positive zero by Go-language guarantee).
+func TestProp_TokenSetRatioScore_NoNegativeZero(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.TokenSetRatioScore(a, b)
+		return s != 0.0 || !math.Signbit(s)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TokenSetRatioScore produced -0.0: %v", err)
+	}
+}

@@ -339,3 +339,30 @@ func ExampleTokenSortRatioScore() {
 	// Output:
 	// 1.0000
 }
+
+// ExampleTokenSetRatioScore demonstrates the Token Set Ratio
+// three-way max construction. Token Set Ratio differs from Token
+// Sort Ratio in three ways: (a) it deduplicates tokens (set
+// semantics, not multiset); (b) when the intersection is non-empty
+// AND one token set is a subset of the other, it short-circuits to
+// 1.0; (c) when neither set is a subset, it takes the max of three
+// Indel ratios over the sorted intersection, intersection+diff_ab,
+// and intersection+diff_ba string forms.
+//
+// The example below — "hello world" vs "world peace" — exercises the
+// non-subset three-way max case where the third branch
+// (intersection+diff_ab vs intersection+diff_ba) strictly dominates
+// the first two. The intersection is {"world"}; diff_ab = {"hello"};
+// diff_ba = {"peace"}. The third Indel ratio computes
+// 2·LCS("world hello", "world peace") / (11+11) = 14/22 = 7/11.
+//
+// DEVIATION (locked in plan 06-02): TokenSetRatioScore returns 0.0
+// (NOT 1.0) when either tokenised input is empty — bug-for-bug
+// compatibility with RapidFuzz issue #110. Other tokenised
+// algorithms in the catalogue (TokenJaccard, MongeElkan) follow the
+// standard both-empty → 1.0 convention.
+func ExampleTokenSetRatioScore() {
+	fmt.Printf("%.4f\n", fuzzymatch.TokenSetRatioScore("hello world", "world peace"))
+	// Output:
+	// 0.6364
+}

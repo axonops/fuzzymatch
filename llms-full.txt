@@ -372,6 +372,64 @@ produces semantically richer splits.
 func TokenSortRatioScore(a, b string) float64
 ```
 
+### Phase 6 algorithm surface (token tier — TokenSetRatio)
+
+Plan 06-02 lands the second Indel-formula consumer of the shared
+`token_indel.go` kernel: TokenSetRatio. The construction is more
+complex than TokenSortRatio's tokenise-sort-join pipeline:
+TokenSetRatio dedupes each token list to a set, computes the sorted
+intersection / diff_a_to_b / diff_b_to_a slices, subset-short-circuits
+when one set is a subset of the other, and otherwise takes the max
+of three Indel ratios over the constructed-string forms (intersection
+vs intersection+diff_ab, intersection vs intersection+diff_ba,
+intersection+diff_ab vs intersection+diff_ba).
+
+DEVIATION from the catalogue both-empty → 1.0 convention (LOCKED in
+plan 06-02): TokenSetRatioScore returns 0.0 (NOT 1.0) when either
+input is empty OR when either tokenised input is empty — bug-for-bug
+compatibility with RapidFuzz issue #110 / fuzzywuzzy. The empty-input
+gate fires BEFORE the identity short-circuit so
+TokenSetRatioScore("", "") returns 0.0 (matching RapidFuzz), NOT 1.0.
+The identity short-circuit (`if a == b { return 1.0 }`) only fires
+for NON-EMPTY identical strings. The post-Tokenise empty-set gate
+catches the remaining edge: raw strings non-empty but both tokenise
+empty (e.g. `(" ", "  ")` → 0.0). Other tokenised algorithms in the
+catalogue (TokenJaccard, MongeElkan) follow the standard convention;
+TokenSetRatio is the documented exception, recorded in the
+algorithm godoc, BDD scenarios, the staging-golden test case, the
+cross-validation corpus, and `docs/cross-validation.md`.
+
+DoS notice (per 06-CONTEXT.md §5 LOCKED): the third (combined-vs-
+combined) branch is the worst-case cost driver — O((|combined1to2| +
+|combined2to1|)^2) for the LCS DP. On asymmetric-cardinality inputs
+(5-token vs 100-token, 2-token shared core), the DP performs ~10^4
+cell updates. See `BenchmarkTokenSetRatio_Pathological_AsymmetricSetCardinalities`
+for measured timings on representative pathological shapes.
+
+```go
+// TokenSetRatioScore returns the Token Set Ratio similarity between
+// a and b in [0.0, 1.0]: tokenise both sides using
+// DefaultTokeniseOptions(), compute the sorted intersection +
+// diff_ab + diff_ba token slices, subset-short-circuit when one set
+// is a subset of the other (AND the intersection is non-empty), or
+// otherwise take the max of three Indel ratios over the
+// constructed-string forms (intersection vs intersection+diff_ab,
+// intersection vs intersection+diff_ba, intersection+diff_ab vs
+// intersection+diff_ba).
+//
+// DEVIATION (LOCKED — RapidFuzz issue #110 bug-for-bug): when
+// either input is empty OR either Tokenise output is empty, the
+// function returns 0.0 (NOT 1.0). The empty-input gate fires
+// BEFORE the identity short-circuit so ("", "") → 0.0 (matching
+// RapidFuzz). Identity short-circuit fires only for non-empty
+// identical strings.
+//
+// Reference vector:
+//   TokenSetRatioScore("hello world", "world peace") = 7/11 ≈ 0.6364
+//   (three-way max where the combined-vs-combined branch wins).
+func TokenSetRatioScore(a, b string) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go
