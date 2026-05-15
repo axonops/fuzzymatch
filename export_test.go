@@ -127,3 +127,35 @@ var ExtractQGramsForTest = extractQGrams
 // helper for the rune-path q-gram extractor. Pairs with
 // ExtractQGramsForTest above.
 var ExtractQGramsRunesForTest = extractQGramsRunes
+
+// LCSLenForTest re-exports the unexported lcsLen helper from
+// token_indel.go to the external (black-box) test package so
+// token_indel_test.go can assert the Wagner-Fischer 1974 LCS-SUBSEQUENCE
+// recurrence and pin the PITFALL 6 divergence from `lcsstr.go`'s
+// LCS-substring kernel without dragging the helper into the public API.
+//
+// Plan 06-01 introduces this re-export; plans 06-02 (TokenSetRatio),
+// 06-03 (PartialRatio), and 06-05 (MongeElkan, indirectly via the
+// PartialRatio inner-metric integration) consume the same kernel
+// internally and may extend the test re-export pattern as needed.
+var LCSLenForTest = lcsLen
+
+// IndelRatioForTest re-exports the unexported indelRatio helper from
+// token_indel.go. The Indel-formula similarity (2·LCS / (|a|+|b|)) is
+// the RapidFuzz-canonical normalisation consumed by TokenSortRatio
+// (plan 06-01), TokenSetRatio (plan 06-02), and PartialRatio (plan
+// 06-03). Pairs with LCSLenForTest above.
+var IndelRatioForTest = indelRatio
+
+// LCSLenRunesForTest re-exports the unexported lcsLenRunes helper.
+// Used by token_indel_test.go to assert rune-aware LCS-subsequence
+// length on multi-byte UTF-8 inputs (e.g. "café"/"cafe" → 3).
+//
+// Plan 06-03's PartialRatio rune surface (PartialRatioScoreRunes)
+// composes against this kernel via indelRatioRunes; the kernel itself
+// is unchanged across that consumer integration.
+var LCSLenRunesForTest = lcsLenRunes
+
+// IndelRatioRunesForTest re-exports the unexported indelRatioRunes
+// helper. Pairs with LCSLenRunesForTest above.
+var IndelRatioRunesForTest = indelRatioRunes
