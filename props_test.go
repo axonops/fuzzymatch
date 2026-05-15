@@ -3410,3 +3410,93 @@ func TestProp_SoundexCode_Charset(t *testing.T) {
 		t.Errorf("SoundexCode charset invariant violated: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Double Metaphone (Phase 7 plan 07-02)
+//
+// DoubleMetaphoneScore is SYMMETRIC: Score(a,b) == Score(b,a) always, because
+// key-equality is symmetric. The Symmetric invariant IS included.
+//
+// PropDoubleMetaphone_KeyCharset asserts BOTH primary and secondary keys match
+// ^[A-Z0]{0,4}$ (empty string OR at most 4 chars from [A-Z0]).
+// ---------------------------------------------------------------------------
+
+// TestProp_DoubleMetaphoneScore_RangeBounds asserts the score is in [0.0, 1.0]
+// for any pair of strings. DET-04 range-bounds invariant.
+func TestProp_DoubleMetaphoneScore_RangeBounds(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.DoubleMetaphoneScore(a, b)
+		return s >= 0.0 && s <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DoubleMetaphoneScore out of [0,1]: %v", err)
+	}
+}
+
+// TestProp_DoubleMetaphoneScore_Identity asserts Score(x, x) == 1.0 for any x.
+func TestProp_DoubleMetaphoneScore_Identity(t *testing.T) {
+	f := func(x string) bool {
+		return fuzzymatch.DoubleMetaphoneScore(x, x) == 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DoubleMetaphoneScore identity violated: %v", err)
+	}
+}
+
+// TestProp_DoubleMetaphoneScore_Symmetric asserts Score(a,b) == Score(b,a).
+// Double Metaphone is symmetric because key-equality is symmetric.
+func TestProp_DoubleMetaphoneScore_Symmetric(t *testing.T) {
+	f := func(a, b string) bool {
+		return fuzzymatch.DoubleMetaphoneScore(a, b) == fuzzymatch.DoubleMetaphoneScore(b, a)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DoubleMetaphoneScore symmetry violated: %v", err)
+	}
+}
+
+// TestProp_DoubleMetaphoneScore_NoNaN asserts the score is never NaN.
+func TestProp_DoubleMetaphoneScore_NoNaN(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsNaN(fuzzymatch.DoubleMetaphoneScore(a, b))
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DoubleMetaphoneScore produced NaN: %v", err)
+	}
+}
+
+// TestProp_DoubleMetaphoneScore_NoInf asserts the score never returns ±Inf.
+func TestProp_DoubleMetaphoneScore_NoInf(t *testing.T) {
+	f := func(a, b string) bool {
+		return !math.IsInf(fuzzymatch.DoubleMetaphoneScore(a, b), 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DoubleMetaphoneScore produced Inf: %v", err)
+	}
+}
+
+// TestProp_DoubleMetaphone_KeyCharset asserts BOTH primary and secondary keys
+// from DoubleMetaphoneKeys output match ^[A-Z0]{0,4}$ — empty string or at
+// most 4 characters each from [A-Z0] (where 0 represents the theta sound).
+func TestProp_DoubleMetaphone_KeyCharset(t *testing.T) {
+	f := func(s string) bool {
+		primary, secondary := fuzzymatch.DoubleMetaphoneKeys(s)
+		for _, key := range []string{primary, secondary} {
+			if key == "" {
+				continue
+			}
+			if len(key) > 4 {
+				return false
+			}
+			for i := 0; i < len(key); i++ {
+				c := key[i]
+				if !((c >= 'A' && c <= 'Z') || c == '0') {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("DoubleMetaphoneKeys charset invariant violated: %v", err)
+	}
+}

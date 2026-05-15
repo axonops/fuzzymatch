@@ -114,7 +114,28 @@ func TestPhoneticCodesGolden(t *testing.T) {
 	})
 
 	t.Run("DoubleMetaphone", func(t *testing.T) {
-		t.Skip("enabled by plan 07-02")
+		n := 0
+		for _, e := range gf.Entries {
+			e := e
+			if e.Algorithm != "DoubleMetaphone" {
+				continue
+			}
+			n++
+			t.Run(e.Input, func(t *testing.T) {
+				gotP, gotS := fuzzymatch.DoubleMetaphoneKeys(e.Input)
+				if gotP != e.Primary {
+					t.Errorf("DoubleMetaphoneKeys(%q).primary = %q; golden wants %q (byte-stable cross-platform gate)",
+						e.Input, gotP, e.Primary)
+				}
+				if gotS != e.Secondary {
+					t.Errorf("DoubleMetaphoneKeys(%q).secondary = %q; golden wants %q (byte-stable cross-platform gate)",
+						e.Input, gotS, e.Secondary)
+				}
+			})
+		}
+		if n == 0 {
+			t.Fatal("no DoubleMetaphone entries in phonetic-codes.json golden file")
+		}
 	})
 
 	t.Run("NYSIIS", func(t *testing.T) {

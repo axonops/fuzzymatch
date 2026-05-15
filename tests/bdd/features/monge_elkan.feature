@@ -145,10 +145,10 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 14 permitted inner Algo
     #     AlgoTokenJaccard: token-on-token meaningless
     #   - AlgoDoubleMetaphone / AlgoNYSIIS / AlgoMRA:
     #     reserved for Phase 7 plans 07-02..07-04 additive allow-list expansion
-    # Note: AlgoSoundex is now PERMITTED (plan 07-01 added it to the allow-list
-    # — 14 → 15 entries). The BDD scenario uses AlgoDoubleMetaphone as the
-    # representative non-permitted phonetic AlgoID until plan 07-02 lands.
-    # The panic contract is fully exercised by
+    # Note: AlgoSoundex is PERMITTED (plan 07-01 added it — 14→15 entries).
+    # AlgoDoubleMetaphone is now PERMITTED (plan 07-02 added it — 15→16 entries).
+    # The BDD scenario uses AlgoNYSIIS as the representative non-permitted phonetic
+    # AlgoID (until plan 07-03 lands). The panic contract is fully exercised by
     # TestMongeElkan_PanicsOnNonPermittedInner.
     When I attempt to compute the MongeElkan score between "a b" and "c d" with inner Algo<inner>
     Then the call should panic with "<phrase>"
@@ -157,4 +157,4 @@ Feature: Monge-Elkan (asymmetric per-token-max-mean with 14 permitted inner Algo
       | inner           | phrase                                            |
       | MongeElkan      | not permitted as Monge-Elkan inner metric         |
       | TokenSortRatio  | not permitted as Monge-Elkan inner metric         |
-      | DoubleMetaphone | not permitted as Monge-Elkan inner metric         |
+      | NYSIIS          | not permitted as Monge-Elkan inner metric         |

@@ -58,6 +58,66 @@
       "algorithm": "Soundex",
       "input": "Tymczak",
       "code": "T522"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "",
+      "primary": "",
+      "secondary": ""
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Schmidt",
+      "primary": "XMT",
+      "secondary": "SMT"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Smith",
+      "primary": "SM0",
+      "secondary": "XMT"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Catherine",
+      "primary": "K0RN",
+      "secondary": "KTRN"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Katherine",
+      "primary": "K0RN",
+      "secondary": "KTRN"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Pacheco",
+      "primary": "PXK",
+      "secondary": "PXK"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Wojcik",
+      "primary": "AJSK",
+      "secondary": "FHSK"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Cheung",
+      "primary": "XNK",
+      "secondary": "KNK"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Christopher",
+      "primary": "XRST",
+      "secondary": "XRST"
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Caesar",
+      "primary": "SSR",
+      "secondary": "SSR"
     }
   ]
 }

@@ -311,14 +311,14 @@ func TestMongeElkanScoreSymmetric(t *testing.T) {
 // dispatch slots fire correctly.
 func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 	rejected := []fuzzymatch.AlgoID{
-		fuzzymatch.AlgoMongeElkan,      // self-recursion (RESEARCH.md Pitfall 4)
-		fuzzymatch.AlgoTokenSortRatio,  // token-on-token meaningless
-		fuzzymatch.AlgoTokenSetRatio,   // token-on-token meaningless
-		fuzzymatch.AlgoPartialRatio,    // token-on-token meaningless
-		fuzzymatch.AlgoTokenJaccard,    // token-on-token meaningless
-		fuzzymatch.AlgoDoubleMetaphone, // Phase 7 reserved — 07-02 removes
-		fuzzymatch.AlgoNYSIIS,          // Phase 7 reserved — 07-03 removes
-		fuzzymatch.AlgoMRA,             // Phase 7 reserved — 07-04 removes
+		fuzzymatch.AlgoMongeElkan,     // self-recursion (RESEARCH.md Pitfall 4)
+		fuzzymatch.AlgoTokenSortRatio, // token-on-token meaningless
+		fuzzymatch.AlgoTokenSetRatio,  // token-on-token meaningless
+		fuzzymatch.AlgoPartialRatio,   // token-on-token meaningless
+		fuzzymatch.AlgoTokenJaccard,   // token-on-token meaningless
+		// AlgoDoubleMetaphone: permitted as of plan 07-02 (removed from rejected)
+		fuzzymatch.AlgoNYSIIS, // Phase 7 reserved — 07-03 removes
+		fuzzymatch.AlgoMRA,    // Phase 7 reserved — 07-04 removes
 	}
 	for _, inner := range rejected {
 		t.Run("rejected_"+inner.String(), func(t *testing.T) {
@@ -381,7 +381,8 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 		fuzzymatch.AlgoCosine,
 		fuzzymatch.AlgoTversky,
 		fuzzymatch.AlgoRatcliffObershelp,
-		fuzzymatch.AlgoSoundex, // plan 07-01 — phonetic tier addition
+		fuzzymatch.AlgoSoundex,         // plan 07-01 — phonetic tier addition
+		fuzzymatch.AlgoDoubleMetaphone, // plan 07-02 — phonetic tier addition
 	}
 	for _, inner := range permittedSanity {
 		t.Run("permitted_"+inner.String(), func(t *testing.T) {
@@ -405,7 +406,7 @@ func TestMongeElkan_PanicMessageFormat(t *testing.T) {
 	}{
 		{fuzzymatch.AlgoMongeElkan, "MongeElkan"},
 		{fuzzymatch.AlgoTokenSortRatio, "TokenSortRatio"},
-		{fuzzymatch.AlgoDoubleMetaphone, "DoubleMetaphone"}, // AlgoSoundex now permitted (plan 07-01)
+		{fuzzymatch.AlgoNYSIIS, "NYSIIS"}, // AlgoDoubleMetaphone now permitted (plan 07-02); NYSIIS still non-permitted until 07-03
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -492,4 +493,48 @@ func TestMongeElkanScore_DispatchRegistration(t *testing.T) {
 	if got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoMongeElkan), "hello", "hello"); got != 1.0 {
 		t.Errorf("dispatch[AlgoMongeElkan](\"hello\",\"hello\") = %v; want 1.0 (identity short-circuit)", got)
 	}
+}
+
+// TestMongeElkanScore_BinaryInner_DoubleMetaphone asserts the
+// binary-inner-composition behaviour of MongeElkanScore when AlgoDoubleMetaphone
+// is used as the inner metric (per CONTEXT.md §4 LOCKED). Three sub-cases lock
+// the contract:
+//
+//   - one_matches: ME("alpha beta", "alpha gamma", DM) == 0.5
+//     (one of two tokens matches phonetically; the other does not).
+//   - both_match: ME("alpha beta", "alpha beta", DM) == 1.0
+//     (full token-set match; identity short-circuit fires for each token).
+//   - neither: "alpha" vs "gamma" → DM codes differ → 0.0.
+//
+// This test locks the binary-inner-composition behaviour against silent
+// regression (e.g. a change to per-token-max accumulation logic that breaks
+// ME over discrete-valued inners).
+func TestMongeElkanScore_BinaryInner_DoubleMetaphone(t *testing.T) {
+	opts := fuzzymatch.DefaultNormalisationOptions()
+
+	t.Run("one_matches", func(t *testing.T) {
+		// "alpha beta" vs "alpha gamma":
+		// max(DM("alpha","alpha"), DM("alpha","gamma")) = max(1.0, 0.0) = 1.0
+		// max(DM("beta","alpha"), DM("beta","gamma")) = max(0.0, 0.0) = 0.0
+		// MongeElkanScore = (1.0 + 0.0) / 2 = 0.5
+		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoDoubleMetaphone, opts)
+		if got != 0.5 {
+			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoDoubleMetaphone, opts) = %g; want 0.5 (one token matches)", got)
+		}
+	})
+
+	t.Run("both_match", func(t *testing.T) {
+		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoDoubleMetaphone, opts)
+		if got != 1.0 {
+			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoDoubleMetaphone, opts) = %g; want 1.0 (both tokens match)", got)
+		}
+	})
+
+	t.Run("neither", func(t *testing.T) {
+		// "alpha" vs "gamma": DM codes differ → 0.0.
+		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoDoubleMetaphone, opts)
+		if got != 0.0 {
+			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoDoubleMetaphone, opts) = %g; want 0.0 (no token match)", got)
+		}
+	})
 }

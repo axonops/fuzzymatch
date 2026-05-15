@@ -152,7 +152,48 @@ func TestPhonetic_CrossValidation(t *testing.T) {
 	})
 
 	t.Run("DoubleMetaphone", func(t *testing.T) {
-		t.Skip("enabled by plan 07-02")
+		// Branch-count guard: verify corpus has minimum coverage per branch
+		// before per-entry assertions. Build map[branch]count first.
+		// The map is iterated for assertion only (not ordered output) — DET-03 honoured.
+		branchCount := make(map[string]int)
+		for _, e := range c.Entries {
+			if e.Algorithm == "DoubleMetaphone" && e.Branch != "" && e.Branch != "edge" {
+				branchCount[e.Branch]++
+			}
+		}
+		majorBranches := []string{"germanic", "slavic", "romance", "greek"}
+		for _, branch := range majorBranches {
+			if branchCount[branch] < 7 {
+				t.Errorf("DoubleMetaphone branch %q: %d entries; want >= 7", branch, branchCount[branch])
+			}
+		}
+		if branchCount["chinese-origin"] < 4 {
+			t.Errorf("DoubleMetaphone branch %q: %d entries; want >= 4", "chinese-origin", branchCount["chinese-origin"])
+		}
+
+		// Per-entry primary + secondary equality assertions.
+		n := 0
+		for _, e := range c.Entries {
+			e := e
+			if e.Algorithm != "DoubleMetaphone" {
+				continue
+			}
+			n++
+			t.Run(e.Input, func(t *testing.T) {
+				gotP, gotS := fuzzymatch.DoubleMetaphoneKeys(e.Input)
+				if gotP != e.Primary {
+					t.Errorf("DoubleMetaphoneKeys(%q).primary = %q; want %q (branch=%s, metaphone==%s cross-validation)",
+						e.Input, gotP, e.Primary, e.Branch, c.Metadata.MetaphoneVersion)
+				}
+				if gotS != e.Secondary {
+					t.Errorf("DoubleMetaphoneKeys(%q).secondary = %q; want %q (branch=%s, metaphone==%s cross-validation)",
+						e.Input, gotS, e.Secondary, e.Branch, c.Metadata.MetaphoneVersion)
+				}
+			})
+		}
+		if n == 0 {
+			t.Fatal("no DoubleMetaphone entries in corpus — corpus may be empty or corrupted")
+		}
 	})
 
 	t.Run("NYSIIS", func(t *testing.T) {

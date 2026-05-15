@@ -85,10 +85,323 @@
     },
     {
       "algorithm": "DoubleMetaphone",
+      "input": "Schmidt",
+      "primary": "XMT",
+      "secondary": "SMT",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Smith",
+      "primary": "SM0",
+      "secondary": "XMT",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Schwartz",
+      "primary": "XRTS",
+      "secondary": "XRTS",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Mueller",
+      "primary": "MLR",
+      "secondary": "MLR",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Goebel",
+      "primary": "KPL",
+      "secondary": "KPL",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Vogel",
+      "primary": "FJL",
+      "secondary": "FKL",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Knauer",
+      "primary": "NR",
+      "secondary": "NR",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Wojcik",
+      "primary": "AJSK",
+      "secondary": "FHSK",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Sczepanski",
+      "primary": "SKPN",
+      "secondary": "SKPN",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Dvorak",
+      "primary": "TFRK",
+      "secondary": "TFRK",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Kowalski",
+      "primary": "KLSK",
+      "secondary": "KLSK",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Nowak",
+      "primary": "NK",
+      "secondary": "NK",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Wisnewski",
+      "primary": "ASNS",
+      "secondary": "FSNS",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Czapski",
+      "primary": "SPSK",
+      "secondary": "XPSK",
+      "branch": "slavic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Pacheco",
+      "primary": "PXK",
+      "secondary": "PXK",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Bologna",
+      "primary": "PLN",
+      "secondary": "PLKN",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Jaramillo",
+      "primary": "JRML",
+      "secondary": "ARML",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Cabrillo",
+      "primary": "KPRL",
+      "secondary": "KPRL",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Catania",
+      "primary": "KTN",
+      "secondary": "KTN",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Moreno",
+      "primary": "MRN",
+      "secondary": "MRN",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Garcia",
+      "primary": "KRS",
+      "secondary": "KRX",
+      "branch": "romance",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Catherine",
+      "primary": "K0RN",
+      "secondary": "KTRN",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Katherine",
+      "primary": "K0RN",
+      "secondary": "KTRN",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Christopher",
+      "primary": "XRST",
+      "secondary": "XRST",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Athens",
+      "primary": "A0NS",
+      "secondary": "ATNS",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Nicholas",
+      "primary": "NXLS",
+      "secondary": "NXLS",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Theodore",
+      "primary": "0TR",
+      "secondary": "TTR",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Alexander",
+      "primary": "ALKS",
+      "secondary": "ALKS",
+      "branch": "greek",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Cheung",
+      "primary": "XNK",
+      "secondary": "KNK",
+      "branch": "chinese-origin",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Wong",
+      "primary": "ANK",
+      "secondary": "FNK",
+      "branch": "chinese-origin",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Hong",
+      "primary": "HNK",
+      "secondary": "HNK",
+      "branch": "chinese-origin",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Chen",
+      "primary": "XN",
+      "secondary": "KN",
+      "branch": "chinese-origin",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Chang",
+      "primary": "KNK",
+      "secondary": "KNK",
+      "branch": "chinese-origin",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Wagner",
+      "primary": "AKNR",
+      "secondary": "FKNR",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Fischer",
+      "primary": "FXR",
+      "secondary": "FSKR",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Neumann",
+      "primary": "NMN",
+      "secondary": "NMN",
+      "branch": "germanic",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
       "input": "",
-      "branch": "edge",
       "primary": "",
-      "secondary": ""
+      "secondary": "",
+      "branch": "edge",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Xavier",
+      "primary": "KSF",
+      "secondary": "KSFR",
+      "branch": "edge",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Thompson",
+      "primary": "TMPS",
+      "secondary": "TMPS",
+      "branch": "edge",
+      "variant_divergence": false
+    },
+    {
+      "algorithm": "DoubleMetaphone",
+      "input": "Knock",
+      "primary": "NK",
+      "secondary": "NK",
+      "branch": "edge",
+      "variant_divergence": false
     },
     {
       "algorithm": "NYSIIS",

@@ -759,6 +759,58 @@ func SoundexCode(s string) string
 func SoundexScore(a, b string) float64
 ```
 
+### Phase 7 algorithm surface (phonetic tier — Double Metaphone)
+
+Plan 07-02 lands Double Metaphone (Philips 2000), the second of four Phase 7
+phonetic algorithms. Double Metaphone encodes a name as **two** phonetic keys
+(primary and secondary), each at most 4 characters from the charset `[A-Z0]`
+where `0` represents the "th" (theta) sound. The secondary key captures
+alternate pronunciations for names of ambiguous linguistic origin.
+
+**Language-origin branches (5 total — mandatory checklist per CONTEXT.md §3):**
+- **Germanic:** `DoubleMetaphoneKeys("Schmidt") == ("XMT", "SMT")`; `("Smith") == ("SM0", "XMT")`; `Score("Schmidt", "Smith") == 1.0` (shared XMT key)
+- **Greek:** `DoubleMetaphoneKeys("Catherine") == DoubleMetaphoneKeys("Katherine") == ("K0RN", "KTRN")`
+- **Romance:** `DoubleMetaphoneKeys("Pacheco")` primary or secondary contains `"PXK"` (Spanish branch)
+- **Slavic:** e.g. `Sczepanski` produces non-empty keys (SZC compound)
+- **Chinese-origin:** e.g. `Cheung` primary contains X or K (CHE trigger)
+
+**Match rule (four-way):** `Score == 1.0` iff ANY of {primary_a == primary_b,
+primary_a == secondary_b, secondary_a == primary_b, secondary_a == secondary_b}
+where the matched key is non-empty. Otherwise 0.0.
+
+**Non-ASCII handling:** non-ASCII runes are silently dropped before encoding.
+For Unicode-aware similarity compose with `Normalise` + diacritic stripping
+first, or use a character-based algorithm (Levenshtein, Jaro-Winkler).
+
+**Dispatch:** `AlgoDoubleMetaphone` (slot 24) binds `DoubleMetaphoneScore`.
+`DoubleMetaphoneKeys` is public but not dispatched (returns two strings).
+
+**Monge-Elkan inner:** `AlgoDoubleMetaphone` is permitted as a Monge-Elkan
+inner metric (plan 07-02 adds it to `permittedMongeElkanInner`; 15 → 16
+entries).
+
+```go
+// DoubleMetaphoneKeys returns the primary and secondary phonetic keys for s
+// using the Double Metaphone algorithm (Philips 2000). Each key contains at
+// most 4 characters from the charset [A-Z0] where 0 represents the theta
+// sound. Returns ("", "") for empty input or input with no ASCII letters.
+//
+// Non-ASCII input handling: this algorithm operates on ASCII letters
+// [A-Za-z] only. Non-ASCII runes are dropped silently before encoding.
+func DoubleMetaphoneKeys(s string) (primary, secondary string)
+```
+
+```go
+// DoubleMetaphoneScore returns 1.0 if a and b share at least one non-empty
+// phonetic key (four-way match: pp, ps, sp, ss) under the Double Metaphone
+// algorithm (Philips 2000), and 0.0 otherwise. Identity short-circuit covers
+// both-empty (1.0). One-empty returns 0.0.
+//
+// Non-ASCII input handling: this algorithm operates on ASCII letters
+// [A-Za-z] only. Non-ASCII runes are dropped silently before encoding.
+func DoubleMetaphoneScore(a, b string) float64
+```
+
 ### Normalisation (normalise.go)
 
 ```go

@@ -520,3 +520,30 @@ func ExampleSoundexScore() {
 	// 1.0
 	// 0.0
 }
+
+// ExampleDoubleMetaphoneKeys demonstrates DoubleMetaphoneKeys on the canonical
+// Philips 2000 reference pair. "Schmidt" encodes as ("XMT", "SMT") — the
+// Germanic SCH initial produces X (primary sh-sound) and S (Germanic secondary).
+// "Smith" encodes as ("SM0", "XMT") — SM initial plus TH → theta "0" primary.
+// The shared "XMT" key (Schmidt primary == Smith secondary) means these names
+// are phonetically similar under Double Metaphone.
+func ExampleDoubleMetaphoneKeys() {
+	p, s := fuzzymatch.DoubleMetaphoneKeys("Schmidt")
+	fmt.Printf("%s %s\n", p, s)
+	p2, s2 := fuzzymatch.DoubleMetaphoneKeys("Smith")
+	fmt.Printf("%s %s\n", p2, s2)
+	// Output:
+	// XMT SMT
+	// SM0 XMT
+}
+
+// ExampleDoubleMetaphoneScore demonstrates DoubleMetaphoneScore on the canonical
+// Schmidt/Smith pair. Schmidt primary "XMT" matches Smith secondary "XMT" →
+// score 1.0. Schmidt and Garcia have no matching keys → score 0.0.
+func ExampleDoubleMetaphoneScore() {
+	fmt.Printf("%.1f\n", fuzzymatch.DoubleMetaphoneScore("Schmidt", "Smith"))
+	fmt.Printf("%.1f\n", fuzzymatch.DoubleMetaphoneScore("Schmidt", "Garcia"))
+	// Output:
+	// 1.0
+	// 0.0
+}

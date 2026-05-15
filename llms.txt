@@ -156,6 +156,11 @@ scan / Extract (Phases 9–10).
 - func SoundexCode(s string) string
 - func SoundexScore(a, b string) float64
 
+### Double Metaphone (Philips 2000)
+
+- func DoubleMetaphoneKeys(s string) (primary, secondary string)
+- func DoubleMetaphoneScore(a, b string) float64
+
 ### Normalisation
 
 - type NormalisationOptions struct

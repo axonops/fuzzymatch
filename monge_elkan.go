@@ -276,9 +276,9 @@ package fuzzymatch
 // it ADDS its entry here AND updates the panic-test fixture in
 // monge_elkan_test.go in the SAME COMMIT (per CONTEXT.md §4 LOCKED).
 //
-// 15 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 1 phonetic-tier
-// — plan 07-01 adds AlgoSoundex; plans 07-02..07-04 add DM/NYSIIS/MRA
-// additively → 18 total after Phase 7 completes).
+// 16 entries (9 character-tier + 4 q-gram tier + 1 gestalt + 2 phonetic-tier
+// — plan 07-01 adds AlgoSoundex; plan 07-02 adds AlgoDoubleMetaphone;
+// plans 07-03..07-04 add NYSIIS/MRA additively → 18 total after Phase 7 completes).
 //
 // EXPLICITLY NOT permitted (verified by exhaustive panic test):
 //
@@ -288,8 +288,8 @@ package fuzzymatch
 //     receives single tokens from the outer Tokenise; re-tokenising
 //     single tokens is a no-op / identity-equivalent at best, recursive
 //     at worst)
-//   - Phase 7 phonetic remaining (AlgoDoubleMetaphone / AlgoNYSIIS /
-//     AlgoMRA): added in Phase 7 plans 07-02..07-04 ADDITIVELY
+//   - Phase 7 phonetic remaining (AlgoNYSIIS / AlgoMRA): added in
+//     Phase 7 plans 07-03..07-04 ADDITIVELY
 var permittedMongeElkanInner = map[AlgoID]bool{
 	// Character tier (9):
 	AlgoLevenshtein:            true, // Levenshtein 1965
@@ -311,8 +311,9 @@ var permittedMongeElkanInner = map[AlgoID]bool{
 	// Gestalt tier (1) — OQ-4 RESOLUTION LOCKED 2026-05-15:
 	AlgoRatcliffObershelp: true, // Ratcliff & Metzener 1988 — character-tier per OQ-4
 
-	// Phonetic tier (Phase 7) — plan 07-01 adds AlgoSoundex; 07-02..07-04 add the rest:
-	AlgoSoundex: true, // Russell 1918 / Knuth TAOCP §6.4 — plan 07-01
+	// Phonetic tier (Phase 7) — additive per CONTEXT.md §4 LOCKED:
+	AlgoSoundex:         true, // Russell 1918 / Knuth TAOCP §6.4 — plan 07-01
+	AlgoDoubleMetaphone: true, // Philips 2000 — plan 07-02
 }
 
 // MongeElkanScore returns the asymmetric Monge-Elkan similarity between

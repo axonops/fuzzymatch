@@ -995,6 +995,56 @@ func (ctx *AlgorithmContext) theCodeShouldBe(want string) error {
 	return nil
 }
 
+// iComputeTheDoubleMetaphoneKeysOf computes DoubleMetaphoneKeys(s) and stores
+// the results in ctx.lastDMPrimary and ctx.lastDMSecondary. Used by plan
+// 07-02 Double Metaphone BDD scenarios.
+func (ctx *AlgorithmContext) iComputeTheDoubleMetaphoneKeysOf(s string) error {
+	ctx.lastDMPrimary, ctx.lastDMSecondary = fuzzymatch.DoubleMetaphoneKeys(s)
+	return nil
+}
+
+// iComputeTheDoubleMetaphoneScoreBetween computes DoubleMetaphoneScore(a, b)
+// and stores the result in ctx.lastScore. Used by plan 07-02 BDD scenarios.
+func (ctx *AlgorithmContext) iComputeTheDoubleMetaphoneScoreBetween(a, b string) error {
+	ctx.lastScore = fuzzymatch.DoubleMetaphoneScore(a, b)
+	return nil
+}
+
+// theKeysShouldBe asserts that ctx.lastDMPrimary and ctx.lastDMSecondary equal
+// wantPrimary and wantSecondary respectively. Shared step for Double Metaphone
+// key equality scenarios.
+func (ctx *AlgorithmContext) theKeysShouldBe(wantPrimary, wantSecondary string) error {
+	if ctx.lastDMPrimary != wantPrimary {
+		return fmt.Errorf("primary key: expected %q, got %q", wantPrimary, ctx.lastDMPrimary)
+	}
+	if ctx.lastDMSecondary != wantSecondary {
+		return fmt.Errorf("secondary key: expected %q, got %q", wantSecondary, ctx.lastDMSecondary)
+	}
+	return nil
+}
+
+// thePrimaryKeyShouldContain asserts that ctx.lastDMPrimary contains the given
+// substring. Used for Romance/Spanish gate scenarios where we assert PXK is
+// present in the primary key.
+func (ctx *AlgorithmContext) thePrimaryKeyShouldContain(sub string) error {
+	if !strings.Contains(ctx.lastDMPrimary, sub) {
+		return fmt.Errorf("primary key %q does not contain %q", ctx.lastDMPrimary, sub)
+	}
+	return nil
+}
+
+// bothKeysShouldBeNonEmpty asserts that neither lastDMPrimary nor lastDMSecondary
+// is empty. Used for Slavic and Chinese-origin gate scenarios.
+func (ctx *AlgorithmContext) bothKeysShouldBeNonEmpty() error {
+	if ctx.lastDMPrimary == "" {
+		return fmt.Errorf("primary key is empty; expected non-empty")
+	}
+	if ctx.lastDMSecondary == "" {
+		return fmt.Errorf("secondary key is empty; expected non-empty")
+	}
+	return nil
+}
+
 // theCallShouldPanicWith asserts that the previous attempt step
 // captured a panic whose message CONTAINS the given phrase. Used by
 // the panic-on-non-permitted-inner scenarios.
@@ -1431,5 +1481,30 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^the code should be "([^"]*)"$`,
 		a.theCodeShouldBe,
+	)
+
+	// Double Metaphone step definitions (plan 07-02). Keys step writes to
+	// ctx.lastDMPrimary + ctx.lastDMSecondary; score step uses ctx.lastScore.
+	// The new shared `^the keys should be "..." and "..."$` step asserts both
+	// keys in one step.
+	ctx.Step(
+		`^I compute the Double Metaphone keys of "([^"]*)"$`,
+		a.iComputeTheDoubleMetaphoneKeysOf,
+	)
+	ctx.Step(
+		`^I compute the Double Metaphone score between "([^"]*)" and "([^"]*)"$`,
+		a.iComputeTheDoubleMetaphoneScoreBetween,
+	)
+	ctx.Step(
+		`^the keys should be "([^"]*)" and "([^"]*)"$`,
+		a.theKeysShouldBe,
+	)
+	ctx.Step(
+		`^the primary key should contain "([^"]*)"$`,
+		a.thePrimaryKeyShouldContain,
+	)
+	ctx.Step(
+		`^both keys should be non-empty$`,
+		a.bothKeysShouldBeNonEmpty,
 	)
 }
