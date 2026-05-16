@@ -28,7 +28,26 @@ findings:
   warning: 4
   info: 2
   total: 9
-status: issues_found
+status: resolved
+resolutions:
+  CR-01:
+    state: fixed
+    commit: 81632f0
+    note: NYSIIS RD/ND suffix rules corrected; RV-N13 (Byrd) and RV-N14 (Bond) added.
+  CR-02:
+    state: rejected
+    commit: bdcf662
+    note: |
+      Original i += 3 stride matches the oubiwann metaphone==0.6 reference
+      (corpus expects "Sczepanski → SKPN"). Deliberate Philips 2000 quirk,
+      not a bug. Inline comment added to prevent re-litigation.
+  CR-03:
+    state: fixed
+    commit: c404634
+    note: |
+      Explicit one-empty guard added in MRACompare;
+      TestMRACompare_OneEmpty covers single-char and two-char non-empty
+      sides.
 ---
 
 # Phase 7: Code Review Report
