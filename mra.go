@@ -250,6 +250,14 @@ func MRACompare(a, b string) (matched bool, simScore int) {
 	lenA := len(codexA)
 	lenB := len(codexB)
 
+	// One-empty guard (catalogue convention — algorithm-correctness-standards §"Edge cases"):
+	// empty vs non-empty must never match. The NBS Tech Note 943 length-difference gate
+	// fires only at diff >= 3; without this guard, (0,1) and (0,2) length pairs would
+	// produce spurious matches because similarity = 6 - max(0, lenB) meets the threshold.
+	if lenA == 0 || lenB == 0 {
+		return false, 0
+	}
+
 	// Step 1: Length-difference gate.
 	// |lenA - lenB| >= 3 → automatic mismatch per docs/requirements.md §7.4.4 line 696.
 	diff := lenA - lenB

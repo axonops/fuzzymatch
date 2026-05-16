@@ -179,6 +179,44 @@ func TestMRACompare_LengthDifferenceAutoMismatch(t *testing.T) {
 	})
 }
 
+// TestMRACompare_OneEmpty verifies the one-empty → mismatch invariant
+// (catalogue convention per algorithm-correctness-standards §"Edge cases").
+//
+// Regression for CR-03 (REVIEW.md): the NBS Tech Note 943 length-difference
+// gate fires only at diff >= 3, so (0,1) and (0,2) length pairs would
+// otherwise produce a spurious match because similarity = 6 - max(0, lenB)
+// meets the threshold (5 for sum_len=1, 5 for sum_len=2). The explicit
+// lenA==0 || lenB==0 guard in MRACompare ensures empty vs non-empty never
+// matches regardless of how short the non-empty side is.
+func TestMRACompare_OneEmpty(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b string
+	}{
+		{"empty_vs_single_vowel", "", "i"},
+		{"empty_vs_single_consonant", "", "B"},
+		{"single_char_vs_empty", "a", ""},
+		{"empty_vs_short_two_chars", "", "ad"},
+		{"two_chars_vs_empty", "Ad", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			matched, sim := fuzzymatch.MRACompare(c.a, c.b)
+			if matched {
+				t.Errorf("MRACompare(%q, %q).matched = true; want false (one-empty invariant)",
+					c.a, c.b)
+			}
+			if sim != 0 {
+				t.Errorf("MRACompare(%q, %q).simScore = %d; want 0", c.a, c.b, sim)
+			}
+			if score := fuzzymatch.MRAScore(c.a, c.b); score != 0.0 {
+				t.Errorf("MRAScore(%q, %q) = %v; want 0.0 (one-empty invariant)",
+					c.a, c.b, score)
+			}
+		})
+	}
+}
+
 // TestMRACompare_LiteratureReferenceVectors verifies MRACompare results for
 // canonical pairs from NBS Tech Note 943 and hand-derivation (RV-M7, RV-M9, RV-M10).
 func TestMRACompare_LiteratureReferenceVectors(t *testing.T) {
