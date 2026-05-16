@@ -205,9 +205,8 @@ func NYSIISCode(s string) string {
 		work = work[:n-1]
 		n--
 	case n >= 2 && work[n-2] == 'R' && work[n-1] == 'D':
-		// RD → D (remove trailing D, keep previous D... wait: RD→D means last 2 become D)
-		// Actually: name ends in RD → last char becomes D, remove second-to-last R
-		// → effectively just remove the R: work = work[:n-1] leaves "D"
+		// RD → D (replace R with D, drop trailing D-slot)
+		work[n-2] = 'D'
 		work = work[:n-1]
 		n--
 	case n >= 2 && work[n-2] == 'N' && work[n-1] == 'T':
@@ -216,7 +215,8 @@ func NYSIISCode(s string) string {
 		work = work[:n-1]
 		n--
 	case n >= 2 && work[n-2] == 'N' && work[n-1] == 'D':
-		// ND → D (remove N, keep D... wait: ND→D means remove N)
+		// ND → D (replace N with D, drop trailing D-slot)
+		work[n-2] = 'D'
 		work = work[:n-1]
 		n--
 	}

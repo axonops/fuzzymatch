@@ -157,6 +157,21 @@ func TestNYSIISCode_KnuthReferenceVectors(t *testing.T) {
 			want:       "",
 			derivation: "Empty input → empty output",
 		},
+		// Regression: CR-01 (REVIEW.md) — RD→D and ND→D suffix rules
+		// previously dropped the D and left R/N as the trailing char. Both
+		// surnames below exercise the path:
+		{
+			name:       "RV-N13: Byrd (RD suffix → D)",
+			input:      "Byrd",
+			want:       "BYD",
+			derivation: "B→B; Y→Y; trailing RD → D (Taft 1970 step 3): BYRD → BYD",
+		},
+		{
+			name:       "RV-N14: Bond (ND suffix → D)",
+			input:      "Bond",
+			want:       "BAD",
+			derivation: "B→B; O→A (vowel transliteration); trailing ND → D: BAND-truncated-by-step3 → BAD",
+		},
 	}
 
 	for _, tc := range tests {
