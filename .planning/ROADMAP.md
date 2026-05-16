@@ -141,6 +141,12 @@
   3. `Score(a, b) float64` returns `[0.0, 1.0]`; `ScoreAll(a, b) map[AlgoID]float64` returns per-algorithm breakdown with deterministic key set; `Match(a, b) bool` honours `Threshold()`; `Algorithms()` returns the configured set; `WithoutNormalisation()` / `WithCustomNormalisation()` work as documented
   4. `scorer-default.json` golden file diffs byte-identically across the CI matrix; the Scorer composite explicit-parenthesisation + left-to-right reduction is verified by code review and documented; BDD scenarios in `tests/bdd/features/scorer.feature` exercise composition patterns; goleak confirms zero goroutine leaks
 
+**Plans**: 4 plans
+  - [ ] 08-01-PLAN.md — Sentinel errors + ScorerOption type + scorerConfig + 12 option functions (foundation; no Scorer methods yet)
+  - [ ] 08-02-PLAN.md — Scorer struct + NewScorer validation pipeline (missing-threshold first) + weight auto-normalisation + last-write-wins + Score + Match
+  - [ ] 08-03-PLAN.md — ScoreAll (SPEC OVERRIDE: map[AlgoID]float64) + Threshold + Algorithms + ScorerAlgorithm + DefaultScorer + DefaultScorerOptions + property + concurrent tests
+  - [ ] 08-04-PLAN.md — Finalisation: scorer-default.json golden + scorer.feature BDD + scorer_bench_test + examples (scorer-composition + identifier-similarity extension) + docs/scorer.md + docs/tuning.md + spec amendments
+
 ### Phase 9: Collection Scan Sub-package
 **Goal**: Ship the `scan/` sub-package (Layer 3 of the three-layer architecture) — turnkey collection-scan layer over the Scorer with within-group + cross-group passes (separate thresholds), token-bucket optimisation property-test-verified equivalent to naive O(N²), suppression composition (per-item `SilenceLint` flag + global `SuppressedPairs` list + cross-group identical-name default), deterministic output sort by `(Kind, NameA, NameB, GroupA, GroupB)` with in-line completeness assertion that no duplicate sort keys remain. Performance budget < 2s for 10,000 items committed to `bench.txt`. Sentinel error hierarchy for scan-specific failures. Cross-platform `scan-default.json` golden file pinned.
 **Depends on**: Phase 8
@@ -185,7 +191,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Q-gram Algorithms | 5/5 | Complete    | 2026-05-15 |
 | 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
-| 8. Composite Scorer | 0/TBD | Not started | - |
+| 8. Composite Scorer | 0/4 | Not started | - |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |
