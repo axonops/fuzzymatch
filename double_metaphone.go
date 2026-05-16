@@ -725,7 +725,11 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				i += 3
 				continue
 			}
-			// "SC" + E/I/Y → S/SK
+			// "SC" + E/I/Y → S/SK. The SC branch always advances by 3 (not 2):
+			// the post-SC char is consumed as part of the SC trigram regardless of
+			// the I/E/Y test outcome. This is the Philips 2000 / oubiwann metaphone==0.6
+			// reference behaviour — verified by the Slavic "Sczepanski" corpus entry
+			// (produces SKPN, not SKSP).
 			if dmContains(v, i, "SC") {
 				if at(i+2) == 'I' || at(i+2) == 'E' || at(i+2) == 'Y' {
 					dmAdd(&p, &alt, "S", "")
