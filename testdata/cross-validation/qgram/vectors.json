@@ -1,0 +1,531 @@
+{
+  "version": 1,
+  "_metadata": {
+    "py_stringmatching_version": "0.4.7",
+    "python_version": "3.12.12",
+    "tversky_alpha": 0.5,
+    "tversky_beta": 0.5,
+    "regenerated_at": "2026-05-17T13:10:54.925782+00:00"
+  },
+  "entries": [
+    {
+      "name": "identity_short",
+      "a": "hello",
+      "b": "hello",
+      "q2": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      },
+      "q3": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      }
+    },
+    {
+      "name": "identity_word",
+      "a": "fuzzymatch",
+      "b": "fuzzymatch",
+      "q2": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      },
+      "q3": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      }
+    },
+    {
+      "name": "both_empty",
+      "a": "",
+      "b": "",
+      "q2": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      },
+      "q3": null
+    },
+    {
+      "name": "one_empty_a",
+      "a": "",
+      "b": "hello",
+      "q2": {
+        "qgram_jaccard": 0,
+        "sorensen_dice": 0,
+        "cosine": 0,
+        "tversky": 0
+      },
+      "q3": null
+    },
+    {
+      "name": "one_empty_b",
+      "a": "hello",
+      "b": "",
+      "q2": {
+        "qgram_jaccard": 0,
+        "sorensen_dice": 0,
+        "cosine": 0,
+        "tversky": 0
+      },
+      "q3": null
+    },
+    {
+      "name": "kitten_sitting",
+      "a": "kitten",
+      "b": "sitting",
+      "q2": {
+        "qgram_jaccard": 0.2222222222222222,
+        "sorensen_dice": 0.36363636363636365,
+        "cosine": 0.3651483716701107,
+        "tversky": 0.36363636363636365
+      },
+      "q3": {
+        "qgram_jaccard": 0.125,
+        "sorensen_dice": 0.2222222222222222,
+        "cosine": 0.22360679774997896,
+        "tversky": 0.2222222222222222
+      }
+    },
+    {
+      "name": "saturday_sunday",
+      "a": "saturday",
+      "b": "sunday",
+      "q2": {
+        "qgram_jaccard": 0.2,
+        "sorensen_dice": 0.3333333333333333,
+        "cosine": 0.33806170189140655,
+        "tversky": 0.3333333333333333
+      },
+      "q3": {
+        "qgram_jaccard": 0.1111111111111111,
+        "sorensen_dice": 0.2,
+        "cosine": 0.20412414523193154,
+        "tversky": 0.2
+      }
+    },
+    {
+      "name": "jellyfish_smellyfish",
+      "a": "jellyfish",
+      "b": "smellyfish",
+      "q2": {
+        "qgram_jaccard": 0.7,
+        "sorensen_dice": 0.8235294117647058,
+        "cosine": 0.8249579113843053,
+        "tversky": 0.8235294117647058
+      },
+      "q3": {
+        "qgram_jaccard": 0.6666666666666666,
+        "sorensen_dice": 0.8,
+        "cosine": 0.8017837257372731,
+        "tversky": 0.8
+      }
+    },
+    {
+      "name": "martha_marhta",
+      "a": "martha",
+      "b": "marhta",
+      "q2": {
+        "qgram_jaccard": 0.25,
+        "sorensen_dice": 0.4,
+        "cosine": 0.3999999999999999,
+        "tversky": 0.4
+      },
+      "q3": {
+        "qgram_jaccard": 0.14285714285714285,
+        "sorensen_dice": 0.25,
+        "cosine": 0.25,
+        "tversky": 0.25
+      }
+    },
+    {
+      "name": "dixon_dicksonx",
+      "a": "dixon",
+      "b": "dicksonx",
+      "q2": {
+        "qgram_jaccard": 0.2222222222222222,
+        "sorensen_dice": 0.36363636363636365,
+        "cosine": 0.3779644730092272,
+        "tversky": 0.36363636363636365
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "dwayne_duane",
+      "a": "dwayne",
+      "b": "duane",
+      "q2": {
+        "qgram_jaccard": 0.125,
+        "sorensen_dice": 0.2222222222222222,
+        "cosine": 0.22360679774997896,
+        "tversky": 0.2222222222222222
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "fully_different_short",
+      "a": "abc",
+      "b": "xyz",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "fully_different_words",
+      "a": "hello",
+      "b": "world",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "single_char_sub_short",
+      "a": "abcde",
+      "b": "abcdf",
+      "q2": {
+        "qgram_jaccard": 0.6,
+        "sorensen_dice": 0.75,
+        "cosine": 0.75,
+        "tversky": 0.75
+      },
+      "q3": {
+        "qgram_jaccard": 0.5,
+        "sorensen_dice": 0.6666666666666666,
+        "cosine": 0.6666666666666667,
+        "tversky": 0.6666666666666666
+      }
+    },
+    {
+      "name": "single_char_sub_word",
+      "a": "match",
+      "b": "patch",
+      "q2": {
+        "qgram_jaccard": 0.6,
+        "sorensen_dice": 0.75,
+        "cosine": 0.75,
+        "tversky": 0.75
+      },
+      "q3": {
+        "qgram_jaccard": 0.5,
+        "sorensen_dice": 0.6666666666666666,
+        "cosine": 0.6666666666666667,
+        "tversky": 0.6666666666666666
+      }
+    },
+    {
+      "name": "single_qgram_match_q2",
+      "a": "ab",
+      "b": "ab",
+      "q2": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      },
+      "q3": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      }
+    },
+    {
+      "name": "single_qgram_mismatch_q2",
+      "a": "ab",
+      "b": "cd",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      }
+    },
+    {
+      "name": "shorter_than_q2_a",
+      "a": "a",
+      "b": "abc",
+      "q2": {
+        "qgram_jaccard": 0,
+        "sorensen_dice": 0,
+        "cosine": 0,
+        "tversky": 0
+      },
+      "q3": null
+    },
+    {
+      "name": "shorter_than_q2_both",
+      "a": "a",
+      "b": "b",
+      "q2": {
+        "qgram_jaccard": 1.0,
+        "sorensen_dice": 1.0,
+        "cosine": 1.0,
+        "tversky": 1.0
+      },
+      "q3": null
+    },
+    {
+      "name": "mid_length_close",
+      "a": "abcdef",
+      "b": "abcdeg",
+      "q2": {
+        "qgram_jaccard": 0.6666666666666666,
+        "sorensen_dice": 0.8,
+        "cosine": 0.7999999999999998,
+        "tversky": 0.8
+      },
+      "q3": {
+        "qgram_jaccard": 0.6,
+        "sorensen_dice": 0.75,
+        "cosine": 0.75,
+        "tversky": 0.75
+      }
+    },
+    {
+      "name": "mid_length_overlap",
+      "a": "abcdef",
+      "b": "cdefgh",
+      "q2": {
+        "qgram_jaccard": 0.42857142857142855,
+        "sorensen_dice": 0.6,
+        "cosine": 0.5999999999999999,
+        "tversky": 0.6
+      },
+      "q3": {
+        "qgram_jaccard": 0.3333333333333333,
+        "sorensen_dice": 0.5,
+        "cosine": 0.5,
+        "tversky": 0.5
+      }
+    },
+    {
+      "name": "mid_length_far",
+      "a": "abcdef",
+      "b": "uvwxyz",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "subset_short_in_long",
+      "a": "abc",
+      "b": "abcdef",
+      "q2": {
+        "qgram_jaccard": 0.4,
+        "sorensen_dice": 0.5714285714285714,
+        "cosine": 0.6324555320336759,
+        "tversky": 0.5714285714285714
+      },
+      "q3": {
+        "qgram_jaccard": 0.25,
+        "sorensen_dice": 0.4,
+        "cosine": 0.5,
+        "tversky": 0.4
+      }
+    },
+    {
+      "name": "subset_long_in_short",
+      "a": "abcdef",
+      "b": "abc",
+      "q2": {
+        "qgram_jaccard": 0.4,
+        "sorensen_dice": 0.5714285714285714,
+        "cosine": 0.6324555320336759,
+        "tversky": 0.5714285714285714
+      },
+      "q3": {
+        "qgram_jaccard": 0.25,
+        "sorensen_dice": 0.4,
+        "cosine": 0.5,
+        "tversky": 0.4
+      }
+    },
+    {
+      "name": "fuzzy_match",
+      "a": "fuzzy",
+      "b": "match",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "quick_brown_fox",
+      "a": "quick",
+      "b": "brown",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    },
+    {
+      "name": "the_quick_brown_close",
+      "a": "the quick brown fox",
+      "b": "the quick brown dog",
+      "q2": {
+        "qgram_jaccard": 0.7142857142857143,
+        "sorensen_dice": 0.8333333333333334,
+        "cosine": 0.8333333333333335,
+        "tversky": 0.8333333333333334
+      },
+      "q3": {
+        "qgram_jaccard": 0.7,
+        "sorensen_dice": 0.8235294117647058,
+        "cosine": 0.8235294117647058,
+        "tversky": 0.8235294117647058
+      }
+    },
+    {
+      "name": "overlap_dominant",
+      "a": "abcdefg",
+      "b": "abcdefh",
+      "q2": {
+        "qgram_jaccard": 0.7142857142857143,
+        "sorensen_dice": 0.8333333333333334,
+        "cosine": 0.8333333333333335,
+        "tversky": 0.8333333333333334
+      },
+      "q3": {
+        "qgram_jaccard": 0.6666666666666666,
+        "sorensen_dice": 0.8,
+        "cosine": 0.7999999999999998,
+        "tversky": 0.8
+      }
+    },
+    {
+      "name": "overlap_partial",
+      "a": "abcdef",
+      "b": "cdefab",
+      "q2": {
+        "qgram_jaccard": 0.6666666666666666,
+        "sorensen_dice": 0.8,
+        "cosine": 0.7999999999999998,
+        "tversky": 0.8
+      },
+      "q3": {
+        "qgram_jaccard": 0.3333333333333333,
+        "sorensen_dice": 0.5,
+        "cosine": 0.5,
+        "tversky": 0.5
+      }
+    },
+    {
+      "name": "ratio_stressor_short",
+      "a": "abc",
+      "b": "abcde",
+      "q2": {
+        "qgram_jaccard": 0.5,
+        "sorensen_dice": 0.6666666666666666,
+        "cosine": 0.7071067811865475,
+        "tversky": 0.6666666666666666
+      },
+      "q3": {
+        "qgram_jaccard": 0.3333333333333333,
+        "sorensen_dice": 0.5,
+        "cosine": 0.5773502691896258,
+        "tversky": 0.5
+      }
+    },
+    {
+      "name": "ratio_stressor_overlap",
+      "a": "abcde",
+      "b": "bcdef",
+      "q2": {
+        "qgram_jaccard": 0.6,
+        "sorensen_dice": 0.75,
+        "cosine": 0.75,
+        "tversky": 0.75
+      },
+      "q3": {
+        "qgram_jaccard": 0.5,
+        "sorensen_dice": 0.6666666666666666,
+        "cosine": 0.6666666666666667,
+        "tversky": 0.6666666666666666
+      }
+    },
+    {
+      "name": "case_sensitive_disjoint",
+      "a": "ABC",
+      "b": "abc",
+      "q2": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      },
+      "q3": {
+        "qgram_jaccard": 0.0,
+        "sorensen_dice": 0.0,
+        "cosine": 0.0,
+        "tversky": 0.0
+      }
+    }
+  ]
+}

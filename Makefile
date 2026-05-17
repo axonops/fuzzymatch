@@ -293,6 +293,30 @@ regen-character-cross-validation:
 	fi
 	python3 scripts/gen-character-cross-validation.py
 
+# Regenerates testdata/cross-validation/qgram/vectors.json by invoking the
+# py_stringmatching==0.4.7 generator script. Developer-only — NOT included
+# in `make check`. The committed JSON is the verification fixture; CI does
+# NOT require Python at test time. Re-run this target when the pinned
+# py_stringmatching version is bumped or when new test cases are added to
+# scripts/gen-qgram-cross-validation.py. The script refuses to run on a
+# non-pinned py_stringmatching version (PYSM_VERSION = "0.4.7").
+#
+# Plan 08.5-10 task 2 lands the q-gram-tier cross-validation corpus
+# (Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky — the four q-gram
+# surfaces). Inputs are restricted to q-gram-unique extractions so
+# py_stringmatching's SET semantics and fuzzymatch's MULTISET semantics
+# coincide; see scripts/gen-qgram-cross-validation.py module docstring
+# "set-vs-multiset DIVERGENCE" for the full rationale.
+#
+# Requires: python3 (>= 3.7) + py_stringmatching==0.4.7
+#   python3 -m pip install --user py_stringmatching==0.4.7
+regen-qgram-cross-validation:
+	@if ! command -v python3 >/dev/null 2>&1; then \
+	  echo "python3 not found; install Python 3.7+ and run: python3 -m pip install --user py_stringmatching==0.4.7"; \
+	  exit 1; \
+	fi
+	python3 scripts/gen-qgram-cross-validation.py
+
 # Plan 01-03 lands .goreleaser.yml. Until then this is a tolerant no-op.
 release-check:
 	@if [ -f .goreleaser.yml ]; then \
