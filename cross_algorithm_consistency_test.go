@@ -61,7 +61,9 @@ package fuzzymatch_test
 
 import (
 	"math"
+	"sort"
 	"testing"
+	"testing/quick"
 
 	"github.com/axonops/fuzzymatch"
 )
@@ -819,5 +821,308 @@ func TestCrossAlgorithm_PartialRatio_VsRatcliffObershelp_DistinctSemantic(t *tes
 	if !(gotPartial > gotRO) {
 		t.Errorf("PartialRatio/RatcliffObershelp distinct-semantic gate failed for (%q, %q): PartialRatio=%.17g, RatcliffObershelp=%.17g — want PartialRatio > RatcliffObershelp (Indel substring vs difflib match-ratio)",
 			a, b, gotPartial, gotRO)
+	}
+}
+
+// ------------------------------------------------------------------
+// Phase 7 phonetic convergence cases (Plan 08.5-12 Task 4)
+// ------------------------------------------------------------------
+//
+// The four phonetic algorithms (Soundex, DoubleMetaphone, NYSIIS, MRA)
+// operate on different encoding models but converge on canonical
+// phonetic-equivalence pairs drawn from the literature: "Schmidt" vs
+// "Schmit" (Philips 2000 + standard NYSIIS sample), "Smith" vs
+// "Smyth" (Knuth 1973 / Russell 1918 canonical Soundex equivalence),
+// "Catherine" vs "Katherine" (NYSIIS / Taft 1970 first-letter rule
+// vs alternative spelling).
+//
+// "Convergence" here means: on phonetically-equivalent input pairs,
+// every algorithm in the tier returns 1.0 (a match) OR the per-
+// algorithm match decisions agree across the family. The Score
+// surfaces are binary 0.0/1.0 for the phonetic tier (a pair matches
+// or doesn't), so the convergence assertion is a strict equality of
+// returned scores.
+//
+// Where algorithms LEGITIMATELY diverge on a pair (e.g. MRA's
+// "minimum-rating-by-length-class" rule may match where Soundex
+// doesn't), the test pins the divergence rather than asserting
+// universal convergence. The point of the cross-test is to catch
+// future drift — a regression that flips one algorithm's decision
+// without flipping the documented others' is a correctness bug.
+
+// TestCrossAlgorithm_Phonetic_SmithSmitheUniversalConvergence pins
+// the only universal-match pair across all four phonetic algorithms
+// in the catalogue: "Smith" / "Smithe". The trailing-E rule converges
+// in every algorithm's rule table — Soundex strips trailing vowels,
+// NYSIIS' Taft 1970 trailing-vowel rule collapses both to "SNAT",
+// DoubleMetaphone's vowel-handling collapses both to (SM0, XMT),
+// and MRA strips trailing-E to SMTH.
+//
+// LOCKED behaviour (verified against the live encoder outputs):
+//   - Soundex:         S530 == S530           -> 1.0
+//   - NYSIIS:          SNAT == SNAT           -> 1.0
+//   - DoubleMetaphone: (SM0, XMT) match       -> 1.0
+//   - MRA:             SMTH == SMTH           -> 1.0
+//
+// The pair was chosen specifically because all four converge. Other
+// canonical pairs like "Schmidt"/"Schmit" or "Smith"/"Smyth" show
+// NYSIIS divergence (see _SchmidtPartialConvergence below) — those
+// are tracked as the documented-divergence cross-tests rather than
+// the universal-convergence cross-test.
+func TestCrossAlgorithm_Phonetic_SmithSmitheUniversalConvergence(t *testing.T) {
+	const a, b = "Smith", "Smithe"
+
+	for _, c := range []struct {
+		name string
+		got  float64
+		src  string
+	}{
+		{"Soundex", fuzzymatch.SoundexScore(a, b), "Russell 1918 trailing-vowel strip"},
+		{"DoubleMetaphone", fuzzymatch.DoubleMetaphoneScore(a, b), "Philips 2000 trailing-vowel rule"},
+		{"NYSIIS", fuzzymatch.NYSIISScore(a, b), "Taft 1970 trailing-vowel rule"},
+		{"MRA", fuzzymatch.MRAScore(a, b), "NBS TN 943 trailing-vowel strip"},
+	} {
+		if math.Float64bits(c.got) != math.Float64bits(1.0) {
+			t.Errorf("%sScore(%q, %q) = %.17g (bits=0x%016x); want 1.0 bit-exact (%s)",
+				c.name, a, b, c.got, math.Float64bits(c.got), c.src)
+		}
+	}
+}
+
+// TestCrossAlgorithm_Phonetic_SchmidtPartialConvergence pins the
+// LOCKED divergence pattern on the canonical Philips 2000 worked-
+// example pair "Schmidt"/"Schmit". Three of the four phonetic
+// algorithms match the pair (Soundex, DoubleMetaphone, MRA);
+// NYSIIS does NOT (the Taft 1970 rule table treats the final
+// "D" / "T" as discriminating after the SCHM-initial cluster).
+//
+// The divergence is documented in the per-algorithm primary
+// sources and is INTENDED — the cross-test pins it so a future
+// NYSIIS rule-table modification that silently makes this pair
+// match (or that breaks one of the three matching algorithms)
+// surfaces as a test failure.
+//
+// LOCKED behaviour:
+//   - Soundex:         S530 == S530    -> 1.0 (match)
+//   - DoubleMetaphone: XMT, SMT match  -> 1.0 (match — Philips 2000 worked example)
+//   - MRA:             SCHMDT vs SCHMT -> 1.0 (match — short-class threshold)
+//   - NYSIIS:          SCNAD vs SCNAT  -> 0.0 (DIVERGENCE — Taft 1970 final-letter rule)
+func TestCrossAlgorithm_Phonetic_SchmidtPartialConvergence(t *testing.T) {
+	const a, b = "Schmidt", "Schmit"
+
+	// The three algorithms that MUST match this pair.
+	for _, c := range []struct {
+		name string
+		got  float64
+		src  string
+	}{
+		{"Soundex", fuzzymatch.SoundexScore(a, b), "Russell 1918 / Knuth 1973 — S530 collapse"},
+		{"DoubleMetaphone", fuzzymatch.DoubleMetaphoneScore(a, b), "Philips 2000 worked-example pair"},
+		{"MRA", fuzzymatch.MRAScore(a, b), "NBS TN 943 short-class threshold"},
+	} {
+		if math.Float64bits(c.got) != math.Float64bits(1.0) {
+			t.Errorf("%sScore(%q, %q) = %.17g; want 1.0 (%s)",
+				c.name, a, b, c.got, c.src)
+		}
+	}
+
+	// NYSIIS — locked DIVERGENCE: does NOT match this pair.
+	nysiis := fuzzymatch.NYSIISScore(a, b)
+	if math.Float64bits(nysiis) != math.Float64bits(0.0) {
+		t.Errorf("NYSIISScore(%q, %q) = %.17g; want 0.0 (Taft 1970 final-letter rule — locked DIVERGENCE from Soundex/DM/MRA)",
+			a, b, nysiis)
+	}
+}
+
+// TestCrossAlgorithm_Phonetic_KnightNightPartialConvergence pins
+// the silent-K convergence path: DoubleMetaphone, NYSIIS, and MRA
+// all collapse "Knight" and "Night" to phonetically-equivalent
+// codes (the leading K is silent under all three encoders' rule
+// tables); Soundex's first-letter-preserves rule keeps the K and
+// the N as distinct anchors so the pair does NOT match.
+//
+// LOCKED behaviour:
+//   - Soundex:         K523 vs N230   -> 0.0 (DIVERGENCE — first-letter rule)
+//   - DoubleMetaphone: NT == NT       -> 1.0 (match — silent K)
+//   - NYSIIS:          NAGT == NAGT   -> 1.0 (match — silent K)
+//   - MRA:             KNGHT vs NGHT  -> 1.0 (match — within short-class threshold)
+func TestCrossAlgorithm_Phonetic_KnightNightPartialConvergence(t *testing.T) {
+	const a, b = "Knight", "Night"
+
+	// The three algorithms that MUST match this pair.
+	for _, c := range []struct {
+		name string
+		got  float64
+		src  string
+	}{
+		{"DoubleMetaphone", fuzzymatch.DoubleMetaphoneScore(a, b), "Philips 2000 silent-K rule"},
+		{"NYSIIS", fuzzymatch.NYSIISScore(a, b), "Taft 1970 silent-K rule"},
+		{"MRA", fuzzymatch.MRAScore(a, b), "NBS TN 943 short-class threshold"},
+	} {
+		if math.Float64bits(c.got) != math.Float64bits(1.0) {
+			t.Errorf("%sScore(%q, %q) = %.17g; want 1.0 (%s)",
+				c.name, a, b, c.got, c.src)
+		}
+	}
+
+	// Soundex — locked DIVERGENCE: first-letter rule keeps K and N
+	// as distinct anchors, so the pair does NOT match.
+	soundex := fuzzymatch.SoundexScore(a, b)
+	if math.Float64bits(soundex) != math.Float64bits(0.0) {
+		t.Errorf("SoundexScore(%q, %q) = %.17g; want 0.0 (Russell 1918 first-letter rule — locked DIVERGENCE from DM/NYSIIS/MRA)",
+			a, b, soundex)
+	}
+}
+
+// TestCrossAlgorithm_Phonetic_NonMatchConvergence pins all four
+// phonetic algorithms on a pair that should NOT match in any of
+// them: "Levenshtein" vs "Apple" — names with no shared phonetic
+// structure. The test catches an unintended-broadening regression
+// (e.g. a rule-table change that collapses everything to "A" or
+// makes the comparison overly permissive).
+//
+// Documented behaviour: every algorithm returns 0.0 for this pair.
+func TestCrossAlgorithm_Phonetic_NonMatchConvergence(t *testing.T) {
+	const a, b = "Levenshtein", "Apple"
+
+	for _, c := range []struct {
+		name string
+		got  float64
+	}{
+		{"Soundex", fuzzymatch.SoundexScore(a, b)},
+		{"DoubleMetaphone", fuzzymatch.DoubleMetaphoneScore(a, b)},
+		{"NYSIIS", fuzzymatch.NYSIISScore(a, b)},
+		{"MRA", fuzzymatch.MRAScore(a, b)},
+	} {
+		if math.Float64bits(c.got) != math.Float64bits(0.0) {
+			t.Errorf("%sScore(%q, %q) = %.17g; want 0.0 (orthogonal phonetic structures should not match)",
+				c.name, a, b, c.got)
+		}
+	}
+}
+
+// ------------------------------------------------------------------
+// Scorer property tests (Plan 08.5-12 Task 4)
+// ------------------------------------------------------------------
+
+// TestProp_Scorer_CompositeBoundedByMinMax verifies the Scorer-level
+// property "composite bounded by per-algorithm min/max":
+//
+//	min_{i} score_i  <=  Score(a, b)  <=  max_{i} score_i
+//
+// This is a structural property of a convex combination — the
+// weighted mean of values v_i with non-negative weights w_i summing
+// to 1.0 lies between min v_i and max v_i. DefaultScorer uses
+// WithNormaliseWeights(true) (the default), so the weight vector
+// is a probability distribution and the inequality holds strictly.
+//
+// The property is load-bearing because:
+//   - It pins the convex-combination semantic (changing the
+//     reduction to e.g. a max-of would silently raise composite
+//     scores past the per-algorithm bounds and break Threshold
+//     calibration).
+//   - It detects per-algorithm-score corruption (an algorithm
+//     returning a value outside [0, 1] would propagate into a
+//     composite outside the algorithm-set's [min, max] range).
+//
+// Tolerance: floating-point rounding can perturb the composite by
+// up to ~1 ULP * len(algorithms); we allow 1e-12 absolute slack on
+// both bounds.
+func TestProp_Scorer_CompositeBoundedByMinMax(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	const tol = 1e-12
+	f := func(a, b string) bool {
+		composite := s.Score(a, b)
+		all := s.ScoreAll(a, b)
+		if len(all) == 0 {
+			// A Scorer with no algorithms has no meaningful min/max;
+			// the DefaultScorer guarantees a non-empty algorithm set
+			// so this branch should never be reached. Defend
+			// defensively rather than rely on a NewScorer postcondition.
+			return composite == 0.0
+		}
+		// Compute min and max over the per-algorithm scores by
+		// iterating a SORTED key slice (no map iteration on output
+		// paths — the determinism-standards rule applies even to
+		// property-test internal computation since the test must
+		// itself be reproducible across runs).
+		ids := make([]fuzzymatch.AlgoID, 0, len(all))
+		for id := range all {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		minScore := all[ids[0]]
+		maxScore := all[ids[0]]
+		for _, id := range ids[1:] {
+			v := all[id]
+			if v < minScore {
+				minScore = v
+			}
+			if v > maxScore {
+				maxScore = v
+			}
+		}
+		return composite >= minScore-tol && composite <= maxScore+tol
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TestProp_Scorer_CompositeBoundedByMinMax: %v", err)
+	}
+}
+
+// TestProp_Scorer_ScoreAllDeterministic verifies that ScoreAll is
+// deterministic across repeated calls on the same Scorer with the
+// same inputs: the returned maps must have the same key set and
+// every value must be byte-identical (math.Float64bits equality, not
+// approximate equality).
+//
+// Iteration order: the assertion sorts the union of keys from both
+// returned maps and compares values via direct map lookup, so the
+// non-deterministic map iteration order is not part of the
+// assertion (only the key SET and the values are).
+//
+// This complements TestProp_Scorer_DeterministicAcrossRuns (which
+// pins Score determinism across CONSTRUCTION events): here we pin
+// ScoreAll determinism across CALLS on the same instance. Drift
+// here would surface as a per-algorithm score that depends on
+// hidden state (mutable Scorer state, time-dependent randomness,
+// etc.) — neither of which the design admits.
+func TestProp_Scorer_ScoreAllDeterministic(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	f := func(a, b string) bool {
+		first := s.ScoreAll(a, b)
+		second := s.ScoreAll(a, b)
+		if len(first) != len(second) {
+			return false
+		}
+		// Build a sorted union of keys to drive the comparison
+		// without relying on map iteration order.
+		seen := make(map[fuzzymatch.AlgoID]struct{}, len(first)+len(second))
+		for id := range first {
+			seen[id] = struct{}{}
+		}
+		for id := range second {
+			seen[id] = struct{}{}
+		}
+		ids := make([]fuzzymatch.AlgoID, 0, len(seen))
+		for id := range seen {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		for _, id := range ids {
+			v1, ok1 := first[id]
+			v2, ok2 := second[id]
+			if !ok1 || !ok2 {
+				return false
+			}
+			if math.Float64bits(v1) != math.Float64bits(v2) {
+				return false
+			}
+		}
+		return true
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("TestProp_Scorer_ScoreAllDeterministic: %v", err)
 	}
 }
