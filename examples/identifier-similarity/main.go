@@ -14,7 +14,9 @@
 
 // Package main demonstrates all twenty-three Phase 2 + 3 + 4 + 5 + 6 + 7 character-based,
 // gestalt, q-gram, token-based, and phonetic similarity algorithms from
-// github.com/axonops/fuzzymatch side-by-side on database column-name identifier pairs.
+// github.com/axonops/fuzzymatch side-by-side on database column-name identifier pairs,
+// plus the Phase 8 composite Scorer (DefaultScorer.Score + DefaultScorer.Match) in the
+// final two columns.
 //
 // The example was designed for axonops/audit, the primary downstream
 // consumer of fuzzymatch, where "semantic equivalence detection" across
@@ -48,6 +50,14 @@ import (
 
 	"github.com/axonops/fuzzymatch"
 )
+
+// defaultScorer is the package-level Phase 8 DefaultScorer instance used by
+// the final two columns (Score and Match) of the rendered table. Constructed
+// once at package init time so each row reuses the same immutable Scorer —
+// no per-cell construction cost. The DefaultScorer composition is documented
+// in scorer.go (six algorithms at equal weight, 0.85 threshold) and
+// docs/scorer.md.
+var defaultScorer = fuzzymatch.DefaultScorer()
 
 // pairs is the ordered list of database column-name identifier pairs used
 // to demonstrate the six Phase 2 algorithms. The pairs are chosen to cover
@@ -135,6 +145,18 @@ var algorithms = []struct {
 	{"DblMetaph", fuzzymatch.DoubleMetaphoneScore},
 	{"NYSIIS", fuzzymatch.NYSIISScore},
 	{"MRA", fuzzymatch.MRAScore},
+	// Phase 8 composite Scorer columns. Score is the weighted composite of
+	// the six DefaultScorer algorithms (DamerauLevenshteinOSA, JaroWinkler,
+	// TokenJaccard, QGramJaccard, SorensenDice, DoubleMetaphone) at equal
+	// auto-normalised weight. Match returns 1.0 when Score >= 0.85
+	// (DefaultScorer's threshold), else 0.0.
+	{"Score", func(a, b string) float64 { return defaultScorer.Score(a, b) }},
+	{"Match", func(a, b string) float64 {
+		if defaultScorer.Match(a, b) {
+			return 1.0
+		}
+		return 0.0
+	}},
 }
 
 func main() {

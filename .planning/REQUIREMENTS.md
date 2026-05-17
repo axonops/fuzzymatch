@@ -58,14 +58,14 @@
 
 ### Composite Scorer (SCORER)
 
-- [ ] **SCORER-01**: `NewScorer(opts ...ScorerOption)` functional-options constructor; immutable after construction; concurrent-safe (`docs/requirements.md` §8.1)
-- [ ] **SCORER-02**: `DefaultScorer()` opinionated default; `DefaultScorerOptions()` returning the underlying `[]ScorerOption` for "default minus algorithm X" customisation (`docs/requirements.md` §8.2)
-- [ ] **SCORER-03**: Auto-normalised weights (sum-to-1 invariant) via `WithAlgorithm(AlgoID, weight)` (`docs/requirements.md` §8.3)
-- [ ] **SCORER-04**: `Score(a, b) float64` — composite weighted score in `[0.0, 1.0]` (`docs/requirements.md` §8.4)
-- [ ] **SCORER-05**: `ScoreAll(a, b) map[AlgoID]float64` — per-algorithm breakdown for tuning (`docs/requirements.md` §8.5)
-- [ ] **SCORER-06**: `Match(a, b) bool` + `Threshold()` accessor — threshold helper (`docs/requirements.md` §8.6)
-- [ ] **SCORER-07**: `Algorithms()` accessor returning the configured AlgoID set (`docs/requirements.md` §8.7)
-- [ ] **SCORER-08**: Normalisation control via `WithoutNormalisation()` / `WithCustomNormalisation()` (`docs/requirements.md` §8.8)
+- [x] **SCORER-01**: `NewScorer(opts ...ScorerOption)` functional-options constructor; immutable after construction; concurrent-safe (`docs/requirements.md` §8.1)
+- [x] **SCORER-02**: `DefaultScorer()` opinionated default; `DefaultScorerOptions()` returning the underlying `[]ScorerOption` for "default minus algorithm X" customisation (`docs/requirements.md` §8.2)
+- [x] **SCORER-03**: Auto-normalised weights (sum-to-1 invariant) via `WithAlgorithm(AlgoID, weight)` (`docs/requirements.md` §8.3)
+- [x] **SCORER-04**: `Score(a, b) float64` — composite weighted score in `[0.0, 1.0]` (`docs/requirements.md` §8.4)
+- [x] **SCORER-05**: `ScoreAll(a, b) map[AlgoID]float64` — per-algorithm breakdown for tuning (`docs/requirements.md` §8.5)
+- [x] **SCORER-06**: `Match(a, b) bool` + `Threshold()` accessor — threshold helper (`docs/requirements.md` §8.6)
+- [x] **SCORER-07**: `Algorithms()` accessor returning the configured AlgoID set (`docs/requirements.md` §8.7)
+- [x] **SCORER-08**: Normalisation control via `WithoutNormalisation()` / `WithNormalisation(opts)` (`docs/requirements.md` §8.8)
 
 ### Collection scan (SCAN)
 
@@ -226,14 +226,14 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | PHON-03 | Phase 7 | Pending |
 | PHON-04 | Phase 7 | Pending |
 | GESTALT-01 | Phase 4 | Pending |
-| SCORER-01 | Phase 8 | Pending |
-| SCORER-02 | Phase 8 | Pending |
-| SCORER-03 | Phase 8 | Pending |
-| SCORER-04 | Phase 8 | Pending |
-| SCORER-05 | Phase 8 | Pending |
-| SCORER-06 | Phase 8 | Pending |
-| SCORER-07 | Phase 8 | Pending |
-| SCORER-08 | Phase 8 | Pending |
+| SCORER-01 | Phase 8 | Complete |
+| SCORER-02 | Phase 8 | Complete |
+| SCORER-03 | Phase 8 | Complete |
+| SCORER-04 | Phase 8 | Complete |
+| SCORER-05 | Phase 8 | Complete |
+| SCORER-06 | Phase 8 | Complete |
+| SCORER-07 | Phase 8 | Complete |
+| SCORER-08 | Phase 8 | Complete |
 | SCAN-01 | Phase 9 | Pending |
 | SCAN-02 | Phase 9 | Pending |
 | SCAN-03 | Phase 9 | Pending |

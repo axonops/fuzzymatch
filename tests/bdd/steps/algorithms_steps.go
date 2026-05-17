@@ -1606,4 +1606,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		`^the MRA match should be (true|false)$`,
 		a.theMRAMatchShouldBe,
 	)
+
+	// Phase 8 — composite Scorer steps (plan 08-04). Registered via a
+	// dedicated InitScorerSteps function in scorer_steps.go so the
+	// ScorerContext lives in its own type (separate from the
+	// algorithm-focused AlgorithmContext). All Scorer scenarios live
+	// under the @scorer Gherkin tag in features/scorer.feature.
+	InitScorerSteps(ctx)
 }
