@@ -392,3 +392,201 @@ func (s *Scorer) Score(a, b string) float64 {
 func (s *Scorer) Match(a, b string) bool {
 	return s.Score(a, b) >= s.threshold
 }
+
+// ScorerAlgorithm describes a single weighted algorithm in a Scorer's
+// configured set. It is returned by Scorer.Algorithms() as a fresh
+// slice on every call so consumers can introspect, log, or display the
+// Scorer's composition without coupling to unexported internals.
+//
+// ID is the typed AlgoID enum value for the algorithm; use ID.String()
+// for the canonical snake-free CamelCase display name. Weight is the
+// POST-normalisation weight that the Scorer actually uses during
+// Score's reduction loop — i.e. the value AFTER NewScorer applied the
+// sum-to-1 step (when WithNormaliseWeights(true), the default). When
+// WithNormaliseWeights(false) was applied, Weight reflects the raw
+// consumer-supplied weight unchanged.
+//
+// ScorerAlgorithm has no behavioural methods; it is a pure data holder
+// exported so the Scorer's composition is introspectable. Consumers
+// must not rely on ScorerAlgorithm having a stable memory address
+// across Algorithms() calls — fresh slices imply fresh element backing
+// storage on every invocation.
+type ScorerAlgorithm struct {
+	// ID is the typed AlgoID enum value for the algorithm. Use
+	// ID.String() to obtain the canonical CamelCase display name (e.g.
+	// AlgoLevenshtein → "Levenshtein", AlgoDamerauLevenshteinOSA →
+	// "DamerauLevenshteinOSA").
+	ID AlgoID
+
+	// Weight is the post-normalisation weight that the Scorer actually
+	// uses during Score's reduction loop. When WithNormaliseWeights(true)
+	// (the default), the weights of all ScorerAlgorithm entries returned
+	// by Algorithms() sum to exactly 1.0 (within IEEE-754 representation
+	// — see scorer_internal_test.go TestScorer_WeightNormalisation_
+	// SumsToOne for the dyadic-friendly case). When
+	// WithNormaliseWeights(false), Weight is the raw consumer-supplied
+	// weight unchanged.
+	Weight float64
+}
+
+// Threshold returns the match boundary stored at construction time
+// (the value passed to WithThreshold during NewScorer, or 0.85 when
+// the Scorer was constructed via DefaultScorer). The returned value is
+// in [0.0, 1.0] — NewScorer's validation pipeline rejected any
+// out-of-range threshold at construction.
+//
+// Threshold is a plain accessor with no side effects; it is safe for
+// concurrent use from any number of goroutines without external
+// synchronisation.
+func (s *Scorer) Threshold() float64 {
+	return s.threshold
+}
+
+// Algorithms returns the configured weighted algorithm set as a fresh
+// slice of ScorerAlgorithm values. The slice is freshly allocated on
+// every call so consumers may freely mutate, sort, or filter it
+// without affecting subsequent calls or the Scorer's internal state.
+//
+// The returned slice is in AlgoID-ascending order — the same iteration
+// order Score uses for its float-determinism reduction loop. Each
+// element's Weight is the POST-normalisation weight (consumers see
+// what the Score computation actually uses; raw weights are not
+// exposed through this surface).
+//
+// Algorithms is safe for concurrent use from any number of goroutines
+// without external synchronisation. The Scorer is immutable after
+// NewScorer returns; this method only reads from the receiver's state
+// to build the fresh return slice.
+func (s *Scorer) Algorithms() []ScorerAlgorithm {
+	out := make([]ScorerAlgorithm, 0, len(s.algorithmsAlgoIDSorted))
+	for _, e := range s.algorithmsAlgoIDSorted {
+		out = append(out, ScorerAlgorithm{ID: e.id, Weight: e.weight})
+	}
+	return out
+}
+
+// ScoreAll returns per-algorithm raw scores for the configured algorithm set as a map[AlgoID]float64.
+//
+// SPEC OVERRIDE: docs/requirements.md §8.3 specifies map[string]float64; this implementation returns map[AlgoID]float64 because AlgoID is a typed enum that the rest of the library exposes, giving consumers compile-time key safety. Use AlgoID.String() for snake_case display. The spec deviation is documented in CONTEXT.md §1 (Phase 8) and api-ergonomics-reviewer signed off on this override in plan 08-03's PR.
+//
+// Map iteration order is non-deterministic per Go map semantics. Map CONTENTS are deterministic byte-for-byte (per-algorithm scores are deterministic; see PropScorer_DeterministicAcrossRuns). Consumers requiring stable iteration order MUST sort the keys themselves — typically via fuzzymatch.AlgoIDs() then key-lookup.
+//
+// A fresh map is allocated on every call (spec §8.6). Hot-path callers wanting to avoid the allocation should use Score(a, b) which returns the composite float without per-algorithm breakdown.
+//
+// Pre-normalisation policy mirrors Score (CONTEXT.md §3 LOCKED): when
+// the Scorer was constructed with normalisation enabled (the default,
+// or WithNormalisation(opts)), ScoreAll applies Normalise(s,
+// normaliseOpts) to BOTH a and b ONCE before dispatching to each
+// algorithm. This ensures the value in result[X] equals the value X
+// would contribute to Score's reduction (modulo the multiplication by
+// the X-entry's weight). When the Scorer was constructed with
+// WithoutNormalisation(), ScoreAll passes raw inputs to every
+// algorithm.
+//
+// Implementation: ScoreAll iterates s.algorithmsAlgoIDSorted (a slice,
+// not a map) to populate the result map — per the no-map-iteration
+// rule from .claude/skills/determinism-standards, output paths must
+// never depend on Go map iteration order. The result map is populated
+// in AlgoID-ascending order internally; what becomes non-deterministic
+// is only consumer-side range iteration over the returned map.
+//
+// ScoreAll is safe for concurrent use from any number of goroutines
+// without external synchronisation. The Scorer is immutable after
+// NewScorer returns; this method does no writes to the receiver's
+// state.
+func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64 {
+	// Pre-normalisation boundary — identical to Score (CONTEXT.md §3
+	// LOCKED). Single conditional, two Normalise calls when active so
+	// the per-algorithm values in the returned map match the Score
+	// reduction's per-algorithm contributions byte-for-byte.
+	na, nb := a, b
+	if s.applyNormalisation {
+		na = Normalise(a, s.normaliseOpts)
+		nb = Normalise(b, s.normaliseOpts)
+	}
+
+	// Iterate the AlgoID-sorted SLICE (never the map). Writing into a
+	// freshly-allocated map preserves the no-map-iteration rule on the
+	// output path: consumers see a map whose contents are deterministic
+	// even though Go's range iteration order over a map is randomised.
+	out := make(map[AlgoID]float64, len(s.algorithmsAlgoIDSorted))
+	for _, entry := range s.algorithmsAlgoIDSorted {
+		out[entry.id] = entry.scoreFn(na, nb)
+	}
+	return out
+}
+
+// DefaultScorerOptions returns a fresh, mutable slice of ScorerOption
+// matching DefaultScorer's composition: six algorithms at equal raw
+// weight (DamerauLevenshteinOSA, JaroWinkler, TokenJaccard, QGramJaccard,
+// SorensenDice, DoubleMetaphone — per spec §8.5 / CONTEXT.md §6) plus
+// WithThreshold(0.85).
+//
+// Consumers can append additional options or splice in WithoutAlgorithm
+// to derive customised Scorers from the default:
+//
+//	opts := append(fuzzymatch.DefaultScorerOptions(),
+//	    fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
+//	    fuzzymatch.WithThreshold(0.80),  // override the default
+//	)
+//	s, err := fuzzymatch.NewScorer(opts...)
+//
+// The slice is freshly allocated on every call so consumers may mutate
+// it without affecting subsequent DefaultScorer() or
+// DefaultScorerOptions() calls. The weight values are raw (1.0 each);
+// NewScorer's auto-normalisation step divides each by the sum so the
+// post-normalisation weights are 1.0/6.0 each.
+//
+// Safe for concurrent use from any number of goroutines: the function
+// constructs and returns a fresh slice on every call with no shared
+// state.
+func DefaultScorerOptions() []ScorerOption {
+	return []ScorerOption{
+		WithAlgorithm(AlgoDamerauLevenshteinOSA, 1.0),
+		WithAlgorithm(AlgoJaroWinkler, 1.0),
+		WithAlgorithm(AlgoTokenJaccard, 1.0),
+		WithAlgorithm(AlgoQGramJaccard, 1.0),    // uses default n=3 from dispatch_qgram_jaccard.go
+		WithAlgorithm(AlgoSorensenDice, 1.0),    // uses default n=3 from dispatch_sorensen_dice.go
+		WithAlgorithm(AlgoDoubleMetaphone, 1.0), //
+		WithThreshold(0.85),
+	}
+}
+
+// DefaultScorer returns the opinionated default Scorer: six algorithms
+// at equal weight (per spec §8.5 / CONTEXT.md §6) — DamerauLevenshtein
+// OSA, JaroWinkler, TokenJaccard, QGramJaccard, SorensenDice,
+// DoubleMetaphone — plus the baked-in threshold 0.85.
+//
+// DefaultScorer cannot fail under normal operation: the six algorithms
+// are guaranteed present in the dispatch table (Phase 7 populated all
+// 23 slots), the weights are positive (1.0 each), and the threshold
+// lies in [0.0, 1.0]. The implementation panics only on internal
+// inconsistency (a programmer error that should be unreachable after
+// Phase 7); this protects consumers from silently using a misconfigured
+// Scorer in production.
+//
+// The returned *Scorer is immutable and safe for concurrent use without
+// external synchronisation. Consumers wanting "default minus algorithm
+// X" use:
+//
+//	opts := append(fuzzymatch.DefaultScorerOptions(),
+//	    fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
+//	)
+//	s, err := fuzzymatch.NewScorer(opts...)
+//
+// Consumers wanting a custom composition entirely should pass
+// individual WithAlgorithm options to NewScorer directly.
+//
+// Typical usage:
+//
+//	s := fuzzymatch.DefaultScorer()
+//	if s.Match("user_id", "userId") {
+//	    // similar
+//	}
+func DefaultScorer() *Scorer {
+	s, err := NewScorer(DefaultScorerOptions()...)
+	if err != nil {
+		panic("fuzzymatch: DefaultScorer construction failed (this is a bug): " + err.Error())
+	}
+	return s
+}
