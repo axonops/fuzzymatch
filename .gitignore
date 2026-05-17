@@ -12,6 +12,12 @@ bench.txt.new
 *.prof
 *.out.tmp
 
+# Example program binaries produced by `go build` from the examples/
+# subdirectories. The binary name matches the directory name (e.g.
+# examples/scorer-composition/scorer-composition).
+examples/identifier-similarity/identifier-similarity
+examples/scorer-composition/scorer-composition
+
 # Editor / OS noise
 .DS_Store
 *.swp
