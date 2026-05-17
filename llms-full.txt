@@ -986,6 +986,36 @@ func DefaultTokeniseOptions() TokeniseOptions
 func Tokenise(s string, opts TokeniseOptions) []string
 ```
 
+### Scorer type and NewScorer constructor (scorer.go — Phase 8 plan 08-02)
+
+Plan 08-02 introduces the immutable composite weighted Scorer and its
+NewScorer constructor with the LOCKED validation pipeline (missing-
+threshold FIRST → empty-algorithms → defensive AlgoID bounds → weight
+normalisation). Score and Match methods land in this plan; ScoreAll,
+Threshold, Algorithms accessors, DefaultScorer, and DefaultScorerOptions
+land in plan 08-03.
+
+The Scorer is immutable after NewScorer returns — all fields are set
+once and never written again. Score / Match are safe for concurrent use
+from any number of goroutines without external synchronisation.
+
+```go
+// Scorer is the immutable composite weighted scorer. Obtain a *Scorer
+// from NewScorer or DefaultScorer (plan 08-03). The zero-value is not
+// usable. All methods are safe for concurrent use without locks.
+type Scorer struct
+
+// NewScorer constructs a composite Scorer from the supplied options.
+// Validation pipeline (LOCKED per CONTEXT.md §2 + 08-RESEARCH.md
+// Pitfall 3): options applied in order with first-error short-circuit;
+// then missing-threshold (ErrMissingThreshold) FIRST; then empty-
+// algorithms (ErrEmptyScorer); then defensive AlgoID bounds
+// (ErrInvalidAlgorithm); then dedup by last-write-wins; then weight
+// auto-normalisation (sum-to-1 when WithNormaliseWeights(true), the
+// default). On any error returns (nil, err).
+func NewScorer(opts ...ScorerOption) (*Scorer, error)
+```
+
 ### Scorer construction options (scorer_options.go — Phase 8 plan 08-01)
 
 Plan 08-01 lays the functional-options surface for the composite weighted
