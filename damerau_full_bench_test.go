@@ -16,14 +16,31 @@
 // DamerauLevenshteinFullScore at four input sizes. b.ReportAllocs() on
 // every benchmark gates allocation regressions in bench.txt via benchstat.
 //
-// Performance notes (PERF-01, damerau_full.go implementation discipline):
+// Performance budgets (Q7b / Q8a, docs/requirements.md §14.1 — revised
+// 2026-05 to match implementation reality):
 //
-//   - ASCII all sizes: allocates O(m·n) ints for the full DP table (v1.0).
-//     The two-row + auxiliary-table 0-alloc optimisation is a v1.x follow-up.
-//   - Unicode short (rune path): 1 alloc for full DP table + 2 allocs for []rune.
+//   - ASCII Short  (≤ 4 chars):  ≤ 1 alloc/op  (the flat DP slice)
+//   - ASCII Medium (~50 chars):  ≤ 1 alloc/op, < 8.2 µs wall (Q7b)
+//   - ASCII Long   (~500 chars): informational — O(m·n) DP table dominates
+//   - Unicode Short (rune path): ≤ 3 allocs/op (DP slice + 2 []rune)
 //
-// These benchmarks document the current allocation profile and will regress
-// (appropriately) when the v1.x 0-alloc optimisation is shipped.
+// Q7b/Q8a budget notes:
+//
+//   - The DL-Full v1.0 implementation unconditionally heap-allocates the
+//     full (m+2)×(n+2) DP table (1 alloc, byte-count O(m·n)·sizeof(int)).
+//     There is no ASCII fast path or stack-buffer short-circuit —
+//     Lowrance-Wagner 1975 requires simultaneous access to the entire DP
+//     matrix for the transposition look-back (see Q7c scope note on
+//     DamerauLevenshteinFullDistance godoc).
+//   - The earlier 0-alloc target documented in v0.x was unachievable: it
+//     would require a ~34 KB stack frame at the 64-byte input ceiling,
+//     judged too fragile against Go's escape-analysis quirks.
+//   - The Q11e un-skipped TestDamerauLevenshteinFullScore_ShortAllocBudget_ASCII
+//     enforces the ≤ 1 alloc Short budget at test time; this file
+//     documents the same budget plus the timing target.
+//
+// These benchmarks document the current allocation profile and gate
+// regressions via benchstat.
 
 package fuzzymatch_test
 
@@ -36,7 +53,8 @@ import (
 
 // BenchmarkDamerauLevenshteinFullScore_ASCII_Short exercises DL-Full on a
 // short ASCII pair (2 and 2 bytes — the canonical transposition pair).
-// v1.0: allocates the full (4×4) DP table — 16 ints on heap.
+// Q8a budget: ≤ 1 alloc/op (the flat DP slice). Allocates the full (4×4)
+// DP table — 16 ints on heap.
 func BenchmarkDamerauLevenshteinFullScore_ASCII_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -50,8 +68,10 @@ func BenchmarkDamerauLevenshteinFullScore_ASCII_Short(b *testing.B) {
 }
 
 // BenchmarkDamerauLevenshteinFullScore_ASCII_Medium exercises DL-Full on
-// 50-char ASCII inputs (within maxStackInputLen=64). v1.0: allocates the
-// full (52×52) DP table — 2704 ints on heap.
+// 50-char ASCII inputs (within maxStackInputLen=64). Q7b budget: ≤ 1
+// alloc/op, < 8.2 µs wall (revised from < 3 µs to match implementation
+// reality — the full DP table at 52×52 dominates wall-time). Allocates
+// the full (52×52) DP table — 2704 ints on heap.
 func BenchmarkDamerauLevenshteinFullScore_ASCII_Medium(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()

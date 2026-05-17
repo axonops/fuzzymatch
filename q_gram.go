@@ -105,10 +105,13 @@ func extractQGrams(s string, n int) map[string]int {
 	if n < 1 || len(s) < n {
 		return map[string]int{}
 	}
-	// Capacity hint: at most len(s)-n+1 distinct q-grams (when every
-	// window contributes a new key). Sizing the map up front avoids
-	// one or two rehash allocations on medium-to-long inputs.
-	m := make(map[string]int, len(s)-n+1)
+	// Capacity hint with 25% headroom (Q7d, docs/requirements.md §14.1):
+	// at most len(s)-n+1 distinct q-grams (when every window contributes
+	// a new key); add a 25% slack to reduce map-rehash probability on
+	// medium-to-long inputs where load factor variance pushes the map
+	// over the rehash threshold.
+	windowCount := len(s) - n + 1
+	m := make(map[string]int, windowCount+windowCount/4)
 	for i := 0; i <= len(s)-n; i++ {
 		// s[i:i+n] is a slice header into the input — no string copy.
 		m[s[i:i+n]]++
@@ -137,8 +140,11 @@ func extractQGramsRunes(s string, n int) map[string]int {
 	if len(runes) < n {
 		return map[string]int{}
 	}
-	// Capacity hint: at most len(runes)-n+1 distinct q-grams.
-	m := make(map[string]int, len(runes)-n+1)
+	// Capacity hint with 25% headroom (Q7d): at most len(runes)-n+1
+	// distinct q-grams; the 25% slack mirrors the byte path to reduce
+	// rehash probability on medium-to-long Unicode inputs.
+	windowCount := len(runes) - n + 1
+	m := make(map[string]int, windowCount+windowCount/4)
 	for i := 0; i <= len(runes)-n; i++ {
 		// string(runes[i:i+n]) allocates a fresh UTF-8 string for the
 		// map key; the rune-slice itself is a sub-slice of `runes`

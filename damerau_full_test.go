@@ -221,20 +221,24 @@ func TestDamerauLevenshteinFull_DistanceRunes_MultiByte(t *testing.T) {
 	}
 }
 
-// TestDamerauLevenshteinFullScore_ZeroAllocs_ASCII_Short documents the
-// allocation profile of the DL-Full ASCII path. Per the v1.0 implementation
-// notes in damerau_full.go, the full (m+2)×(n+2) DP table is heap-allocated
-// for all inputs — the two-row + auxiliary-table optimisation is a v1.x
-// follow-up. This test is therefore skipped with a documented note.
-func TestDamerauLevenshteinFullScore_ZeroAllocs_ASCII_Short(t *testing.T) {
-	// DL-Full v1.0 uses a heap-allocated full DP table for all inputs.
-	// The two-row + auxiliary-anchor-table approach (which would achieve
-	// 0 allocs on ASCII ≤ 64 bytes) is deferred to a v1.x performance
-	// follow-up per damerau_full.go's implementation discipline notes
-	// and plan 02-06 SUMMARY.
-	//
-	// When the v1.x optimisation lands, replace this Skipf with the
-	// actual AllocsPerRun assertion: testing.AllocsPerRun(100, ...) == 0.
-	t.Skipf("DL-Full v1.0 uses heap-allocated full DP table for all inputs; " +
-		"0-alloc ASCII fast path is a v1.x optimisation — see damerau_full.go file godoc and plan 02-06 SUMMARY")
+// TestDamerauLevenshteinFullScore_ShortAllocBudget_ASCII pins the allocation
+// floor for the DL-Full ASCII path on short inputs. Per the Q8a budget lock
+// (CONTEXT.md §Q8a, docs/requirements.md §14.1), the budget is ≤ 1 alloc per
+// call (the full DP table heap allocation; a fully zero-alloc stack-buffer
+// path would require a ~34 KB stack frame at the 64-byte input ceiling — judged
+// too fragile against Go's escape-analysis quirks for the v1.0 release).
+//
+// Q11e un-skip: previously skipped under the "ZeroAllocs" name; now asserts
+// the actual Q8a-locked floor (≤ 1 alloc/op).
+func TestDamerauLevenshteinFullScore_ShortAllocBudget_ASCII(t *testing.T) {
+	// Pre-warm: invoke once outside AllocsPerRun to ensure any one-shot
+	// init (none expected, but defensive) is not counted in the budget.
+	_ = fuzzymatch.DamerauLevenshteinFullScore("ab", "ba")
+	avg := testing.AllocsPerRun(100, func() {
+		_ = fuzzymatch.DamerauLevenshteinFullScore("ab", "ba")
+	})
+	const budget = 1.0
+	if avg > budget {
+		t.Errorf("DamerauLevenshteinFullScore(\"ab\",\"ba\") averaged %.2f allocs/op over 100 runs; want ≤ %.0f (Q8a budget)", avg, budget)
+	}
 }

@@ -138,6 +138,19 @@ package fuzzymatch
 //   - RatcliffObershelpScore("", "abc") == 0.0 (one-empty)
 //   - RatcliffObershelpScore("abc", "abc") == 1.0 (identity short-circuit)
 //
+// Performance scope (Q7c, docs/requirements.md §14.1):
+//
+//   The allocation budget published in §14.1 (≤ 4 allocs on ASCII Short)
+//   covers short inputs where recursion depth stays shallow. The
+//   roFindLongestMatch implementation allocates two rolling DP rows per
+//   recursion level — there is no structural ASCII fast path or
+//   stack-buffer short-circuit, since each recursive call works on
+//   different substring boundaries. For long inputs (≥ 500 chars) the
+//   per-call allocation count scales with the number of matched
+//   substrings discovered; see §14.1's long-input row for the relaxed
+//   budget. The threat model bounds the worst case via the
+//   per-algorithm input ceiling.
+//
 // This function operates on bytes. For multi-byte UTF-8 inputs, use
 // RatcliffObershelpScoreRunes to obtain the rune-aware similarity.
 func RatcliffObershelpScore(a, b string) float64 {

@@ -144,6 +144,14 @@ func soundexGroup(c byte) byte {
 // Unicode-aware similarity on non-ASCII input, compose with
 // Normalise + diacritic stripping before calling this function, or
 // use a character-based algorithm (e.g. Levenshtein, Jaro-Winkler).
+//
+// Performance scope (Q7b, docs/requirements.md §14.1):
+//
+//   The published budget is ≤ 1 alloc per call. The implementation uses a
+//   stack-allocated [4]byte result buffer; the lone heap allocation is the
+//   `string(result[:4])` conversion on return — structurally unavoidable
+//   without `unsafe.String`, which the project policy declines. The 0-alloc
+//   target documented in earlier drafts was unachievable for the same reason.
 func SoundexCode(s string) string {
 	if len(s) == 0 {
 		return ""

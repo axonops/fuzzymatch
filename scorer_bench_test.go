@@ -18,15 +18,28 @@
 // benchstat (Phase 8 finalisation).
 //
 // Performance budget per .claude/skills/performance-standards "Scorer
-// Budgets" + 08-VALIDATION.md:
+// Budgets" + 08-VALIDATION.md (Q8c, docs/requirements.md §14.2 — revised
+// 2026-05 to match implementation reality):
 //
 //   - ASCII Short  (~5 chars):    < 30 µs wall, ≤ 8 allocs/op
-//   - ASCII Medium (~30-50 chars):< 30 µs wall, ≤ 8 allocs/op
+//   - ASCII Medium (~30-50 chars):< 30 µs wall, ≤ 20 allocs/op (Q8c —
+//                                 revised from 8: the DefaultScorer
+//                                 composes 11 algorithms and each
+//                                 q-gram-tier inner score allocates 2
+//                                 maps, so 20 reflects the structural
+//                                 floor of the composite)
 //   - ASCII Long   (~500 chars):  informational (no budget — long
 //                                 inputs exceed Phase 8 budget by
 //                                 design; included for benchstat
 //                                 trending)
 //   - Unicode Short (multi-byte): informational
+//
+// Q8c rationale: the post-Q7a DoubleMetaphone optimisation (Plan 07
+// Cluster 5) preserves the Short ≤ 8 floor; the Medium budget rises to
+// ≤ 20 because the q-gram-tier algorithms (Jaccard, Sørensen-Dice,
+// Cosine, Tversky) each allocate 2 map[string]int per call, and the
+// token-tier (Token Sort/Set/Partial Ratio, Token Jaccard) adds further
+// tokenisation allocations on identifier-style inputs.
 //
 // DefaultScorer is constructed ONCE before b.ResetTimer() so construction
 // cost is not part of the per-op measurement. Score, ScoreAll, and Match
@@ -83,7 +96,8 @@ func BenchmarkDefaultScorer_Score_ASCII_Short(b *testing.B) {
 
 // BenchmarkDefaultScorer_Score_ASCII_Medium exercises DefaultScorer.Score
 // on ~30-char identifier-style pairs (≤ 50 chars budget threshold).
-// Expected < 30 µs wall + ≤ 8 allocs/op.
+// Q8c budget: < 30 µs wall + ≤ 20 allocs/op (revised from 8 to match the
+// q-gram + token-tier composite floor; see file godoc).
 func BenchmarkDefaultScorer_Score_ASCII_Medium(b *testing.B) {
 	s := fuzzymatch.DefaultScorer()
 	b.ReportAllocs()

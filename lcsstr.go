@@ -110,6 +110,18 @@ package fuzzymatch
 // Worst-case time: O(m·n) where m = len(a), n = len(b).
 // Space: O(min(m,n)) — two-row DP, no full m×n table allocated.
 //
+// Performance scope (Q7c, docs/requirements.md §14.1):
+//
+//   The allocation budget published in §14.1 reflects the ASCII fast path:
+//   when both inputs are pure ASCII AND the shorter dimension n ≤
+//   maxStackInputLen, the two DP rows live in a stack-allocated buffer
+//   (zero heap allocations). For long inputs (n > maxStackInputLen, ≥ 500
+//   chars on either side) the algorithm falls back to a heap-allocated
+//   two-row DP — per-call allocation count rises to 2 (one make per row)
+//   and byte-count scales as O(n)·sizeof(int). See §14.1's long-input
+//   row for the relaxed budget; the threat model bounds the worst case
+//   via the per-algorithm input ceiling.
+//
 // This function operates on bytes. For multi-byte UTF-8 inputs, use
 // LongestCommonSubstringRunes to obtain the rune-aware substring.
 //

@@ -113,6 +113,20 @@ package fuzzymatch
 // Space: O(m·n) — full DP table (v1.0 implementation; see file godoc for
 // v1.x two-row optimisation plan).
 //
+// Performance scope (Q7c, docs/requirements.md §14.1):
+//
+//   The allocation budget published in §14.1 reflects the v1.0
+//   implementation: the full (m+2)×(n+2) DP table is unconditionally
+//   heap-allocated for ALL input sizes (there is no ASCII fast path or
+//   stack-buffer short-circuit — Lowrance-Wagner 1975 requires
+//   simultaneous access to the entire DP matrix for the transposition
+//   look-back). Per-call allocation count is 1 (the flat DP slice),
+//   but byte-count scales as O(m·n)·sizeof(int). For long inputs
+//   (≥ 500 chars) this becomes the dominant memory cost; the threat
+//   model bounds the worst case via the per-algorithm input ceiling.
+//   A two-row + auxiliary-anchor-table optimisation is deferred to a
+//   v1.x performance follow-up.
+//
 // This function operates on bytes. For multi-byte UTF-8 inputs, use
 // DamerauLevenshteinFullDistanceRunes to obtain the rune-aware distance.
 func DamerauLevenshteinFullDistance(a, b string) int {

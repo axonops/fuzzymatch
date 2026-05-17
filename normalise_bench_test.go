@@ -20,14 +20,24 @@
 // (D-09 makes benchstat informational in CI; the developer workflow
 // runs `make bench` locally and commits bench.txt when intentional).
 //
-// Performance budgets per .claude/skills/performance-standards (recorded
-// here for reference; not asserted at runtime — bench.txt + benchstat is
-// the enforcement mechanism):
+// Performance budgets per .claude/skills/performance-standards (Q7b,
+// docs/requirements.md §14.1 — revised 2026-05 to match implementation
+// reality; recorded here for reference; not asserted at runtime —
+// bench.txt + benchstat is the enforcement mechanism):
 //
-//   - ASCII <= 50 chars:   target < 200 ns/op, 0 allocs/op
+//   - ASCII <= 50 chars:   target < 200 ns/op, <= 1 alloc/op (the
+//                          make([]byte, 0, cap) scratch buffer + the
+//                          string(buf) conversion on return; the
+//                          buffer cannot live on the stack because
+//                          escape analysis cannot prove its size at
+//                          compile time, and `unsafe.String` is
+//                          excluded by project policy)
 //   - ASCII <= 500 chars:  target proportional, <= 1 alloc/op
 //   - Unicode <= 50 runes: target < 2 µs/op, <= 3 allocs/op
 //   - Unicode <= 500 runes: target proportional
+//
+// Q7b note: the 0-alloc target in earlier drafts was unachievable for
+// the reason above. See Q7c scope note on Normalise godoc.
 //
 // The benchmarks iterate over a fixed input rather than a per-call
 // fresh allocation so the compiler can't fold the call into a constant.
@@ -49,9 +59,9 @@ const asciiShort = "FooBar_Baz"
 const asciiMedium = "FooBar_Baz.Qux/Quux-corgeGraultGarply_Waldo.Fred5"
 
 // BenchmarkNormalise_ASCII_Short exercises the byte-level fast path
-// for a 10-byte input under DefaultNormalisationOptions. Target: < 200
-// ns/op, 0 allocs/op (the buffer fits within the function's local
-// allocation budget).
+// for a 10-byte input under DefaultNormalisationOptions. Q7b target:
+// < 200 ns/op, <= 1 alloc/op (the scratch buffer + string conversion;
+// see file godoc).
 func BenchmarkNormalise_ASCII_Short(b *testing.B) {
 	opts := fuzzymatch.DefaultNormalisationOptions()
 	b.ReportAllocs()

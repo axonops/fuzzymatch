@@ -17,6 +17,25 @@
 // b.ReportAllocs() on every benchmark gates allocation regressions in
 // bench.txt via benchstat.
 //
+// Performance budgets (Q8d, docs/requirements.md §14.1 — revised
+// 2026-05 to match implementation reality):
+//
+//   - ASCII Short  (~10 chars):  ≤ 4 allocs/op (recursive decomposition
+//                                allocates 2 rolling rows per recursion
+//                                level; depth ≈ 1-2 on short inputs)
+//   - ASCII Medium (~50 chars):  informational (recursion depth grows
+//                                with the number of matched substrings)
+//   - ASCII Long   (~500 chars): informational — long-input row in §14.1
+//                                permits ≥ 100 allocs as recursion
+//                                depth scales with input size
+//   - Unicode Short (rune path): adds 2 allocs for []rune conversion
+//
+// Q8d note: tighter Short budget (≤ 2) was judged too complex for marginal
+// gain given the recursive structure (no ASCII fast path is structurally
+// available — each recursive call works on different substring boundaries).
+// See Q7c scope note on RatcliffObershelpScore godoc for the long-input
+// fallback rationale.
+//
 // Allocation behaviour notes:
 //
 // Each recursive call to roFindLongestMatch / roFindLongestMatchRunes
@@ -52,8 +71,8 @@ const (
 
 // BenchmarkRatcliffObershelpScore_ASCII_Short benchmarks the byte path on a
 // short ASCII pair (the canonical Dr. Dobb's 1988 WIKIMEDIA/WIKIMANIA pair).
-// Informational allocation reporting — recursion depth depends on the
-// matched substrings discovered.
+// Q8d budget: ≤ 4 allocs/op (recursion depth ≈ 1-2 on short inputs).
+// Recursion depth depends on the matched substrings discovered.
 func BenchmarkRatcliffObershelpScore_ASCII_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()

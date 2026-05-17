@@ -16,10 +16,19 @@
 // and SoundexScore at multiple input sizes. b.ReportAllocs() on every
 // benchmark gates allocation regressions via benchstat.
 //
-// Performance budget per .claude/skills/performance-standards:
+// Performance budget per .claude/skills/performance-standards (Q7b,
+// docs/requirements.md §14.1 — revised 2026-05 to match implementation
+// reality):
 //
-//	SoundexCode: < 500 ns, 0 allocations (stack-allocated [4]byte result)
-//	SoundexScore: < 500 ns, 0 allocations (two SoundexCode calls + compare)
+//	SoundexCode:  < 500 ns, ≤ 1 alloc/op  (the stack-allocated [4]byte
+//	              result is converted to a string on return — the lone
+//	              heap allocation, structurally unavoidable without
+//	              `unsafe.String` which is excluded by project policy)
+//	SoundexScore: < 500 ns, ≤ 2 allocs/op (two SoundexCode calls; the
+//	              identity short-circuit path is 0 allocs)
+//
+// Q7b note: the 0-alloc target in earlier drafts was unachievable for
+// the reason above. See Q7c scope note on SoundexCode godoc.
 //
 // The `var sink string/float64` pattern outside the loop + the
 // `sink == ""`/`sink < 0` gate prevents compiler dead-code elimination
@@ -38,7 +47,8 @@ import (
 
 // BenchmarkSoundexCode_ASCII_Short exercises the canonical Robert/Rupert
 // reference pair. This is the load-bearing allocation budget benchmark —
-// the [4]byte stack buffer must produce 0 allocs/op.
+// the [4]byte stack buffer + `string(buf[:4])` conversion produces 1
+// alloc/op (Q7b budget; see file godoc).
 func BenchmarkSoundexCode_ASCII_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
