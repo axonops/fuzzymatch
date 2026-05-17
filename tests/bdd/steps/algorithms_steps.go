@@ -707,14 +707,12 @@ func (ctx *AlgorithmContext) bothTverskyScoresShouldBeEqual() error {
 }
 
 // ---------------------------------------------------------------------------
-// PartialRatio step methods (plan 06-03)
+// PartialRatio step methods (plan 06-03; revised in plan 08.5-03)
 //
-// Partial Ratio is parameter-free (no n, no α/β) and ships BOTH byte
-// (PartialRatioScore — dispatched) and rune (PartialRatioScoreRunes —
-// public but NOT dispatched) surfaces per 06-CONTEXT.md §6 LOCKED.
-// Each surface gets its own step verb so feature authors can target
-// the byte path with `PartialRatio` and the rune path with
-// `PartialRatioRunes`.
+// Partial Ratio is parameter-free (no n, no α/β). Per Phase 8.5 Q5
+// LOCKED (plan 08.5-03), PartialRatio ships a single byte-path surface
+// (PartialRatioScore — dispatched); the former rune-path step methods
+// were removed in lockstep with the deletion of the rune-variant.
 // ---------------------------------------------------------------------------
 
 // iComputeThePartialRatioScoreBetween computes PartialRatioScore(a, b)
@@ -738,31 +736,6 @@ func (ctx *AlgorithmContext) iComputeTheSecondPartialRatioScoreBetween(a, b stri
 func (ctx *AlgorithmContext) bothPartialRatioScoresShouldBeEqual() error {
 	if ctx.lastScore != ctx.lastScore2 {
 		return fmt.Errorf("partial ratio scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
-	}
-	return nil
-}
-
-// iComputeThePartialRatioRunesScoreBetween computes
-// PartialRatioScoreRunes(a, b) (rune path) and stores the result in
-// lastScore.
-func (ctx *AlgorithmContext) iComputeThePartialRatioRunesScoreBetween(a, b string) error {
-	ctx.lastScore = fuzzymatch.PartialRatioScoreRunes(a, b)
-	return nil
-}
-
-// iComputeTheSecondPartialRatioRunesScoreBetween computes
-// PartialRatioScoreRunes(a, b) and stores the result in lastScore2.
-// Used by the rune-path symmetry scenario.
-func (ctx *AlgorithmContext) iComputeTheSecondPartialRatioRunesScoreBetween(a, b string) error {
-	ctx.lastScore2 = fuzzymatch.PartialRatioScoreRunes(a, b)
-	return nil
-}
-
-// bothPartialRatioRunesScoresShouldBeEqual asserts lastScore ==
-// lastScore2 on the rune-path symmetry scenario.
-func (ctx *AlgorithmContext) bothPartialRatioRunesScoresShouldBeEqual() error {
-	if ctx.lastScore != ctx.lastScore2 {
-		return fmt.Errorf("partial ratio runes scores not equal: %f != %f", ctx.lastScore, ctx.lastScore2)
 	}
 	return nil
 }
@@ -1440,11 +1413,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		a.bothTokenSetRatioScoresShouldBeEqual,
 	)
 
-	// PartialRatio step definitions (plan 06-03) — BOTH byte and rune
-	// surfaces. Parameter-free shape (no `with n …` suffix). Per
-	// CONTEXT.md §6 LOCKED, PartialRatio ships both surfaces; the BDD
-	// feature covers both with distinct step verbs (`PartialRatio` for
-	// the byte path, `PartialRatioRunes` for the rune path).
+	// PartialRatio step definitions (plan 06-03; revised in plan
+	// 08.5-03). Parameter-free shape (no `with n …` suffix). Per
+	// Phase 8.5 Q5 LOCKED, PartialRatio ships a single byte-path
+	// surface; the former PartialRatioRunes step verbs were removed
+	// in lockstep with the deletion of the rune-variant.
 	ctx.Step(
 		`^I compute the PartialRatio score between "([^"]*)" and "([^"]*)"$`,
 		a.iComputeThePartialRatioScoreBetween,
@@ -1456,18 +1429,6 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^both PartialRatio scores should be equal$`,
 		a.bothPartialRatioScoresShouldBeEqual,
-	)
-	ctx.Step(
-		`^I compute the PartialRatioRunes score between "([^"]*)" and "([^"]*)"$`,
-		a.iComputeThePartialRatioRunesScoreBetween,
-	)
-	ctx.Step(
-		`^I compute the second PartialRatioRunes score between "([^"]*)" and "([^"]*)"$`,
-		a.iComputeTheSecondPartialRatioRunesScoreBetween,
-	)
-	ctx.Step(
-		`^both PartialRatioRunes scores should be equal$`,
-		a.bothPartialRatioRunesScoresShouldBeEqual,
 	)
 
 	// TokenJaccard step definitions (plan 06-04). Parameter-free shape

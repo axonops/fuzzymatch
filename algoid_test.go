@@ -445,10 +445,9 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // AlgoJaroWinkler default inner per CONTEXT §4 LOCKED),
 // AlgoTokenSortRatio (slot 14 — registered by Phase 6 plan 06-01),
 // AlgoTokenSetRatio (slot 15 — registered by Phase 6 plan 06-02),
-// AlgoPartialRatio (slot 16 — registered by Phase 6 plan 06-03; only
-// the BYTE-PATH PartialRatioScore is dispatched; PartialRatioScoreRunes
-// is public but NOT in dispatch — matches LCSStr's rune-variants
-// convention),
+// AlgoPartialRatio (slot 16 — registered by Phase 6 plan 06-03; the
+// byte-path PartialRatioScore is the sole surface after Phase 8.5 Q5
+// removed the former rune-variant in plan 08.5-03),
 // AlgoTokenJaccard (slot 17 — registered by Phase 6 plan 06-04),
 // and AlgoRatcliffObershelp (slot 22 — the LAST slot, registered by
 // Phase 4 plan 04-03) are still nil.

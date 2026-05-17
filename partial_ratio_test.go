@@ -15,7 +15,11 @@
 // partial_ratio_test.go pins the public-API contract of
 // partial_ratio.go: identity / both-empty / one-empty / Region 1
 // left-tail / Region 2 middle / Region 3 right-tail / disjoint /
-// Unicode / dispatch registration / symmetry / byte-vs-rune.
+// dispatch registration / symmetry.
+//
+// Per Phase 8.5 Q5 LOCKED (plan 08.5-03), PartialRatio ships a single
+// byte-path surface; the former rune-variant tests have been removed
+// in lockstep with the function deletion.
 //
 // The Region-1 and Region-3 cases are the LOAD-BEARING Pitfall-3
 // keystone fixtures (06-RESEARCH.md Pitfall 3): a naive single-loop
@@ -193,102 +197,6 @@ func TestPartialRatioScore(t *testing.T) {
 	}
 }
 
-// TestPartialRatioScoreRunes exercises the rune-path public surface.
-// Covers the same cases as the byte-path test PLUS Unicode-specific
-// fixtures where the byte and rune paths diverge (e.g. the rune path
-// correctly handles a 3-rune subsequence of a 4-rune input "café"
-// because it operates over runes, while the byte path would compute
-// differently because "café" is 5 bytes and "caf" is 3 bytes).
-func TestPartialRatioScoreRunes(t *testing.T) {
-	tests := []struct {
-		name       string
-		a, b       string
-		want       float64
-		exact      bool
-		derivation string
-	}{
-		{
-			name: "identity_ascii", a: "abc", b: "abc",
-			want: 1.0, exact: true,
-			derivation: "a == b identity short-circuit → 1.0 (BEFORE []rune conversion)",
-		},
-		{
-			name: "identity_unicode", a: "café", b: "café",
-			want: 1.0, exact: true,
-			derivation: "a == b identity short-circuit → 1.0 (BEFORE []rune conversion; saves 2 allocs)",
-		},
-		{
-			name: "both_empty", a: "", b: "",
-			want: 1.0, exact: true,
-			derivation: "both-empty / identity short-circuit → 1.0",
-		},
-		{
-			name: "one_empty_a", a: "", b: "hello",
-			want: 0.0, exact: true,
-			derivation: "one-empty → 0.0",
-		},
-		{
-			name: "one_empty_b", a: "hello", b: "",
-			want: 0.0, exact: true,
-			derivation: "one-empty → 0.0",
-		},
-		{
-			// KEYSTONE Pitfall-3 fixture (rune path).
-			name: "region_3_right_tail_wins_pitfall_3", a: "abc", b: "bc",
-			want: 1.0, exact: true,
-			derivation: "Region 2 at i=1 of rune-longer=['a','b','c'] → indelRatioRunes([b c],[b c])=1.0",
-		},
-		{
-			// KEYSTONE Pitfall-3 fixture (rune path).
-			name: "region_1_left_tail_wins_pitfall_3", a: "abc", b: "ab",
-			want: 1.0, exact: true,
-			derivation: "Region 2 at i=0 of rune-longer=['a','b','c'] → indelRatioRunes([a b],[a b])=1.0",
-		},
-		{
-			// Unicode-specific keystone: PartialRatioScoreRunes("café", "caf") == 1.0.
-			// rune-shorter = "caf" (m=3); rune-longer = "café" (n=4).
-			// Region 1: i=1 → substr ['c']; charSet has 'c'; ratio = 2/4 = 0.5.
-			//           i=2 → substr ['c','a']; charSet has 'a'; ratio = 4/5 = 0.8.
-			// Region 2: i=0 → substr ['c','a','f']; ratio = 6/6 = 1.0 → early-exit.
-			// best = 1.0.
-			// The byte path would compute differently because "café"
-			// occupies 5 bytes (the 'é' is 2 bytes) and "caf" occupies
-			// 3 bytes — the rune path operates over runes so each
-			// codepoint is compared atomically.
-			name: "unicode_caf_in_cafe_rune_path", a: "café", b: "caf",
-			want: 1.0, exact: true,
-			derivation: "rune Region 2 at i=0 → indelRatioRunes([c a f],[c a f])=1.0; byte-path would diverge because len([]byte(\"café\"))=5 != len([]byte(\"caf\"))=3 mid-codepoint",
-		},
-		{
-			name: "unicode_symmetric_reverse", a: "caf", b: "café",
-			want: 1.0, exact: true,
-			derivation: "internal shorter-longer swap makes (caf, café) equivalent to (café, caf)",
-		},
-		{
-			name: "disjoint_no_overlap_unicode", a: "abc", b: "αβγ",
-			want: 0.0, exact: true,
-			derivation: "rune charSet={'a','b','c'}; rune-longer={α,β,γ} has no matching runes; all alignments skipped → best=0.0",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Logf("derivation: %s", tt.derivation)
-			got := fuzzymatch.PartialRatioScoreRunes(tt.a, tt.b)
-			if tt.exact {
-				if got != tt.want {
-					t.Errorf("PartialRatioScoreRunes(%q, %q) = %.17g; want %.17g exactly",
-						tt.a, tt.b, got, tt.want)
-				}
-			} else {
-				if math.Abs(got-tt.want) > partialRatioEpsilon {
-					t.Errorf("PartialRatioScoreRunes(%q, %q) = %.17g; want %.17g (Δ=%g, ε=%g)",
-						tt.a, tt.b, got, tt.want, math.Abs(got-tt.want), partialRatioEpsilon)
-				}
-			}
-		})
-	}
-}
-
 // TestPartialRatioScore_Pitfall3_Keystones pins the LOAD-BEARING
 // Pitfall-3 fixtures in isolation so a `go test -run` filter surfaces
 // them immediately for triage. A regression that drops Region 1 or
@@ -353,31 +261,11 @@ func TestPartialRatioScore_Symmetric(t *testing.T) {
 	}
 }
 
-// TestPartialRatioScoreRunes_Symmetric pins the rune-path symmetry.
-func TestPartialRatioScoreRunes_Symmetric(t *testing.T) {
-	tests := []struct{ a, b string }{
-		{"abc", "ab"},
-		{"café", "caf"},
-		{"αβγδ", "βγ"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.a+"_vs_"+tt.b, func(t *testing.T) {
-			fwd := fuzzymatch.PartialRatioScoreRunes(tt.a, tt.b)
-			rev := fuzzymatch.PartialRatioScoreRunes(tt.b, tt.a)
-			if fwd != rev {
-				t.Errorf("PartialRatioScoreRunes not symmetric: PR(%q,%q)=%g, PR(%q,%q)=%g",
-					tt.a, tt.b, fwd, tt.b, tt.a, rev)
-			}
-		})
-	}
-}
-
 // TestPartialRatioScore_DispatchRegistration pins that
 // dispatch[AlgoPartialRatio] is populated after package load AND that
 // invoking the dispatched function returns the same score as a direct
-// call to PartialRatioScore. The rune-path PartialRatioScoreRunes is
-// NOT dispatched (the dispatch table signature is byte-path); this is
-// a documented design decision mirroring LCSStr's rune variants.
+// call to PartialRatioScore. Per Phase 8.5 Q5 LOCKED, PartialRatio
+// ships a single byte-path surface — there is no rune-variant.
 func TestPartialRatioScore_DispatchRegistration(t *testing.T) {
 	if fuzzymatch.DispatchEntryNilForTest(int(fuzzymatch.AlgoPartialRatio)) {
 		t.Fatalf("dispatch[AlgoPartialRatio] (%d) is nil — dispatch_partial_ratio.go must register PartialRatioScore at package load time",

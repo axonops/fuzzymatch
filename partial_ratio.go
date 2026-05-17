@@ -15,18 +15,26 @@
 // partial_ratio.go implements the Partial Ratio similarity for the
 // fuzzymatch catalogue. Partial Ratio is the third Indel-formula
 // consumer of the shared LCS-subsequence kernel in token_indel.go
-// (Wagner-Fischer 1974 J. ACM 21(1):168-173) and the only Phase 6
-// algorithm with BOTH byte and rune surfaces per spec lines 609-610.
+// (Wagner-Fischer 1974 J. ACM 21(1):168-173).
 //
-// Unlike TokenSortRatio (plan 06-01) and TokenSetRatio (plan 06-02),
-// Partial Ratio does NOT tokenise its inputs — it operates at the
-// character level over the entire string. The algorithm slides the
-// shorter input across every alignment of the longer input (with three
-// distinct iteration regions per the RapidFuzz reference) and returns
-// the maximum Indel-formula similarity. The three-region iteration
-// (left tail / middle / right tail) is non-obvious — a naive
-// single-loop implementation misses Region 1 and Region 3 alignments
-// (06-RESEARCH.md Pitfall 3).
+// Unlike TokenSortRatio and TokenSetRatio, Partial Ratio does NOT
+// tokenise its inputs — it operates at the character level over the
+// entire string. The algorithm slides the shorter input across every
+// alignment of the longer input (with three distinct iteration regions
+// per the RapidFuzz reference) and returns the maximum Indel-formula
+// similarity. The three-region iteration (left tail / middle / right
+// tail) is non-obvious — a naive single-loop implementation misses
+// Region 1 and Region 3 alignments (06-RESEARCH.md Pitfall 3).
+//
+// Surface (Phase 8.5 Q5 — byte-only):
+//
+//   - PartialRatioScore(a, b string) float64 — sole public surface.
+//
+// Per Phase 8.5 Q5 LOCKED (08.5-CONTEXT.md Q5): token-tier algorithms
+// operate on the output of Tokenise, which is itself rune-aware; the
+// byte-level Indel kernel is correct on post-Tokenise byte strings.
+// The former PartialRatio rune-variant was removed (breaking,
+// pre-v1.0) in plan 08.5-03.
 //
 // Sources:
 //
@@ -46,7 +54,7 @@
 //   - Underlying DP source: Wagner, R. A., & Fischer, M. J. (1974). "The
 //     string-to-string correction problem." Journal of the ACM 21(1):
 //     168-173 — the LCS-subsequence dynamic-programming recurrence used
-//     by the indelRatio / indelRatioRunes kernels.
+//     by the indelRatio kernel.
 //   - Indel-formula equivalence: see 06-RESEARCH.md Pattern 3 for the
 //     proof that 2·LCS / (|a|+|b|) equals 1 - IndelDistance / (|a|+|b|)
 //     where IndelDistance is the Levenshtein distance restricted to
@@ -89,13 +97,6 @@
 //     at i = n-m with Region 2 (one redundant indelRatio call,
 //     harmless and matches the RapidFuzz reference behaviour).
 //  9. Return best.
-//
-// Algorithm — PartialRatioScoreRunes(a, b) (rune path):
-//
-// Mirrors the byte path with rune slices and map[rune]struct{} charSet.
-// The identity short-circuit fires BEFORE the `[]rune(a)` / `[]rune(b)`
-// conversion (saves 2 heap allocations on identical inputs — same
-// pattern as `LongestCommonSubstringRunes` in lcsstr.go lines 173-178).
 //
 // PITFALL 3 — three-region iteration: a naive single-loop
 // `for i := 0; i <= n-m; i++` implementation MISSES Regions 1 and 3
@@ -176,8 +177,8 @@
 //   - Cross-validation:      RapidFuzz 3.14.5 via the corpus at
 //                            testdata/cross-validation/token-ratios/vectors.json
 //                            — every PartialRatio entry asserts byte-stable
-//                            agreement within epsilon = 1e-9 for both the
-//                            byte and rune surfaces.
+//                            agreement within epsilon = 1e-9 for the
+//                            byte surface.
 //   - Tie-break:             none (the max over float64 ratios; identity
 //                            short-circuit + early-exit on best == 1.0
 //                            cover the saturation case).
@@ -191,37 +192,26 @@
 // Implementation discipline:
 //
 //   - NO init()-time table builds (per docs/requirements.md §5(12)).
-//   - NO map iteration on output paths (DET-03). The rune charSet is
-//     a `map[rune]struct{}` used ONLY for O(1) membership lookups;
-//     never iterated.
+//   - NO map iteration on output paths (DET-03).
 //   - NO transcendental float operations (DET-06): the score comparisons
 //     use `>` and `==`; the indelRatio kernel does the final division
 //     with explicit left-to-right parenthesisation.
 //   - NO goroutines, channels, or mutexes.
 //   - PartialRatio is character-level — NO Tokenise call.
 //   - Identity short-circuit `if a == b { return 1.0 }` BEFORE any byte
-//     slicing or charSet construction (byte path) and BEFORE `[]rune`
-//     conversion (rune path) — saves 2 heap allocations on identical
-//     inputs in the rune path (IN-04 closure pattern from Phase 4 /
-//     mirrors LongestCommonSubstringRunes lines 173-178).
-//   - The byte-path charSet is a stack-allocated `[256]bool`; the
-//     rune-path charSet is a `map[rune]struct{}` (cheap — shorter input
-//     is typically small).
+//     slicing or charSet construction.
+//   - The charSet is a stack-allocated `[256]bool`.
 //   - Inner-loop-over-shorter-side swap is performed via a length
 //     comparison so the indelRatio kernel always sees `m <= n`. The
 //     swap is value-preserving because the optimal alignment is
 //     symmetric.
 //
-// Public surface (two functions — both surfaces; byte path is dispatched):
+// Public surface (single function — Phase 8.5 Q5 byte-only):
 //
 //   - PartialRatioScore(a, b string) float64        (byte path; dispatched)
-//   - PartialRatioScoreRunes(a, b string) float64   (rune path; NOT dispatched)
 //
-// Only PartialRatioScore is registered in dispatch[AlgoPartialRatio]
-// (slot 16 — see algoid.go AlgoPartialRatio). The rune-path
-// PartialRatioScoreRunes is public but NOT dispatched (the dispatch
-// table signature is the byte-path one — same convention as LCSStr's
-// rune variants in lcsstr.go).
+// PartialRatioScore is registered in dispatch[AlgoPartialRatio]
+// (slot 16 — see algoid.go AlgoPartialRatio).
 
 package fuzzymatch
 
@@ -251,10 +241,15 @@ package fuzzymatch
 // is exact (no float tolerance needed); see
 // TestProp_PartialRatioScore_Symmetric for the quick.Check property.
 //
-// PartialRatio is character-level (no Tokenise call). For multi-byte
-// UTF-8 inputs where rune-boundary alignment matters (e.g. comparing
-// "café" with "caf"), use PartialRatioScoreRunes instead — the byte
-// path would split "é" mid-codepoint and compute a different score.
+// PartialRatio is character-level (no Tokenise call). Per Phase 8.5 Q5
+// LOCKED, no rune-variant is shipped: token-tier algorithms operate on
+// the output of Tokenise which is rune-aware, so the byte-level Indel
+// kernel is correct on post-Tokenise byte strings. Callers needing
+// rune-aware alignment for raw (non-tokenised) Unicode inputs should
+// invoke Tokenise + a higher-tier scorer rather than PartialRatio
+// directly; PartialRatio operates on byte sequences and may split
+// multi-byte UTF-8 code points mid-codepoint when called on raw
+// strings containing non-ASCII.
 //
 // Reference vector (cross-validated against RapidFuzz 3.14.5):
 //
@@ -405,148 +400,6 @@ func partialRatioRegion3Bytes(shorter, longer []byte, m, n int, charSet *[256]bo
 			continue
 		}
 		if r := indelRatio(shorter, longer[i:]); r > best {
-			best = r
-		}
-	}
-	return best
-}
-
-// PartialRatioScoreRunes is the rune-path variant of PartialRatioScore.
-// It treats each input as a sequence of Unicode code points (runes)
-// rather than bytes, so multi-byte UTF-8 sequences are compared
-// atomically. For example, PartialRatioScoreRunes("café", "caf") = 1.0
-// (the 3-rune subsequence of the 4-rune input matches "caf" exactly);
-// the byte-path equivalent would compute differently because "café"
-// occupies 5 bytes while "caf" occupies 3 bytes.
-//
-// The rune variant allocates two []rune slices (one per side) and one
-// map[rune]struct{} for the charSet. The identity short-circuit fires
-// BEFORE `[]rune(a)` / `[]rune(b)` conversion, saving 2 heap
-// allocations on identical inputs — same pattern as
-// LongestCommonSubstringRunes (lcsstr.go lines 173-178).
-//
-// The leftmost-alignment semantic and edge-case conventions are
-// identical to PartialRatioScore.
-//
-// PartialRatioScoreRunes is NOT registered in the dispatch table
-// (dispatch[AlgoPartialRatio] holds the byte-path PartialRatioScore
-// only — dispatch table signature is byte-path).
-//
-// Reference vector:
-//
-//	PartialRatioScoreRunes("café", "caf") = 1.0
-//	  (3-rune subsequence "caf" matches the entirety of "caf")
-//	PartialRatioScoreRunes("café", "café") = 1.0  (identity)
-//
-// Worst-case time: O(|s|·|l|·max(|s|,|l|)) over rune counts (NOT byte
-// counts). Allocation budget: 2 []rune allocations + 1 map[rune]
-// struct{} + indelRatioRunes kernel allocations.
-func PartialRatioScoreRunes(a, b string) float64 {
-	// Identity short-circuit BEFORE []rune conversion — saves 2 heap
-	// allocations on identical inputs. Mirrors LongestCommonSubstringRunes
-	// in lcsstr.go.
-	if a == b {
-		return 1.0
-	}
-	if len(a) == 0 && len(b) == 0 {
-		return 1.0
-	}
-	if len(a) == 0 || len(b) == 0 {
-		return 0.0
-	}
-	ra := []rune(a) // 1 alloc
-	rb := []rune(b) // 1 alloc
-	var shorter, longer []rune
-	if len(ra) <= len(rb) {
-		shorter, longer = ra, rb
-	} else {
-		shorter, longer = rb, ra
-	}
-	res := partialRatioThreeRegionMaxRunes(shorter, longer)
-	// Equal-length symmetric tie-break (matches RapidFuzz behaviour;
-	// see PartialRatioScore for the rationale and citation).
-	if res < 1.0 && len(ra) == len(rb) {
-		if r := partialRatioThreeRegionMaxRunes(longer, shorter); r > res {
-			res = r
-		}
-	}
-	return res
-}
-
-// partialRatioThreeRegionMaxRunes is the rune-slice variant of
-// partialRatioThreeRegionMax. The three-region iteration is identical;
-// only the comparison source and the charSet container differ.
-//
-// Caller guarantees: len(shorter) > 0; len(longer) > 0;
-// len(shorter) <= len(longer). Extracted from PartialRatioScoreRunes
-// to keep that function under the gocyclo ceiling (mirrors the
-// helper-extraction pattern in token_set_ratio.go). Each region is
-// further factored into a per-region helper to keep the orchestrator
-// under gocyclo=10.
-func partialRatioThreeRegionMaxRunes(shorter, longer []rune) float64 {
-	m, n := len(shorter), len(longer)
-
-	// Rune charSet — map[rune]struct{} for O(1) membership lookups.
-	// Map is queried (never iterated) on the output path so DET-03 is
-	// preserved. Capacity hint = m avoids growth allocations.
-	charSet := make(map[rune]struct{}, m)
-	for _, r := range shorter {
-		charSet[r] = struct{}{}
-	}
-
-	best := partialRatioRegion1Runes(shorter, longer, m, charSet, 0.0)
-	var perfect bool
-	best, perfect = partialRatioRegion2Runes(shorter, longer, m, n, charSet, best)
-	if perfect {
-		return 1.0
-	}
-	best = partialRatioRegion3Runes(shorter, longer, m, n, charSet, best)
-	return best
-}
-
-// partialRatioRegion1Runes iterates Region 1 (left tail) of the rune
-// path: substrings `longer[:i]` for i = 1..m-1.
-func partialRatioRegion1Runes(shorter, longer []rune, m int, charSet map[rune]struct{}, best float64) float64 {
-	for i := 1; i < m; i++ {
-		if _, ok := charSet[longer[i-1]]; !ok {
-			continue
-		}
-		if r := indelRatioRunes(shorter, longer[:i]); r > best {
-			best = r
-		}
-	}
-	return best
-}
-
-// partialRatioRegion2Runes iterates Region 2 (middle) of the rune
-// path: full m-length windows `longer[i:i+m]` for i = 0..n-m. Returns
-// (best, perfect) where perfect == true signals best == 1.0.
-func partialRatioRegion2Runes(shorter, longer []rune, m, n int, charSet map[rune]struct{}, best float64) (float64, bool) {
-	for i := 0; i <= n-m; i++ {
-		if _, ok := charSet[longer[i+m-1]]; !ok {
-			continue
-		}
-		if r := indelRatioRunes(shorter, longer[i:i+m]); r > best {
-			best = r
-		}
-		if best == 1.0 {
-			return best, true
-		}
-	}
-	return best, false
-}
-
-// partialRatioRegion3Runes iterates Region 3 (right tail) of the rune
-// path: substrings `longer[i:]` for i = n-m..n-1. When n == m this
-// iterates i = 0..n-1; when n > m there is a single trivial overlap
-// at i = n-m with Region 2. See partialRatioRegion3Bytes for the full
-// rationale.
-func partialRatioRegion3Runes(shorter, longer []rune, m, n int, charSet map[rune]struct{}, best float64) float64 {
-	for i := n - m; i < n; i++ {
-		if _, ok := charSet[longer[i]]; !ok {
-			continue
-		}
-		if r := indelRatioRunes(shorter, longer[i:]); r > best {
 			best = r
 		}
 	}

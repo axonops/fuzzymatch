@@ -151,9 +151,11 @@ var IndelRatioForTest = indelRatio
 // Used by token_indel_test.go to assert rune-aware LCS-subsequence
 // length on multi-byte UTF-8 inputs (e.g. "café"/"cafe" → 3).
 //
-// Plan 06-03's PartialRatio rune surface (PartialRatioScoreRunes)
-// composes against this kernel via indelRatioRunes; the kernel itself
-// is unchanged across that consumer integration.
+// The kernel is retained even though Phase 8.5 Q5 (plan 08.5-03)
+// removed the former rune-path PartialRatio consumer of
+// indelRatioRunes, because token_indel_test.go pins the kernel's
+// rune-aware behaviour directly and any future rune-aware consumer
+// re-introduced post-v1.0 may compose against it.
 var LCSLenRunesForTest = lcsLenRunes
 
 // IndelRatioRunesForTest re-exports the unexported indelRatioRunes

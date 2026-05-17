@@ -21,22 +21,21 @@
 # Cross-validation: RapidFuzz 3.14.5 via the corpus at
 # testdata/cross-validation/token-ratios/vectors.json. The byte-stable
 # agreement is asserted by token_ratio_cross_validation_test.go
-# (`/partial_bytes` and `/partial_runes` sub-tests; activated in plan
-# 06-03).
+# (`/partial_bytes` sub-test; activated in plan 06-03).
 #
-# Surfaces: PartialRatio ships BOTH a byte path (PartialRatioScore,
-# dispatched in dispatch[AlgoPartialRatio]) AND a rune path
-# (PartialRatioScoreRunes, public but NOT dispatched — dispatch table
-# signature is byte-path; same convention as LCSStr's rune variants).
-# Per 06-CONTEXT.md §6 LOCKED, the BDD feature MUST cover BOTH
-# surfaces with explicit scenarios.
+# Surface (Phase 8.5 Q5 LOCKED — plan 08.5-03): PartialRatio ships a
+# single byte path (PartialRatioScore, dispatched in
+# dispatch[AlgoPartialRatio]). The former rune-variant
+# (PartialRatioScoreRunes) was removed because token-tier algorithms
+# operate on the output of Tokenise (rune-aware), so the byte-level
+# Indel kernel is correct on post-Tokenise byte strings.
 #
 # DOES NOT inherit TokenSetRatio's RapidFuzz issue #110 deviation —
 # PartialRatio follows the catalogue's standard both-empty → 1.0
 # convention.
 
 @token
-Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer string, byte AND rune surfaces)
+Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer string, byte surface)
   Partial Ratio operates at the character level (NO tokenisation). It
   iterates the shorter input against the longer input in three regions
   — Region 1 (left tail), Region 2 (middle full-length windows), and
@@ -46,10 +45,9 @@ Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer 
   input (load-bearing for the pathological budget per Pitfall 3).
   Returns scores in [0.0, 1.0]. Symmetric across argument order.
 
-  PartialRatio ships BOTH byte (PartialRatioScore — dispatched) and
-  rune (PartialRatioScoreRunes — public but not dispatched) surfaces.
-  The rune surface treats each input as a sequence of Unicode code
-  points so multi-byte UTF-8 sequences are compared atomically.
+  Per Phase 8.5 Q5 LOCKED, PartialRatio ships a single byte-path
+  surface (PartialRatioScore — dispatched). The former rune-path
+  variant was removed in plan 08.5-03.
 
   @token @partial-ratio @byte-path
   Scenario Outline: Canonical reference vectors (byte path)
@@ -64,33 +62,15 @@ Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer 
       | abcd    | xabcy              | 0.7500 |
       | abc     | xyzzz              | 0.0000 |
 
-  @token @partial-ratio @rune-path
-  Scenario Outline: Canonical reference vectors (rune path — Unicode)
-    When I compute the PartialRatioRunes score between "<a>" and "<b>"
-    Then the score should be approximately <score> within 0.0001
-
-    Examples:
-      | a    | b    | score  |
-      | caf  | café | 1.0000 |
-      | café | caf  | 1.0000 |
-      | αβγ  | αβγδ | 1.0000 |
-      | abc  | αβγ  | 0.0000 |
-
   @token @partial-ratio
-  Scenario: identical strings score 1.0 on both surfaces
+  Scenario: identical strings score 1.0
     # The a == b identity short-circuit fires BEFORE any byte slicing
-    # / charSet construction (byte path) and BEFORE the []rune
-    # conversion (rune path — saves 2 heap allocations).
+    # / charSet construction.
     When I compute the PartialRatio score between "hello world" and "hello world"
     Then the score should be exactly 1
 
-  @token @partial-ratio @rune-path
-  Scenario: identical Unicode strings score 1.0 on the rune surface
-    When I compute the PartialRatioRunes score between "café" and "café"
-    Then the score should be exactly 1
-
   @token @partial-ratio
-  Scenario: both-empty strings score 1.0 on both surfaces
+  Scenario: both-empty strings score 1.0
     # PartialRatio follows the catalogue's standard both-empty → 1.0
     # convention. Does NOT inherit TokenSetRatio's RapidFuzz issue
     # #110 deviation — empty inputs at the character level have a
@@ -98,13 +78,8 @@ Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer 
     When I compute the PartialRatio score between "" and ""
     Then the score should be exactly 1
 
-  @token @partial-ratio @rune-path
-  Scenario: both-empty strings score 1.0 on the rune surface
-    When I compute the PartialRatioRunes score between "" and ""
-    Then the score should be exactly 1
-
   @token @partial-ratio
-  Scenario Outline: one-empty string scores 0.0 on both surfaces (byte path)
+  Scenario Outline: one-empty string scores 0.0 (byte path)
     When I compute the PartialRatio score between "<a>" and "<b>"
     Then the score should be exactly 0
 
@@ -112,16 +87,6 @@ Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer 
       | a       | b       |
       | hello   |         |
       |         | hello   |
-
-  @token @partial-ratio @rune-path
-  Scenario Outline: one-empty string scores 0.0 on both surfaces (rune path)
-    When I compute the PartialRatioRunes score between "<a>" and "<b>"
-    Then the score should be exactly 0
-
-    Examples:
-      | a       | b       |
-      | café    |         |
-      |         | café    |
 
   @token @partial-ratio @byte-path
   Scenario: byte path is symmetric
@@ -131,12 +96,6 @@ Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer 
     When I compute the PartialRatio score between "YANKEES" and "NEW YORK YANKEES"
     And I compute the second PartialRatio score between "NEW YORK YANKEES" and "YANKEES"
     Then both PartialRatio scores should be equal
-
-  @token @partial-ratio @rune-path
-  Scenario: rune path is symmetric
-    When I compute the PartialRatioRunes score between "café" and "caf"
-    And I compute the second PartialRatioRunes score between "caf" and "café"
-    Then both PartialRatioRunes scores should be equal
 
   @token @partial-ratio @pitfall-3
   Scenario: Region 1 left-tail alignment wins (Pitfall 3 keystone)
@@ -157,14 +116,4 @@ Feature: Partial Ratio (sliding-window Indel-formula similarity over the longer 
     # includes the Region 3 right-tail iteration so future drift to a
     # single-loop is caught.
     When I compute the PartialRatio score between "abc" and "bc"
-    Then the score should be exactly 1
-
-  @token @partial-ratio @pitfall-3 @rune-path
-  Scenario: Region 1 left-tail alignment wins on rune path (Pitfall 3 keystone — rune surface)
-    When I compute the PartialRatioRunes score between "abc" and "ab"
-    Then the score should be exactly 1
-
-  @token @partial-ratio @pitfall-3 @rune-path
-  Scenario: Region 3 right-tail alignment wins on rune path (Pitfall 3 keystone — rune surface)
-    When I compute the PartialRatioRunes score between "abc" and "bc"
     Then the score should be exactly 1

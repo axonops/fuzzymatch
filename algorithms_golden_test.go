@@ -1870,8 +1870,9 @@ func TestGolden_NYSIIS_Staging(t *testing.T) {
 // from partial_ratio_test.go's reference vectors (RapidFuzz canonical
 // alignment pairs + 06-RESEARCH.md Pitfall 3 KEYSTONE three-region
 // regression gate) plus the catalogue edge cases. PartialRatioScore is
-// the byte-path surface bound to dispatch[AlgoPartialRatio]; the rune-
-// path PartialRatioScoreRunes is exercised by separate unit tests.
+// the sole PartialRatio surface bound to dispatch[AlgoPartialRatio];
+// per Phase 8.5 Q5 LOCKED (plan 08.5-03) the former rune-variant was
+// removed.
 func buildPartialRatioStagingEntries(t *testing.T) []goldenAlgorithmEntry {
 	t.Helper()
 	return []goldenAlgorithmEntry{

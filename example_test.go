@@ -392,23 +392,6 @@ func ExamplePartialRatioScore() {
 	// 1.0000
 }
 
-// ExamplePartialRatioScoreRunes demonstrates the rune-path variant on
-// a multi-byte UTF-8 input pair. The shorter input "caf" (3 runes,
-// 3 bytes) matches the leftmost 3 runes of "café" (4 runes, 5 bytes)
-// — the rune path correctly aligns at the rune boundary and computes
-// indelRatioRunes([c,a,f], [c,a,f]) = 1.0 in Region 2 at i=0.
-//
-// The byte-path equivalent would diverge because len([]byte("café"))=5
-// while len([]byte("caf"))=3 — the byte path would split "é"
-// mid-codepoint and produce a different score. For ASCII-only inputs
-// the two paths agree; for any input containing multi-byte UTF-8
-// sequences callers should prefer the rune path.
-func ExamplePartialRatioScoreRunes() {
-	fmt.Printf("%.4f\n", fuzzymatch.PartialRatioScoreRunes("café", "caf"))
-	// Output:
-	// 1.0000
-}
-
 // ExampleTokenJaccardScore demonstrates the TokenJaccard similarity on a
 // canonical partial-overlap pair. Tokenise produces {alpha, beta, gamma}
 // on the left and {beta, gamma, delta} on the right. The set

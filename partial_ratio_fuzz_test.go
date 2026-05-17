@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// partial_ratio_fuzz_test.go runs native Go fuzzing against the two
-// public Partial Ratio surfaces (byte + rune). Properties checked per
-// surface, per input:
+// partial_ratio_fuzz_test.go runs native Go fuzzing against the sole
+// public Partial Ratio surface (byte path). Properties checked per
+// input:
 //
 //   1. Never panics (implicit — any panic propagates as a fuzz crash).
 //   2. Score never returns NaN.
 //   3. Score never returns ±Inf.
 //   4. Score returns a value in [0.0, 1.0].
 //   5. Symmetric across argument order — PR(a,b) == PR(b,a) (bit-for-bit).
+//
+// Per Phase 8.5 Q5 LOCKED (plan 08.5-03), PartialRatio ships a single
+// byte-path surface; the former rune-path fuzz harness has been removed
+// in lockstep with the function deletion.
 //
 // Programmatic f.Add seeds cover the canonical reference vectors
 // (RV), identity, both-empty, one-empty, Pitfall-3 keystone fixtures,
@@ -78,45 +82,6 @@ func FuzzPartialRatioScore(f *testing.F) {
 		rev := fuzzymatch.PartialRatioScore(b, a)
 		if got != rev {
 			t.Fatalf("PartialRatioScore not symmetric on fuzzed input: PR(%q,%q)=%g, PR(%q,%q)=%g",
-				a, b, got, b, a, rev)
-		}
-	})
-}
-
-// FuzzPartialRatioScoreRunes exercises the rune-path public surface.
-// The rune path processes invalid UTF-8 by replacing malformed
-// sequences with U+FFFD per Go's []rune conversion semantics.
-func FuzzPartialRatioScoreRunes(f *testing.F) {
-	for _, seed := range []struct{ a, b string }{
-		{"abc", "abc"},       // identity ASCII
-		{"café", "café"},     // identity Unicode
-		{"", ""},             // both-empty
-		{"abc", ""},          // one-empty
-		{"", "abc"},          // one-empty
-		{"abc", "bc"},        // Pitfall-3 keystone
-		{"abc", "ab"},        // Pitfall-3 keystone
-		{"café", "caf"},      // Unicode-specific keystone (rune-aware)
-		{"αβγδ", "βγ"},       // pure non-ASCII (Greek)
-		{"\xff\xfe", "abc"},  // invalid UTF-8 (FFFD-replaced)
-		{"Привет", "привет"}, // Cyrillic mixed case
-	} {
-		f.Add(seed.a, seed.b)
-	}
-
-	f.Fuzz(func(t *testing.T, a, b string) {
-		got := fuzzymatch.PartialRatioScoreRunes(a, b)
-		if math.IsNaN(got) {
-			t.Fatalf("PartialRatioScoreRunes(%q, %q) = NaN", a, b)
-		}
-		if math.IsInf(got, 0) {
-			t.Fatalf("PartialRatioScoreRunes(%q, %q) = Inf", a, b)
-		}
-		if got < 0.0 || got > 1.0 {
-			t.Fatalf("PartialRatioScoreRunes(%q, %q) = %g; want in [0, 1]", a, b, got)
-		}
-		rev := fuzzymatch.PartialRatioScoreRunes(b, a)
-		if got != rev {
-			t.Fatalf("PartialRatioScoreRunes not symmetric on fuzzed input: PR(%q,%q)=%g, PR(%q,%q)=%g",
 				a, b, got, b, a, rev)
 		}
 	})

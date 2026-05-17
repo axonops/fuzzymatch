@@ -13,10 +13,15 @@
 // limitations under the License.
 
 // partial_ratio_bench_test.go runs allocation-aware benchmarks for the
-// two Partial Ratio public surfaces at multiple input sizes plus the
-// LOCKED Pathological_LongShortMismatch fixture per 06-CONTEXT.md §5.
-// b.ReportAllocs() on every benchmark gates allocation regressions in
-// bench.txt via benchstat (Phase 6 finalisation in plan 06-06).
+// sole Partial Ratio public surface (byte path) at multiple input
+// sizes plus the LOCKED Pathological_LongShortMismatch fixture per
+// 06-CONTEXT.md §5. b.ReportAllocs() on every benchmark gates
+// allocation regressions in bench.txt via benchstat (Phase 6
+// finalisation in plan 06-06).
+//
+// Per Phase 8.5 Q5 LOCKED (plan 08.5-03), PartialRatio ships a single
+// byte-path surface; the former rune-path benchmarks have been removed
+// in lockstep with the function deletion.
 //
 // Performance budget per RESEARCH.md §4.1 + .claude/skills/performance-
 // standards (inherited from Phase 2/3/4/5):
@@ -24,7 +29,6 @@
 //   - ASCII Short  (~10 chars):     low single-digit µs/op
 //   - ASCII Medium (~50 chars):     mid single-digit µs/op
 //   - ASCII Long   (~200 chars):    proportional to |s|·|l|·|s|
-//   - Unicode Short (rune path):    rune charSet allocates one map
 //
 // The LOCKED Pathological_LongShortMismatch fixture (10-char shorter
 // vs 10000-char longer) is the DoS-vector benchmark per 06-CONTEXT.md
@@ -104,37 +108,6 @@ func BenchmarkPartialRatioScore_ASCII_Long(b *testing.B) {
 	}
 }
 
-// BenchmarkPartialRatioScoreRunes_ASCII_Short exercises the rune-path
-// surface on the canonical ("YANKEES", "NEW YORK YANKEES") pair. The
-// rune path allocates two []rune slices plus one map[rune]struct{}.
-func BenchmarkPartialRatioScoreRunes_ASCII_Short(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-	var sink float64
-	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.PartialRatioScoreRunes("YANKEES", "NEW YORK YANKEES")
-	}
-	if sink < 0 {
-		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
-	}
-}
-
-// BenchmarkPartialRatioScoreRunes_Unicode_Short exercises the rune-path
-// surface on the canonical Unicode keystone ("café", "caf") pair —
-// the rune path correctly handles the 3-rune subsequence of the
-// 4-rune input.
-func BenchmarkPartialRatioScoreRunes_Unicode_Short(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-	var sink float64
-	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.PartialRatioScoreRunes("café", "caf")
-	}
-	if sink < 0 {
-		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
-	}
-}
-
 // BenchmarkPartialRatio_Pathological_LongShortMismatch_Bytes is the
 // LOCKED DoS-vector fixture per 06-CONTEXT.md §5 LOCKED.
 //
@@ -170,24 +143,6 @@ func BenchmarkPartialRatio_Pathological_LongShortMismatch_Bytes(b *testing.B) {
 	var sink float64
 	for i := 0; i < b.N; i++ {
 		sink = fuzzymatch.PartialRatioScore(shorter, longer)
-	}
-	if sink < 0 {
-		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
-	}
-}
-
-// BenchmarkPartialRatio_Pathological_LongShortMismatch_Runes is the
-// rune-path companion to the bytes-path pathological benchmark above.
-// Same input shape (10 runes vs 10000 runes); the rune path
-// additionally allocates two []rune slices and one map[rune]struct{}.
-func BenchmarkPartialRatio_Pathological_LongShortMismatch_Runes(b *testing.B) {
-	shorter := "abcdefghij"
-	longer := strings.Repeat("xyz", 3333) + "j"
-	b.ReportAllocs()
-	b.ResetTimer()
-	var sink float64
-	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.PartialRatioScoreRunes(shorter, longer)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")

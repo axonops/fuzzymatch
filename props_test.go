@@ -2936,80 +2936,15 @@ func TestProp_PartialRatioScore_NoNegativeZero(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// PartialRatio property tests (plan 06-03) — rune path
+// PartialRatio rune-path property tests — REMOVED (Phase 8.5 Q5 / plan 08.5-03)
+//
+// The PartialRatio rune-path function was deleted in lockstep with
+// this block per the Q5 LOCKED decision in 08.5-CONTEXT.md: token-tier
+// algorithms operate on the output of Tokenise (which is itself
+// rune-aware), so a rune-variant of PartialRatio is redundant. The
+// byte-path property tests above continue to gate the sole surviving
+// surface.
 // ---------------------------------------------------------------------------
-
-// TestProp_PartialRatioScoreRunes_RangeBounds asserts the rune-path
-// score stays in [0.0, 1.0] for any (a, b) pair.
-func TestProp_PartialRatioScoreRunes_RangeBounds(t *testing.T) {
-	f := func(a, b string) bool {
-		s := fuzzymatch.PartialRatioScoreRunes(a, b)
-		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("PartialRatioScoreRunes out of [0,1] or non-finite: %v", err)
-	}
-}
-
-// TestProp_PartialRatioScoreRunes_Identity asserts Score(x, x) == 1.0
-// EXACTLY for any string x — the identity short-circuit fires BEFORE
-// the `[]rune(x)` conversion (saves 2 heap allocations on identical
-// inputs; same pattern as LongestCommonSubstringRunes).
-func TestProp_PartialRatioScoreRunes_Identity(t *testing.T) {
-	f := func(x string) bool {
-		return fuzzymatch.PartialRatioScoreRunes(x, x) == 1.0
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("PartialRatioScoreRunes identity violated: %v", err)
-	}
-}
-
-// TestProp_PartialRatioScoreRunes_Symmetric asserts the rune-path
-// score is symmetric across argument order. Same reasoning as the
-// byte-path symmetry property: the shorter-longer swap is internal
-// and indelRatioRunes is symmetric.
-func TestProp_PartialRatioScoreRunes_Symmetric(t *testing.T) {
-	f := func(a, b string) bool {
-		return fuzzymatch.PartialRatioScoreRunes(a, b) == fuzzymatch.PartialRatioScoreRunes(b, a)
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("PartialRatioScoreRunes not symmetric: %v", err)
-	}
-}
-
-// TestProp_PartialRatioScoreRunes_NoNaN asserts the rune-path score
-// never returns NaN.
-func TestProp_PartialRatioScoreRunes_NoNaN(t *testing.T) {
-	f := func(a, b string) bool {
-		return !math.IsNaN(fuzzymatch.PartialRatioScoreRunes(a, b))
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("PartialRatioScoreRunes produced NaN: %v", err)
-	}
-}
-
-// TestProp_PartialRatioScoreRunes_NoInf asserts the rune-path score
-// never returns ±Inf.
-func TestProp_PartialRatioScoreRunes_NoInf(t *testing.T) {
-	f := func(a, b string) bool {
-		return !math.IsInf(fuzzymatch.PartialRatioScoreRunes(a, b), 0)
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("PartialRatioScoreRunes produced Inf: %v", err)
-	}
-}
-
-// TestProp_PartialRatioScoreRunes_NoNegativeZero asserts the rune-path
-// score does not produce negative zero on disjoint inputs.
-func TestProp_PartialRatioScoreRunes_NoNegativeZero(t *testing.T) {
-	f := func(a, b string) bool {
-		s := fuzzymatch.PartialRatioScoreRunes(a, b)
-		return s != 0.0 || !math.Signbit(s)
-	}
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("PartialRatioScoreRunes produced -0.0: %v", err)
-	}
-}
 
 // ---------------------------------------------------------------------------
 // TokenJaccard property tests (plan 06-04)

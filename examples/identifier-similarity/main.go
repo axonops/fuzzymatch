@@ -103,8 +103,9 @@ var pairs = []struct{ a, b string }{
 // The five Phase 6 token-based algorithms append after Tversky:
 //   - TokenSort (TokenSortRatioScore) and TokenSet (TokenSetRatioScore) use
 //     the dispatch-default (a, b string) signature directly.
-//   - Partial (PartialRatioScore) uses the BYTE-PATH surface for column
-//     consistency; the rune-path PartialRatioScoreRunes is not surfaced here.
+//   - Partial (PartialRatioScore) uses the byte-path surface — the sole
+//     PartialRatio surface after Phase 8.5 Q5 (plan 08.5-03) removed
+//     the former rune-variant.
 //   - TokenJac (TokenJaccardScore) uses the dispatch-default signature.
 //   - MongeElk (MongeElkanScore — symmetric default post Phase 8.5 Q3) wraps
 //     the parameter-rich symmetric surface with the LOCKED dispatch defaults:
