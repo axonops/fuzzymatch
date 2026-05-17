@@ -119,6 +119,11 @@ func DefaultTokeniseOptions() TokeniseOptions {
 // Behaviour summary:
 //
 //   - If s is empty, an empty non-nil slice is returned.
+//   - If s is pure ASCII (every byte < 0x80) AND opts.SeparatorChars is
+//     also pure ASCII, the ASCII fast path runs (see "Performance note"
+//     below). The fast path produces byte-identical output to the rune
+//     path on any ASCII input — verified by
+//     TestProp_Tokenise_ASCIIFastPathEquivalent.
 //   - Otherwise s is decoded to a []rune (one allocation) and walked
 //     left-to-right. Each boundary (separator OR camelCase transition,
 //     subject to opts) closes the current token and starts a new one.
@@ -140,7 +145,238 @@ func DefaultTokeniseOptions() TokeniseOptions {
 //
 // Tokenise has no error return: malformed input is handled by Unicode
 // replacement rather than by failure.
+//
+// Performance note (Phase 8.5 Q8b, docs/requirements.md §10 and §14.3):
+//
+// On ASCII input, the returned tokens are substrings of either the
+// input string (when opts.Lowercase == false) or a single internal
+// scratch buffer (when opts.Lowercase == true). The returned []string
+// retains a reference to that backing array until every emitted token
+// string is released by the consumer; for very large inputs this is
+// a memory-retention consideration. Consumers who need the input
+// string to be eligible for garbage collection can copy each token via
+// strings.Clone (Go 1.18+).
+//
+// The achieved allocation budget is:
+//
+//   - opts.Lowercase == false on ASCII input: 1 allocation for the
+//     []string header itself; zero allocations per emitted token
+//     (substrings share the input's backing array).
+//   - opts.Lowercase == true on ASCII input: 1 allocation for the
+//     scratch buffer (independent of token count), plus 1 allocation
+//     per emitted token for the canonical string([]byte) conversion.
+//     Bringing the per-token alloc down to zero is technically
+//     achievable via unsafe.String but is excluded by project policy
+//     (correctness-first default; CLAUDE.md Architecture extends the
+//     no-cgo / no-non-stdlib spirit to the unsafe package).
+//   - Non-ASCII input: falls back to the rune-based path, which
+//     allocates a []rune and one string per token (unchanged from
+//     pre-Phase-8.5 behaviour).
+//
+// The token-tier algorithms (TokenSortRatio, TokenSetRatio,
+// PartialRatio, TokenJaccard, MongeElkan) consume Tokenise output and
+// inherit the fast-path savings on ASCII identifier inputs.
 func Tokenise(s string, opts TokeniseOptions) []string {
+	if s == "" {
+		return []string{}
+	}
+
+	// ASCII fast path detection (Phase 8.5 Q8b). The fast path is taken
+	// when every byte of s AND every byte of opts.SeparatorChars is
+	// below 0x80. A non-ASCII separator string would force the rune
+	// path even on an ASCII input because the rune path's
+	// strings.ContainsRune check is the only place a multi-byte
+	// separator can match; the fast path's [128]bool lookup cannot
+	// represent multi-byte separators. Verified by
+	// TestProp_Tokenise_ASCIIFastPathEquivalent.
+	if isASCIITokenise(s) && !containsNonASCII(opts.SeparatorChars) {
+		return tokeniseASCII(s, opts)
+	}
+
+	return tokeniseRune(s, opts)
+}
+
+// isASCIITokenise reports whether every byte of s is strictly less than
+// 0x80. Empty s returns true (vacuously). Mirrors isASCII in
+// normalise.go but is named distinctly so each primitive's ASCII gate
+// is locally readable (the two helpers are intentionally not shared so
+// tokenise.go has no internal dependency on normalise.go, per
+// .claude/skills/go-coding-standards).
+//
+// The byte loop is the fast pattern (one comparison per byte, no
+// rune-decoding cost); a `range s` form would decode every byte to
+// a rune which is materially slower for the strict-ASCII detection
+// case. Profiling on Phase 1's Normalise fast path confirmed this.
+func isASCIITokenise(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+// tokeniseASCII applies the byte-level Tokenise fast path. Pre-condition:
+// every byte of s is < 0x80 AND opts.SeparatorChars contains only ASCII
+// bytes. Output is byte-identical to tokeniseRune on any input that
+// satisfies the pre-condition — verified by
+// TestProp_Tokenise_ASCIIFastPathEquivalent.
+//
+// Two sub-modes, branched on opts.Lowercase:
+//
+//   - opts.Lowercase == false: emits tokens as s[lo:hi] substrings.
+//     Every emitted token shares the input string's backing array
+//     (zero-copy). One allocation total for the []string header.
+//   - opts.Lowercase == true: copies s into a fresh scratch buffer
+//     with A..Z folded to a..z via bitwise OR 0x20, then emits tokens
+//     as substrings of the scratch buffer via string(scratch[lo:hi]).
+//     One allocation for the scratch buffer, plus one allocation per
+//     emitted token (the string conversion is structurally unavoidable
+//     without unsafe.String, which is excluded by project policy).
+//
+// The boundary-detection logic mirrors tokeniseRune byte-for-byte; the
+// only differences are (a) operating on bytes rather than runes,
+// (b) using isUpperASCII / isLowerASCII (from normalise.go) rather
+// than unicode.IsUpper / unicode.IsLower, and (c) the lowercase fold
+// is applied to the scratch buffer before boundary detection so that
+// substring slicing on the buffer produces lowercase tokens directly.
+//
+// CRITICAL: boundary detection MUST run against the pre-fold bytes
+// (or operate on the original case info). The rune path defers
+// lowercasing until appendToken — boundary decisions see original
+// case. The ASCII fast path mirrors this by examining the SOURCE
+// bytes (s) for boundary decisions even when emitting from the
+// scratch buffer; the boundary indices in s match the buffer 1:1
+// because the lowercase fold is a per-byte identity-preserving
+// transform on length.
+func tokeniseASCII(s string, opts TokeniseOptions) []string {
+	sepASCII := buildTokeniseSepSet(opts.SeparatorChars)
+	tokens := make([]string, 0, 4)
+
+	// Build the scratch buffer once (lowercase mode only). The buffer
+	// is byte-equal to s except that A..Z bytes are folded to a..z.
+	// Length matches len(s) exactly; index space is shared with s.
+	var scratch []byte
+	if opts.Lowercase {
+		scratch = make([]byte, len(s))
+		for i := 0; i < len(s); i++ {
+			b := s[i]
+			if isUpperASCII(b) {
+				scratch[i] = b | 0x20
+			} else {
+				scratch[i] = b
+			}
+		}
+	}
+
+	// emitToken appends s[lo:hi] (no-lowercase) or string(scratch[lo:hi])
+	// (lowercase) to tokens. Empty ranges are silently dropped.
+	emitToken := func(lo, hi int) {
+		if lo >= hi {
+			return
+		}
+		if opts.Lowercase {
+			tokens = append(tokens, string(scratch[lo:hi]))
+		} else {
+			tokens = append(tokens, s[lo:hi])
+		}
+	}
+
+	start := 0
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+
+		// Separator: close any pending token and skip the separator byte.
+		if b < 0x80 && sepASCII[b] {
+			emitToken(start, i)
+			start = i + 1
+			continue
+		}
+
+		// camelCase boundary detection. The byte-level analogue of
+		// isCamelBoundary / isUpperRunTrailing — boundary decisions
+		// are made against ORIGINAL-case bytes in s (matching the
+		// rune path's "lowercase after boundary detection" semantic).
+		if isCamelBoundaryASCII(s, i, start, opts) {
+			emitToken(start, i)
+			start = i
+		}
+	}
+
+	// Flush any pending final token.
+	emitToken(start, len(s))
+
+	return tokens
+}
+
+// isCamelBoundaryASCII is the byte-level analogue of isCamelBoundary.
+// Pre-condition: s[i] is NOT a separator (the caller has already
+// handled that case) AND every byte of s is < 0x80. Returns true iff
+// s[i] is the START of a new token under the camelCase /
+// consecutive-uppercase rules in opts.
+//
+// Boundary rules (mirror isCamelBoundary byte-for-byte; the rune
+// path's unicode.IsUpper / unicode.IsLower checks reduce to the ASCII
+// helpers isUpperASCII / isLowerASCII when the input is pure ASCII):
+//
+//   - Rule 1 (non-uppercase -> uppercase): split before s[i] when
+//     SplitCamelCase is set, s[i-1] is NOT uppercase, and s[i] IS
+//     uppercase. Lowercase letters AND digits AND any other ASCII
+//     non-letter both qualify as "non-uppercase" so that "Foo123Bar"
+//     splits at the 3->B transition.
+//   - Rule 2 (consecutive-uppercase trailing): split before s[i]
+//     when SplitCamelCase and SplitConsecutiveUpper are both set,
+//     s[i] is uppercase, s[i+1] exists and is lowercase, AND s[i-1]
+//     is uppercase. The boundary fires once per >=2-uppercase run
+//     at its trailing edge before the following lowercase letter.
+//
+// i must be > start (we don't emit empty tokens at the head of a
+// run); the caller asserts this implicitly because i > start is part
+// of every rule's precondition.
+func isCamelBoundaryASCII(s string, i, start int, opts TokeniseOptions) bool {
+	if !opts.SplitCamelCase || i == 0 || i <= start {
+		return false
+	}
+	prev := s[i-1]
+	cur := s[i]
+	// Rule 1: non-uppercase -> uppercase.
+	if !isUpperASCII(prev) && isUpperASCII(cur) {
+		return true
+	}
+	// Rule 2: consecutive-uppercase trailing.
+	if opts.SplitConsecutiveUpper && isUpperRunTrailingASCII(s, i, prev, cur) {
+		return true
+	}
+	return false
+}
+
+// isUpperRunTrailingASCII is the byte-level analogue of
+// isUpperRunTrailing. Reports whether s[i] is the trailing-uppercase
+// boundary of a >=2-byte uppercase run followed by a lowercase byte.
+// All three preconditions must hold:
+//
+//   - s[i] (cur) is uppercase
+//   - s[i+1] exists and is lowercase
+//   - s[i-1] (prev) is uppercase
+func isUpperRunTrailingASCII(s string, i int, prev, cur byte) bool {
+	if i+1 >= len(s) {
+		return false
+	}
+	return isUpperASCII(cur) && isLowerASCII(s[i+1]) && isUpperASCII(prev)
+}
+
+// tokeniseRune is the original pre-Phase-8.5 rune-based Tokenise
+// implementation, retained as an internal entry point so that
+// TestProp_Tokenise_ASCIIFastPathEquivalent can compare the ASCII fast
+// path against the rune path on ASCII inputs. Tokenise() above
+// dispatches to this function on any non-ASCII input or non-ASCII
+// SeparatorChars.
+//
+// Behaviour is identical to the pre-Phase-8.5 Tokenise: decode to
+// []rune (one allocation), walk left-to-right, emit tokens at
+// separator and camelCase boundaries, filter zero-width tokens,
+// optionally lowercase per token.
+func tokeniseRune(s string, opts TokeniseOptions) []string {
 	if s == "" {
 		return []string{}
 	}
