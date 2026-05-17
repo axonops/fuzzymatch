@@ -187,9 +187,9 @@
 //	MongeElkanScore averages the two directions to (1.0 + 0.466666…) / 2
 //	= 0.733333… which is symmetric by construction.
 //	The TestMongeElkanScoreAsymmetric RV-ME6 row, the
-//	TestProp_MongeElkanScore_AsymmetricWhenTokenCountAsymmetric property
-//	test, AND the BDD asymmetry scenario together form the three-layer
-//	defence against direction-aggregation regressions.
+//	TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveWhenTokenCountAsymmetric
+//	property test, AND the BDD asymmetry scenario together form the
+//	three-layer defence against direction-aggregation regressions.
 //
 // Source-origin discipline (per algorithm-licensing-standards):
 //

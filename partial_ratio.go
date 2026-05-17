@@ -146,13 +146,14 @@
 //
 // Future optimisation (spec-deferred to v1.x):
 //
-//	TODO(#TBD): implement sliding-window DP per Bachmann RapidFuzz
-//	docs — spec line 612 explicitly defers the O(|s|·|l|) sliding-
-//	window variant to v1.x. Phase 6 ships the straightforward
-//	loop-over-alignments + indelRatio approach with the s1_char_set
-//	early-skip. A future GitHub issue will track the sliding-window
-//	DP implementation; this TODO will be updated with the issue
-//	number once it is created.
+//	Sliding-window DP per Bachmann RapidFuzz docs — spec line 612
+//	explicitly defers the O(|s|·|l|) sliding-window variant to v1.x.
+//	Phase 6 ships the straightforward loop-over-alignments +
+//	indelRatio approach with the s1_char_set early-skip. The
+//	sliding-window DP optimisation will be tracked in the project's
+//	issue tracker when it is established (no issue tracker exists at
+//	the time of this comment; the project memory entry
+//	`no_github_issues.md` records the absence).
 //
 // Edge cases (mirror Q-Gram Jaccard / LCSStr / TokenSortRatio):
 //
