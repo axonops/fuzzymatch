@@ -45,6 +45,8 @@
 
 package fuzzymatch
 
+import "math"
+
 // ScorerOption configures a Scorer at construction time. Options are
 // consumed by NewScorer (plan 08-02): each option is applied to an
 // internal scorerConfig in order, accumulating state until NewScorer
@@ -136,10 +138,20 @@ type scorerConfig struct {
 // Tversky, JaroWinkler inner for Monge-Elkan, NewSWGParams() defaults
 // for Smith-Waterman-Gotoh).
 //
-// weight must be strictly positive — the option returns
-// ErrInvalidWeight at option-application time if weight ≤ 0. algo must
-// be a valid AlgoID with a populated dispatch entry (the 23 catalogue
-// AlgoIDs after Phase 7 all qualify) — the option returns
+// weight must be a finite, non-NaN, strictly-positive float — the
+// option returns ErrInvalidWeight at option-application time if weight
+// is NaN, ±Inf, or ≤ 0. The NaN/±Inf rejection is Phase 8.5 Q2 — the
+// data-vs-parameter framework locks all Scorer-construction parameter
+// inputs as STRICT (typed error at option time), whereas comparison-
+// data inputs remain lenient. NaN must be rejected explicitly because
+// the IEEE-754 "NaN compares false to everything" rule means
+// `weight <= 0` admits NaN; ±Inf is rejected explicitly for defence
+// in depth even though the prior `weight <= 0` test happened to
+// permit +Inf, which would propagate as an unbounded value through
+// the Scorer reduction.
+//
+// algo must be a valid AlgoID with a populated dispatch entry (the 23
+// catalogue AlgoIDs after Phase 7 all qualify) — the option returns
 // ErrInvalidAlgoID if int(algo) >= numAlgorithms or
 // dispatch[algo] == nil.
 //
@@ -149,7 +161,14 @@ type scorerConfig struct {
 // WithSmithWatermanGotohAlgorithm) instead.
 func WithAlgorithm(algo AlgoID, weight float64) ScorerOption {
 	return func(cfg *scorerConfig) error {
-		if weight <= 0 {
+		// Phase 8.5 Q2 — strict-parameter guard. NaN must be tested
+		// FIRST because NaN compares false to every comparison
+		// (including `<=`) and would otherwise sneak past the
+		// strict-positive test. ±Inf is rejected explicitly: +Inf
+		// would propagate as an unbounded value through the Scorer
+		// reduction, and -Inf would be caught by `weight <= 0` but
+		// is checked explicitly for symmetry.
+		if math.IsNaN(weight) || math.IsInf(weight, 0) || weight <= 0 {
 			return ErrInvalidWeight
 		}
 		if int(algo) < 0 || int(algo) >= numAlgorithms || dispatch[algo] == nil {
@@ -240,9 +259,25 @@ func WithoutNormalisation() ScorerOption {
 }
 
 // WithThreshold returns a ScorerOption that sets the Scorer's match
-// threshold to t. t must lie in the closed interval [0.0, 1.0]; values
-// outside the interval produce ErrInvalidThreshold at option-application
-// time.
+// threshold to t. t must be a finite, non-NaN value in the closed
+// interval [0.0, 1.0]; values outside the interval, NaN, or ±Inf
+// produce ErrInvalidThreshold at option-application time.
+//
+// Rejection cases (Phase 8.5 Q2 — strict-parameter framework):
+//
+//   - math.IsNaN(t) — NaN propagates through the `score >= threshold`
+//     comparison as `false`, silently disabling the Match gate. NaN
+//     must be rejected explicitly because IEEE-754 NaN compares false
+//     to every range comparison (including `t < 0.0` and `t > 1.0`),
+//     so the NaN guard MUST come first.
+//   - math.IsInf(t, 0) — both +Inf and -Inf are rejected. +Inf
+//     happens to be caught by `t > 1.0` and -Inf by `t < 0.0`, but
+//     the explicit IsInf check is clearer and defends against any
+//     future relaxation of the range check.
+//   - t < 0.0 or t > 1.0 — the threshold is compared against
+//     composite scores which the Scorer guarantees fall in [0.0,
+//     1.0] under default weight normalisation; out-of-range values
+//     are non-sensical.
 //
 // WithThreshold is MANDATORY for NewScorer: if no WithThreshold option
 // is present in the variadic opts slice, NewScorer returns
@@ -256,7 +291,13 @@ func WithoutNormalisation() ScorerOption {
 // general functional-options convention.
 func WithThreshold(t float64) ScorerOption {
 	return func(cfg *scorerConfig) error {
-		if t < 0.0 || t > 1.0 {
+		// Phase 8.5 Q2 — NaN guard MUST come first; NaN compares
+		// false to both `t < 0.0` and `t > 1.0` so the range check
+		// alone admits NaN. ±Inf is rejected explicitly even though
+		// the range check happens to catch both (Inf > 1.0 is true;
+		// -Inf < 0.0 is true) — explicit > implicit for parameter
+		// validation.
+		if math.IsNaN(t) || math.IsInf(t, 0) || t < 0.0 || t > 1.0 {
 			return ErrInvalidThreshold
 		}
 		cfg.threshold = t
@@ -371,22 +412,54 @@ func WithCosineAlgorithm(weight float64, n int) ScorerOption {
 // of alpha, beta, or n must differ from the dispatch defaults
 // (alpha = beta = 1.0, n = 3 — Jaccard-equivalent).
 //
-// weight must be > 0 (else ErrInvalidWeight); n must be ≥ 1 (else
-// ErrInvalidQGramSize); alpha and beta must be ≥ 0 (else
-// ErrInvalidTverskyParam). The α + β > 0 constraint (which guards
-// the Tversky denominator) is enforced at runtime by TverskyScore
-// itself; this option does not re-check it because either α or β
-// being > 0 is satisfied by the typical use cases (alpha = beta = 1
-// for Jaccard-equivalent, alpha = 1, beta = 0 for prototype matching).
+// Rejection cases:
+//
+//   - weight is NaN, ±Inf, or ≤ 0 → ErrInvalidWeight (Phase 8.5 Q2
+//     comprehensive weight guard; see WithAlgorithm's godoc for the
+//     full rationale).
+//   - n < 1 → ErrInvalidQGramSize (q-gram extraction is undefined for
+//     window length below 1).
+//   - alpha or beta is NaN or ±Inf → ErrInvalidTverskyParam (NaN/Inf
+//     would propagate through `α·|A−B| + β·|B−A|` as NaN/Inf,
+//     breaking the [0, 1] composite guarantee).
+//   - alpha < 0 or beta < 0 → ErrInvalidTverskyParam (Tversky 1977
+//     §2 requires non-negative weights).
+//   - alpha + beta ≤ 0 → ErrInvalidTverskyParam (Phase 8.5 Q2; the
+//     Tversky denominator |QA ∩ QB| + α·|QA − QB| + β·|QB − QA|
+//     collapses to zero when both weights are zero on a disjoint
+//     pair, and `α + β > 0` is the canonical Tversky precondition.
+//     The arithmetic `α + β` on two non-negative finite floats
+//     cannot itself produce a problematic value, so the simple
+//     boolean test is sufficient).
+//
+// Phase 8.5 Q2 — the α + β > 0 guard CLOSES the panic-at-Score-time
+// escape: previously, WithTverskyAlgorithm(_, 0, 0, _) constructed
+// successfully then panicked on the first Score call. The same guard
+// now applies at option-application time; the direct-call TverskyScore
+// panic (see tversky.go) wraps ErrInvalidTverskyParam so consumers can
+// discriminate via errors.Is on a recovered panic value.
 func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption {
 	return func(cfg *scorerConfig) error {
-		if weight <= 0 {
+		// Phase 8.5 Q2 — strict-parameter guards. NaN/Inf must be
+		// tested before the comparison-based checks because NaN
+		// admits every range comparison.
+		if math.IsNaN(weight) || math.IsInf(weight, 0) || weight <= 0 {
 			return ErrInvalidWeight
 		}
 		if n < 1 {
 			return ErrInvalidQGramSize
 		}
+		if math.IsNaN(alpha) || math.IsNaN(beta) || math.IsInf(alpha, 0) || math.IsInf(beta, 0) {
+			return ErrInvalidTverskyParam
+		}
 		if alpha < 0 || beta < 0 {
+			return ErrInvalidTverskyParam
+		}
+		// Phase 8.5 Q2 — α + β > 0 (closes the panic-at-Score-time
+		// escape). Because both alpha and beta are now known to be
+		// non-negative and finite, the sum cannot itself overflow
+		// or be NaN.
+		if alpha+beta <= 0 {
 			return ErrInvalidTverskyParam
 		}
 		cfg.entries = append(cfg.entries, scorerEntry{

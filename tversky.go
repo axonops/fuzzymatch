@@ -69,17 +69,27 @@
 //   - identical    → 1.0  (a == b short-circuit, α/β irrelevant)
 //   - one-empty    → 0.0
 //
-// Direct-call validation (CONTEXT.md §5 LOCKED):
+// Direct-call validation (Phase 8.5 Q2 data-vs-parameter framework,
+// docs/requirements.md §6.A — supersedes the original CONTEXT.md §5
+// lock by adding NaN/Inf rejection and typed-error panic values):
 //
-//   - n < 1 panics with the message "fuzzymatch: invalid q-gram size".
-//   - α < 0, β < 0, or α + β == 0 panics with the message
-//     "fuzzymatch: invalid tversky parameter". The α + β > 0 constraint
+//   - n < 1 panics with `fmt.Errorf("%w: …", ErrInvalidQGramSize, …)`.
+//     The string portion still contains "fuzzymatch: invalid q-gram
+//     size" (the sentinel's Error() text) so log scraping remains
+//     unaffected; the wrapping enables `errors.Is(panicValue.(error),
+//     ErrInvalidQGramSize)` discrimination on recover().
+//   - α or β is NaN or ±Inf panics with
+//     `fmt.Errorf("%w: …", ErrInvalidTverskyParam, …)`.
+//   - α < 0, β < 0, or α + β == 0 panics with the same typed error
+//     wrapping `ErrInvalidTverskyParam`. The α + β > 0 constraint
 //     is implemented as `α == 0 && β == 0` rather than `α + β == 0` to
-//     avoid any float-comparison anxiety on slightly-negative sums.
+//     avoid any float-comparison anxiety on slightly-negative sums
+//     (the upstream α < 0 / β < 0 rejection means we know both are
+//     non-negative by the time the joint-zero test runs).
 //   - The Phase 8 Scorer option WithTverskyAlgorithm returns
-//     ErrInvalidQGramSize / ErrInvalidTverskyParam instead — the panic
-//     is reserved for the direct-call surface where programmer error
-//     must fail loudly.
+//     ErrInvalidQGramSize / ErrInvalidTverskyParam as typed errors on
+//     the same inputs — the panic is reserved for the direct-call
+//     surface where programmer error must fail loudly.
 //
 // Asymmetry-discriminating reference vector pair (RV-T1 / RV-T2 from
 // RESEARCH.md §2.4 — load-bearing regression gate):
@@ -170,6 +180,11 @@
 
 package fuzzymatch
 
+import (
+	"fmt"
+	"math"
+)
+
 // TverskyScore returns the Tversky asymmetric similarity of the q-gram
 // multisets of a and b: T(A, B, α, β) = |QA ∩ QB| / (|QA ∩ QB| +
 // α·|QA − QB| + β·|QB − QA|), in [0.0, 1.0]. Operates on bytes —
@@ -192,17 +207,29 @@ package fuzzymatch
 //     TverskyScore(a, b, n, 0.5, 0.5) == SorensenDiceScore(a, b, n)
 //     bit-for-bit.
 //
-// The q-gram size n MUST be >= 1; n < 1 panics with the message
-// "fuzzymatch: invalid q-gram size".
+// The q-gram size n MUST be >= 1; n < 1 panics with a value wrapping
+// ErrInvalidQGramSize (string message "fuzzymatch: invalid q-gram
+// size"). Discriminate via errors.Is on a recovered panic value.
 //
-// The weights α and β MUST satisfy α >= 0, β >= 0, AND (α > 0 OR β > 0).
-// Equivalently: at least one of α and β must be strictly positive.
-// Violations panic with the message "fuzzymatch: invalid tversky
-// parameter" (α < 0 or β < 0 or α + β == 0).
+// The weights α and β MUST satisfy: not NaN, finite (not ±Inf),
+// α >= 0, β >= 0, AND α + β > 0. Equivalently: both weights are
+// finite, non-negative, and at least one is strictly positive.
+// Violations panic with a value wrapping ErrInvalidTverskyParam
+// (string message "fuzzymatch: invalid tversky parameter") on the
+// following inputs:
 //
-// CONTEXT.md §5 LOCKED — direct calls fail loudly on programmer error;
-// the Phase 8 Scorer option WithTverskyAlgorithm returns
-// ErrInvalidQGramSize / ErrInvalidTverskyParam instead.
+//   - α or β is NaN
+//   - α or β is ±Inf
+//   - α < 0 or β < 0
+//   - α + β == 0 (the joint α==0 && β==0 case)
+//
+// Per Phase 8.5 Q2 (data-vs-parameter framework, docs/requirements.md
+// §6.A): comparison-data inputs (a, b) are lenient; parameter inputs
+// (n, α, β) are strict. Direct calls panic with a typed-error value
+// (`fmt.Errorf("%w: …", ErrInvalidTverskyParam, …)`) so consumers
+// using `recover()` can discriminate via `errors.Is`. The Phase 8
+// Scorer option WithTverskyAlgorithm returns ErrInvalidQGramSize /
+// ErrInvalidTverskyParam as typed return values on the same inputs.
 //
 // Conventions:
 //
@@ -232,14 +259,24 @@ func TverskyScore(a, b string, n int, alpha, beta float64) float64 {
 		return 1.0 // identity short-circuit (covers both-empty too)
 	}
 	if n < 1 {
-		panic("fuzzymatch: invalid q-gram size")
+		// Phase 8.5 Q2 — typed-error panic so recover() callers can
+		// discriminate via errors.Is(panicValue.(error), sentinel).
+		panic(fmt.Errorf("%w: TverskyScore requires n >= 1 (got n=%d)", ErrInvalidQGramSize, n))
 	}
-	// α + β > 0 is implemented as (α == 0 && β == 0) to dodge any
-	// float-comparison anxiety on α + β being slightly less than 0.
-	// α < 0 / β < 0 caught explicitly; the α == 0 case is permitted
-	// when β > 0 (and vice versa).
+	// Phase 8.5 Q2 — strict-parameter discipline on direct calls.
+	// NaN/±Inf must be tested FIRST because NaN compares false to
+	// every range comparison and would otherwise sneak past the
+	// α < 0 / β < 0 / α+β==0 tests. ±Inf in α or β would propagate
+	// through α·|A−B| + β·|B−A| as ±Inf, breaking the [0, 1]
+	// composite guarantee. The α + β > 0 invariant is implemented
+	// as (α == 0 && β == 0) to dodge any float-comparison anxiety
+	// on α + β being slightly less than 0; the upstream α < 0 / β < 0
+	// rejection means we know both are non-negative at this point.
+	if math.IsNaN(alpha) || math.IsNaN(beta) || math.IsInf(alpha, 0) || math.IsInf(beta, 0) {
+		panic(fmt.Errorf("%w: TverskyScore requires finite, non-NaN alpha and beta (got alpha=%v, beta=%v)", ErrInvalidTverskyParam, alpha, beta))
+	}
 	if alpha < 0 || beta < 0 || (alpha == 0 && beta == 0) {
-		panic("fuzzymatch: invalid tversky parameter")
+		panic(fmt.Errorf("%w: TverskyScore requires alpha >= 0, beta >= 0, and alpha+beta > 0 (got alpha=%v, beta=%v)", ErrInvalidTverskyParam, alpha, beta))
 	}
 	if a == "" || b == "" {
 		return 0.0
@@ -278,10 +315,15 @@ func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64 {
 		return 1.0 // identity short-circuit (covers both-empty too)
 	}
 	if n < 1 {
-		panic("fuzzymatch: invalid q-gram size")
+		// Phase 8.5 Q2 — typed-error panic (see TverskyScore for the
+		// full rationale; the rune surface mirrors the byte surface).
+		panic(fmt.Errorf("%w: TverskyScoreRunes requires n >= 1 (got n=%d)", ErrInvalidQGramSize, n))
+	}
+	if math.IsNaN(alpha) || math.IsNaN(beta) || math.IsInf(alpha, 0) || math.IsInf(beta, 0) {
+		panic(fmt.Errorf("%w: TverskyScoreRunes requires finite, non-NaN alpha and beta (got alpha=%v, beta=%v)", ErrInvalidTverskyParam, alpha, beta))
 	}
 	if alpha < 0 || beta < 0 || (alpha == 0 && beta == 0) {
-		panic("fuzzymatch: invalid tversky parameter")
+		panic(fmt.Errorf("%w: TverskyScoreRunes requires alpha >= 0, beta >= 0, and alpha+beta > 0 (got alpha=%v, beta=%v)", ErrInvalidTverskyParam, alpha, beta))
 	}
 	if a == "" || b == "" {
 		return 0.0

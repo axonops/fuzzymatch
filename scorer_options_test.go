@@ -28,6 +28,7 @@ package fuzzymatch
 
 import (
 	"errors"
+	"math"
 	"testing"
 )
 
@@ -67,6 +68,32 @@ func TestWithAlgorithm_InvalidWeight(t *testing.T) {
 			_, err := applyOptionForProbe(WithAlgorithm(AlgoLevenshtein, c.weight))
 			if !errors.Is(err, ErrInvalidWeight) {
 				t.Errorf("WithAlgorithm(AlgoLevenshtein, %g) err = %v; want ErrInvalidWeight", c.weight, err)
+			}
+		})
+	}
+}
+
+// TestWithAlgorithm_RejectsNaN is the Phase 8.5 Q2 NaN/Inf strict-
+// parameter guard test. NaN, +Inf, and -Inf must all be rejected with
+// ErrInvalidWeight. The IEEE-754 rule "NaN compares false to
+// everything" means the prior `weight <= 0` test admitted NaN — this
+// test pins the fix. +Inf is rejected explicitly even though it would
+// have passed `weight <= 0` (Inf > 0 is true) — propagating +Inf as a
+// weight breaks the [0, 1] composite guarantee.
+func TestWithAlgorithm_RejectsNaN(t *testing.T) {
+	cases := []struct {
+		name   string
+		weight float64
+	}{
+		{"NaN", math.NaN()},
+		{"PosInf", math.Inf(+1)},
+		{"NegInf", math.Inf(-1)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := applyOptionForProbe(WithAlgorithm(AlgoLevenshtein, c.weight))
+			if !errors.Is(err, ErrInvalidWeight) {
+				t.Errorf("WithAlgorithm(AlgoLevenshtein, %v) err = %v; want ErrInvalidWeight", c.weight, err)
 			}
 		})
 	}
@@ -185,6 +212,36 @@ func TestWithThreshold_OutOfRange(t *testing.T) {
 			}
 			// On rejection, thresholdSet must stay false so NewScorer's
 			// missing-threshold check still fires.
+			_, set := probeThreshold(cfg)
+			if set {
+				t.Errorf("thresholdSet = true after rejected WithThreshold; want false")
+			}
+		})
+	}
+}
+
+// TestWithThreshold_RejectsNaN is the Phase 8.5 Q2 NaN/Inf strict-
+// parameter guard test for WithThreshold. NaN, +Inf, and -Inf must
+// all be rejected with ErrInvalidThreshold. Critically, NaN compares
+// false to both `t < 0.0` and `t > 1.0`, so the prior range-only
+// check admitted NaN — this test pins the fix. +Inf and -Inf were
+// already rejected by the range check, but the explicit IsInf guard
+// adds defence in depth.
+func TestWithThreshold_RejectsNaN(t *testing.T) {
+	cases := []struct {
+		name string
+		t    float64
+	}{
+		{"NaN", math.NaN()},
+		{"PosInf", math.Inf(+1)},
+		{"NegInf", math.Inf(-1)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg, err := applyOptionForProbe(WithThreshold(c.t))
+			if !errors.Is(err, ErrInvalidThreshold) {
+				t.Errorf("WithThreshold(%v) err = %v; want ErrInvalidThreshold", c.t, err)
+			}
 			_, set := probeThreshold(cfg)
 			if set {
 				t.Errorf("thresholdSet = true after rejected WithThreshold; want false")
@@ -441,6 +498,77 @@ func TestWithTverskyAlgorithm_InvalidBeta(t *testing.T) {
 	_, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, 1.0, -0.1, 3))
 	if !errors.Is(err, ErrInvalidTverskyParam) {
 		t.Errorf("beta=-0.1 err = %v; want ErrInvalidTverskyParam", err)
+	}
+}
+
+// TestWithTverskyAlgorithm_RejectsAlphaPlusBetaNonPositive is the
+// Phase 8.5 Q2 strict-parameter guard test for WithTverskyAlgorithm.
+//
+// Previously, WithTverskyAlgorithm(_, 0, 0, _) constructed successfully
+// (both α and β passed the `>= 0` test) and the panic only surfaced
+// on the first Scorer.Score call (where TverskyScore's direct-call
+// guard triggered). Phase 8.5 Q2 closes this panic-at-Score-time
+// escape: the option-time guard now rejects α+β <= 0 with
+// ErrInvalidTverskyParam.
+//
+// Cases covered:
+//
+//   - α == 0 && β == 0 — the canonical α+β==0 failure mode.
+//   - α or β is NaN — propagates as NaN through the Tversky
+//     denominator; rejected at option time.
+//   - α or β is ±Inf — propagates as ±Inf through the denominator;
+//     rejected at option time.
+//
+// The α == 0 with β > 0 case (and vice versa) remains VALID and is
+// covered by the existing TestWithTverskyAlgorithm_CapturesParams /
+// happy-path tests above plus TestTversky_ZeroAlphaWithPositiveBeta
+// in tversky_test.go.
+func TestWithTverskyAlgorithm_RejectsAlphaPlusBetaNonPositive(t *testing.T) {
+	cases := []struct {
+		name        string
+		alpha, beta float64
+	}{
+		{"both_zero", 0.0, 0.0},
+		{"alpha_NaN", math.NaN(), 1.0},
+		{"beta_NaN", 1.0, math.NaN()},
+		{"alpha_PosInf", math.Inf(+1), 1.0},
+		{"alpha_NegInf", math.Inf(-1), 1.0},
+		{"beta_PosInf", 1.0, math.Inf(+1)},
+		{"beta_NegInf", 1.0, math.Inf(-1)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, c.alpha, c.beta, 3))
+			if !errors.Is(err, ErrInvalidTverskyParam) {
+				t.Errorf("WithTverskyAlgorithm(1.0, %v, %v, 3) err = %v; want ErrInvalidTverskyParam",
+					c.alpha, c.beta, err)
+			}
+		})
+	}
+}
+
+// TestWithTverskyAlgorithm_AcceptsZeroAlphaWithPositiveBeta pins the
+// VALID boundary case: α == 0 with β > 0 (and symmetric) must NOT be
+// rejected. The Phase 8.5 Q2 guard only fires when α+β <= 0, which
+// requires BOTH weights to be zero. Asymmetric Tversky with one zero
+// weight is a documented use case (e.g. α=1, β=0 for prototype
+// matching where only the prototype's residuals are penalised).
+func TestWithTverskyAlgorithm_AcceptsZeroAlphaWithPositiveBeta(t *testing.T) {
+	cases := []struct {
+		name        string
+		alpha, beta float64
+	}{
+		{"alpha_zero_beta_pos", 0.0, 1.0},
+		{"alpha_pos_beta_zero", 1.0, 0.0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, c.alpha, c.beta, 3))
+			if err != nil {
+				t.Errorf("WithTverskyAlgorithm(1.0, %g, %g, 3) err = %v; want nil",
+					c.alpha, c.beta, err)
+			}
+		})
 	}
 }
 

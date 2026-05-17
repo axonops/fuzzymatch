@@ -30,6 +30,7 @@
 package fuzzymatch_test
 
 import (
+	"errors"
 	"math"
 	"strconv"
 	"strings"
@@ -498,8 +499,13 @@ func TestTverskyRunes_CafeReference(t *testing.T) {
 }
 
 // TestTversky_PanicsOnInvalidN pins the direct-call panic-on-n<1
-// contract per CONTEXT.md §5 LOCKED. Both byte and rune surfaces panic
-// with the same message text containing "invalid q-gram size".
+// contract per the Phase 8.5 Q2 data-vs-parameter framework
+// (docs/requirements.md §6.A): direct calls panic with a TYPED-ERROR
+// value `fmt.Errorf("%w: …", ErrInvalidQGramSize, …)` so recover()
+// callers can discriminate via `errors.Is(panicValue.(error),
+// ErrInvalidQGramSize)`. The Error() text of the wrapping error still
+// contains "invalid q-gram size" (the sentinel's own message) so
+// log-scraping consumers are unaffected.
 //
 // Note the n-validation happens AFTER the a == b identity short-circuit
 // (so identical inputs at any n return 1.0 without panicking) but
@@ -518,13 +524,16 @@ func TestTversky_PanicsOnInvalidN(t *testing.T) {
 						t.Errorf("TverskyScore(\"abc\", \"abd\", %d, 0.5, 0.5) did not panic", n)
 						return
 					}
-					msg, ok := r.(string)
+					err, ok := r.(error)
 					if !ok {
-						t.Errorf("panic value type = %T (%v); want string", r, r)
+						t.Errorf("panic value type = %T (%v); want error wrapping ErrInvalidQGramSize", r, r)
 						return
 					}
-					if !strings.Contains(msg, "invalid q-gram size") {
-						t.Errorf("panic message %q does not contain \"invalid q-gram size\"", msg)
+					if !errors.Is(err, fuzzymatch.ErrInvalidQGramSize) {
+						t.Errorf("panic err = %v; want errors.Is(_, ErrInvalidQGramSize)", err)
+					}
+					if !strings.Contains(err.Error(), "invalid q-gram size") {
+						t.Errorf("panic message %q does not contain \"invalid q-gram size\"", err.Error())
 					}
 				}()
 				_ = fuzzymatch.TverskyScore("abc", "abd", n, 0.5, 0.5)
@@ -537,13 +546,16 @@ func TestTversky_PanicsOnInvalidN(t *testing.T) {
 						t.Errorf("TverskyScoreRunes(\"abc\", \"abd\", %d, 0.5, 0.5) did not panic", n)
 						return
 					}
-					msg, ok := r.(string)
+					err, ok := r.(error)
 					if !ok {
-						t.Errorf("panic value type = %T (%v); want string", r, r)
+						t.Errorf("panic value type = %T (%v); want error wrapping ErrInvalidQGramSize", r, r)
 						return
 					}
-					if !strings.Contains(msg, "invalid q-gram size") {
-						t.Errorf("panic message %q does not contain \"invalid q-gram size\"", msg)
+					if !errors.Is(err, fuzzymatch.ErrInvalidQGramSize) {
+						t.Errorf("panic err = %v; want errors.Is(_, ErrInvalidQGramSize)", err)
+					}
+					if !strings.Contains(err.Error(), "invalid q-gram size") {
+						t.Errorf("panic message %q does not contain \"invalid q-gram size\"", err.Error())
 					}
 				}()
 				_ = fuzzymatch.TverskyScoreRunes("abc", "abd", n, 0.5, 0.5)
@@ -553,11 +565,20 @@ func TestTversky_PanicsOnInvalidN(t *testing.T) {
 }
 
 // TestTversky_PanicsOnInvalidParams pins the direct-call panic-on-
-// invalid-α/β contract per CONTEXT.md §5 LOCKED. Three failure modes
-// share the "invalid tversky parameter" panic message:
+// invalid-α/β contract per the Phase 8.5 Q2 data-vs-parameter framework
+// (docs/requirements.md §6.A). Direct calls panic with a TYPED-ERROR
+// value `fmt.Errorf("%w: …", ErrInvalidTverskyParam, …)` so recover()
+// callers can discriminate via `errors.Is(panicValue.(error),
+// ErrInvalidTverskyParam)`. The Error() text still contains "invalid
+// tversky parameter" (the sentinel's own message) so log-scraping
+// consumers are unaffected.
 //
-//   - α < 0 (any β >= 0)
-//   - β < 0 (any α >= 0)
+// Failure modes (all share the same sentinel):
+//
+//   - α or β is NaN (Phase 8.5 Q2 NaN guard)
+//   - α or β is ±Inf (Phase 8.5 Q2 Inf guard)
+//   - α < 0 (any β ≥ 0)
+//   - β < 0 (any α ≥ 0)
 //   - α == 0 AND β == 0 (denominator-zero risk if intersection==0 too)
 //
 // The α == 0 case with β > 0 (and vice versa) is VALID and must NOT
@@ -566,16 +587,29 @@ func TestTversky_PanicsOnInvalidN(t *testing.T) {
 // As with the n-panic test, distinct inputs are used so the a == b
 // short-circuit does not gate away the panic.
 func TestTversky_PanicsOnInvalidParams(t *testing.T) {
+	nan := math.NaN()
+	pInf := math.Inf(+1)
+	nInf := math.Inf(-1)
 	tests := []struct {
 		name        string
 		alpha, beta float64
 	}{
+		// Existing negative + both-zero cases (preserved).
 		{"alpha_neg", -0.1, 0.5},
 		{"alpha_very_neg", -100.0, 0.5},
 		{"beta_neg", 0.5, -0.1},
 		{"beta_very_neg", 0.5, -100.0},
 		{"both_neg", -0.5, -0.5},
 		{"both_zero", 0.0, 0.0},
+		// Phase 8.5 Q2 — NaN guard cases.
+		{"alpha_nan", nan, 0.5},
+		{"beta_nan", 0.5, nan},
+		{"both_nan", nan, nan},
+		// Phase 8.5 Q2 — Inf guard cases.
+		{"alpha_pos_inf", pInf, 0.5},
+		{"alpha_neg_inf", nInf, 0.5},
+		{"beta_pos_inf", 0.5, pInf},
+		{"beta_neg_inf", 0.5, nInf},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -587,13 +621,16 @@ func TestTversky_PanicsOnInvalidParams(t *testing.T) {
 						t.Errorf("TverskyScore(\"abc\", \"abd\", 2, %g, %g) did not panic", tt.alpha, tt.beta)
 						return
 					}
-					msg, ok := r.(string)
+					err, ok := r.(error)
 					if !ok {
-						t.Errorf("panic value type = %T (%v); want string", r, r)
+						t.Errorf("panic value type = %T (%v); want error wrapping ErrInvalidTverskyParam", r, r)
 						return
 					}
-					if !strings.Contains(msg, "invalid tversky parameter") {
-						t.Errorf("panic message %q does not contain \"invalid tversky parameter\"", msg)
+					if !errors.Is(err, fuzzymatch.ErrInvalidTverskyParam) {
+						t.Errorf("panic err = %v; want errors.Is(_, ErrInvalidTverskyParam)", err)
+					}
+					if !strings.Contains(err.Error(), "invalid tversky parameter") {
+						t.Errorf("panic message %q does not contain \"invalid tversky parameter\"", err.Error())
 					}
 				}()
 				_ = fuzzymatch.TverskyScore("abc", "abd", 2, tt.alpha, tt.beta)
@@ -606,17 +643,61 @@ func TestTversky_PanicsOnInvalidParams(t *testing.T) {
 						t.Errorf("TverskyScoreRunes(\"abc\", \"abd\", 2, %g, %g) did not panic", tt.alpha, tt.beta)
 						return
 					}
-					msg, ok := r.(string)
+					err, ok := r.(error)
 					if !ok {
-						t.Errorf("panic value type = %T (%v); want string", r, r)
+						t.Errorf("panic value type = %T (%v); want error wrapping ErrInvalidTverskyParam", r, r)
 						return
 					}
-					if !strings.Contains(msg, "invalid tversky parameter") {
-						t.Errorf("panic message %q does not contain \"invalid tversky parameter\"", msg)
+					if !errors.Is(err, fuzzymatch.ErrInvalidTverskyParam) {
+						t.Errorf("panic err = %v; want errors.Is(_, ErrInvalidTverskyParam)", err)
+					}
+					if !strings.Contains(err.Error(), "invalid tversky parameter") {
+						t.Errorf("panic message %q does not contain \"invalid tversky parameter\"", err.Error())
 					}
 				}()
 				_ = fuzzymatch.TverskyScoreRunes("abc", "abd", 2, tt.alpha, tt.beta)
 			}()
+		})
+	}
+}
+
+// TestTverskyScore_DirectCall is the Phase 8.5 Q2 named contract test
+// for the data-vs-parameter framework's direct-call panic discipline.
+// Asserts that a direct TverskyScore call with α=β=0 panics with a
+// typed-error value wrapping ErrInvalidTverskyParam.
+//
+// This is the canonical failure-mode example the framework documents:
+// previously WithTverskyAlgorithm(_, 0, 0, _) constructed successfully
+// and the panic only surfaced on the first Scorer.Score call (or on a
+// direct TverskyScore call). Plan 04 closes both legs: the option-time
+// guard rejects α+β==0 at construction; the direct-call surface
+// panics with a discriminable typed error.
+func TestTverskyScore_DirectCall(t *testing.T) {
+	cases := []struct {
+		name        string
+		alpha, beta float64
+	}{
+		{"both_zero", 0.0, 0.0},
+		{"alpha_nan", math.NaN(), 1.0},
+		{"alpha_pos_inf", math.Inf(+1), 1.0},
+		{"beta_neg_inf", 1.0, math.Inf(-1)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if r == nil {
+					t.Fatalf("TverskyScore(\"a\", \"b\", 2, %g, %g) did not panic", c.alpha, c.beta)
+				}
+				err, ok := r.(error)
+				if !ok {
+					t.Fatalf("panic value type = %T (%v); want error wrapping ErrInvalidTverskyParam", r, r)
+				}
+				if !errors.Is(err, fuzzymatch.ErrInvalidTverskyParam) {
+					t.Fatalf("expected errors.Is(_, ErrInvalidTverskyParam); got %v", err)
+				}
+			}()
+			_ = fuzzymatch.TverskyScore("a", "b", 2, c.alpha, c.beta)
 		})
 	}
 }
