@@ -1,5 +1,26 @@
 # fuzzymatch — Comprehensive Code Review Findings
 
+## Phase 8.5 Verification (2026-05-17)
+
+**Phase 8.5 (Review Remediation Gate) is COMPLETE.** All 74 Critical and 195 Important findings recorded below have been **CLOSED** by the 19 plans of Phase 8.5 (08.5-01 through 08.5-17b). The 14-agent panel re-review on 2026-05-17 (Plan 08.5-18) returned **zero Critical and zero Important findings**.
+
+**Outcome:** `Critical: 0, Important: 0, Improvement: 4 (documented residue)`.
+**Verification report:** [`.planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md`](.planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md) — full agent-panel results, Q-decision traceability, and Improvement-tier residue with reasoned acceptance.
+**Phase 9 status:** UNBLOCKED.
+
+The 74 Critical findings and 195 Important findings in the tables below are **historical** as of 2026-05-17. Each maps to a closing Q-decision or scope-cluster in the verification report's §4 traceability table.
+
+**Deferred items** (acknowledged in the verification report):
+
+- **Gap 3 — `scan.feature` + `suppression.feature`**: deferred to Phase 9 (CONTEXT.md default — feature files describe Phase 9 scan sub-package surface, which does not exist yet).
+- **Q14a — cross-algorithm tokenisation cache**: deferred to v1.x (GitHub issue placeholder pending — project has no GH issues yet).
+- **R3 — coverage-floor residue**: 6 Floor-3 violations + 2 Floor-2 violations + Floor-1 92.1%/95% — pre-existing inherited gaps (none introduced by Phase 8.5); scheduled for a dedicated v1.x "Phonetic encoder branch-coverage closure" plan.
+- **R4 — cross-platform CI matrix**: 66 unpushed commits; CI matrix on PR push pending.
+
+Original Phase 8 findings retained below for historical traceability.
+
+---
+
 **Review trigger:** Phase 8 → Phase 9 gate
 **Reviewed:** 2026-05-17
 **Scope:** entire codebase (phases 1–8)
