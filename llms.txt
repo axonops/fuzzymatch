@@ -222,6 +222,27 @@ scan / Extract (Phases 9–10).
 - var ErrMissingThreshold error
 - var ErrInternalInvariantViolated error
 
+### Input validation and diagnostics (Phase 8.5 Q4)
+
+Consumer-facing diagnostic surface: Validate inspects a pair of inputs
+and returns Warnings describing problematic-but-non-fatal input shapes.
+Pure function; safe for concurrent use; never panics; returns nil if
+no warnings apply. See docs/requirements.md §11.5 for the per-WarnKind
+rule semantics. The companion AlgoIDAny sentinel scopes cross-cutting
+Warnings that affect every algorithm in the catalogue.
+
+- func Validate(a, b string) []Warning
+- type Warning struct
+- type WarnKind int
+- func (WarnKind) String() string
+- func WarnKinds() []WarnKind
+- const WarnEmptyInput WarnKind
+- const WarnUnequalLength WarnKind
+- const WarnNoTokensAfterNormalise WarnKind
+- const WarnAllNonASCIIDropped WarnKind
+- const WarnPathologicallyLargeInput WarnKind
+- const AlgoIDAny AlgoID
+
 ## Out of v1.0 scope
 
 - Needleman-Wunsch (superseded by Smith-Waterman-Gotoh's local
