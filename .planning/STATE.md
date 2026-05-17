@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Completed Plan 08.5-01 (sentinel hygiene foundation)
-last_updated: "2026-05-17T12:28:17.108Z"
+stopped_at: Completed Plan 08.5-05 (Q11c paper-anchored test; Gap 6 resolved)
+last_updated: "2026-05-17T12:35:22.666Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 2 of 20
+Plan: 3 of 20
 Status: Ready to execute
 Last activity: 2026-05-17
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 08.5 P01 | 6 | 1 tasks | 9 files |
+| Phase 08.5 P05 | 15min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - AlgoID dispatch table established in Phase 1 (per FOUND-02) so Monge-Elkan (Phase 6) can take an inner AlgoID parameter without waiting for the full Scorer
 - Extract API isolated into its own phase (Phase 10) after Scan, layering atop both single algorithms and the Scorer
 - [Phase ?]: Phase 8.5 Plan 01: atomic rename ErrInvalidAlgorithm -> ErrInvalidAlgoID across 15 call sites; add ErrInvalidInnerAlgo (Q4 follow-up) + ErrInternalInvariantViolated (Gap 5 typed-panic); remove 3 unused sentinels; apply 4-section godoc template to every remaining sentinel.
+- [Phase ?]: Phase 08.5 Plan 05: Q11c paper-anchored Philips 2000 worked-examples test (10 cases) passes green; Gap 6 resolved — Sais produces (SS, SS) confirming Q9 dupBranchBody removal at double_metaphone.go:744 is behaviour-preserving; Plan 11 unblocked.
 
 ### Pending Todos
 
@@ -99,6 +101,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T12:28:17.103Z
-Stopped at: Completed Plan 08.5-01 (sentinel hygiene foundation)
-Resume file: None
+Last session: 2026-05-17T12:35:22.660Z
+Stopped at: Completed Plan 08.5-05 (Q11c paper-anchored test; Gap 6 resolved)
+Resume file: 
+None

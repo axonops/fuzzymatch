@@ -184,7 +184,7 @@
   - [ ] 08.5-02-PLAN.md (Wave 2) — Q3 MongeElkan symmetric-by-default rename + inert opts removal (atomic across 7+ files, ~22 call sites; breaking pre-v1.0) (Wave 1)
   - [ ] 08.5-03-PLAN.md (Wave 3) — Q5 PartialRatioScoreRunes removal (atomic across 8 files; breaking pre-v1.0) (Wave 1)
   - [ ] 08.5-04-PLAN.md (Wave 2) — Q2 functional-option NaN/Inf/α+β guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + direct-call TverskyScore typed-panic discipline (Wave 1)
-  - [ ] 08.5-05-PLAN.md (Wave 1) — Q11c paper-anchored Philips 2000 worked-examples test (~10 cases with citations; Gap 6 gate for Plan 14) (Wave 1)
+  - [x] 08.5-05-PLAN.md (Wave 1) — Q11c paper-anchored Philips 2000 worked-examples test (~10 cases with citations; Gap 6 gate for Plan 14) (Wave 1)
   - [ ] 08.5-06-PLAN.md (Wave 2) — Q11b FMA-defeating double-cast at cosine.go:343 + scorer.go:380; cross-platform CI matrix verification (Wave 1)
   - [ ] 08.5-07-PLAN.md (Wave 1) — Performance optimisations: Q7a DoubleMetaphone `[dmMaxLen]byte` + Q7d Q-gram capacity hint + Q11e DL-Full ZeroAllocs un-skip + Q7c long-input scope notes + Q7b/Q8a/Q8c/Q8d benchmark assertion updates (Wave 1)
   - [ ] 08.5-08-PLAN.md (Wave 3) — Q8b Tokenise ASCII fast path (dedicated plan with property test + benchmarks + BDD) (Wave 1)

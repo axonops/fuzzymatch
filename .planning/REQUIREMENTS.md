@@ -48,7 +48,7 @@
 ### Phonetic algorithms (PHON)
 
 - [ ] **PHON-01**: **Soundex** — Knuth/Census variant per Knuth TAOCP Vol. 3 §6.4. Mandatory reference vectors include `"Tymczak" → "T522"` (the discriminating case) (`docs/requirements.md` §7.20, research/PITFALLS.md #4)
-- [ ] **PHON-02**: **Double Metaphone** (Philips 2000) returning primary + alternate codes. Reference vectors per language-origin branch (Germanic, Slavic, Romance, Greek) (`docs/requirements.md` §7.21)
+- [x] **PHON-02**: **Double Metaphone** (Philips 2000) returning primary + alternate codes. Reference vectors per language-origin branch (Germanic, Slavic, Romance, Greek) (`docs/requirements.md` §7.21)
 - [ ] **PHON-03**: **NYSIIS** (Taft 1970) with 6-char truncation (`docs/requirements.md` §7.22)
 - [ ] **PHON-04**: **MRA** (NBS Tech Note 943) Match Rating Approach (`docs/requirements.md` §7.23)
 
@@ -233,7 +233,7 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | TOKEN-04 | Phase 6 | Pending |
 | TOKEN-05 | Phase 6 | Pending |
 | PHON-01 | Phase 7 | Pending |
-| PHON-02 | Phase 7 | Pending |
+| PHON-02 | Phase 7 | Complete |
 | PHON-03 | Phase 7 | Pending |
 | PHON-04 | Phase 7 | Pending |
 | GESTALT-01 | Phase 4 | Pending |
