@@ -1083,6 +1083,26 @@ func (s *Scorer) Algorithms() []ScorerAlgorithm
 // A fresh map is allocated on every call (spec §8.6). Pre-normalisation
 // policy mirrors Score (CONTEXT.md §3 LOCKED). Safe for concurrent use.
 func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64
+
+// DefaultScorerOptions returns a fresh, mutable slice of ScorerOption
+// matching DefaultScorer's composition: six algorithms at equal raw
+// weight (DamerauLevenshteinOSA, JaroWinkler, TokenJaccard,
+// QGramJaccard, SorensenDice, DoubleMetaphone — per spec §8.5) plus
+// WithThreshold(0.85). Consumers can append additional options or
+// splice in WithoutAlgorithm to derive customised Scorers. Fresh slice
+// per call — consumers may mutate it without affecting subsequent
+// DefaultScorer() or DefaultScorerOptions() calls.
+func DefaultScorerOptions() []ScorerOption
+
+// DefaultScorer returns the opinionated default Scorer (spec §8.5
+// composition: DamerauLevenshteinOSA + JaroWinkler + TokenJaccard +
+// QGramJaccard + SorensenDice + DoubleMetaphone, equal weights,
+// threshold 0.85). Cannot fail under normal operation; panics only on
+// internal inconsistency (programmer error). Safe for concurrent use
+// without locks. Use append(DefaultScorerOptions(),
+// WithoutAlgorithm(X))... with NewScorer for "default minus X"
+// compositions.
+func DefaultScorer() *Scorer
 ```
 
 ### Scorer construction options (scorer_options.go — Phase 8 plan 08-01)

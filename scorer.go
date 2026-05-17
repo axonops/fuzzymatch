@@ -515,3 +515,78 @@ func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64 {
 	}
 	return out
 }
+
+// DefaultScorerOptions returns a fresh, mutable slice of ScorerOption
+// matching DefaultScorer's composition: six algorithms at equal raw
+// weight (DamerauLevenshteinOSA, JaroWinkler, TokenJaccard, QGramJaccard,
+// SorensenDice, DoubleMetaphone — per spec §8.5 / CONTEXT.md §6) plus
+// WithThreshold(0.85).
+//
+// Consumers can append additional options or splice in WithoutAlgorithm
+// to derive customised Scorers from the default:
+//
+//	opts := append(fuzzymatch.DefaultScorerOptions(),
+//	    fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
+//	    fuzzymatch.WithThreshold(0.80),  // override the default
+//	)
+//	s, err := fuzzymatch.NewScorer(opts...)
+//
+// The slice is freshly allocated on every call so consumers may mutate
+// it without affecting subsequent DefaultScorer() or
+// DefaultScorerOptions() calls. The weight values are raw (1.0 each);
+// NewScorer's auto-normalisation step divides each by the sum so the
+// post-normalisation weights are 1.0/6.0 each.
+//
+// Safe for concurrent use from any number of goroutines: the function
+// constructs and returns a fresh slice on every call with no shared
+// state.
+func DefaultScorerOptions() []ScorerOption {
+	return []ScorerOption{
+		WithAlgorithm(AlgoDamerauLevenshteinOSA, 1.0),
+		WithAlgorithm(AlgoJaroWinkler, 1.0),
+		WithAlgorithm(AlgoTokenJaccard, 1.0),
+		WithAlgorithm(AlgoQGramJaccard, 1.0),    // uses default n=3 from dispatch_qgram_jaccard.go
+		WithAlgorithm(AlgoSorensenDice, 1.0),    // uses default n=3 from dispatch_sorensen_dice.go
+		WithAlgorithm(AlgoDoubleMetaphone, 1.0), //
+		WithThreshold(0.85),
+	}
+}
+
+// DefaultScorer returns the opinionated default Scorer: six algorithms
+// at equal weight (per spec §8.5 / CONTEXT.md §6) — DamerauLevenshtein
+// OSA, JaroWinkler, TokenJaccard, QGramJaccard, SorensenDice,
+// DoubleMetaphone — plus the baked-in threshold 0.85.
+//
+// DefaultScorer cannot fail under normal operation: the six algorithms
+// are guaranteed present in the dispatch table (Phase 7 populated all
+// 23 slots), the weights are positive (1.0 each), and the threshold
+// lies in [0.0, 1.0]. The implementation panics only on internal
+// inconsistency (a programmer error that should be unreachable after
+// Phase 7); this protects consumers from silently using a misconfigured
+// Scorer in production.
+//
+// The returned *Scorer is immutable and safe for concurrent use without
+// external synchronisation. Consumers wanting "default minus algorithm
+// X" use:
+//
+//	opts := append(fuzzymatch.DefaultScorerOptions(),
+//	    fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
+//	)
+//	s, err := fuzzymatch.NewScorer(opts...)
+//
+// Consumers wanting a custom composition entirely should pass
+// individual WithAlgorithm options to NewScorer directly.
+//
+// Typical usage:
+//
+//	s := fuzzymatch.DefaultScorer()
+//	if s.Match("user_id", "userId") {
+//	    // similar
+//	}
+func DefaultScorer() *Scorer {
+	s, err := NewScorer(DefaultScorerOptions()...)
+	if err != nil {
+		panic("fuzzymatch: DefaultScorer construction failed (this is a bug): " + err.Error())
+	}
+	return s
+}

@@ -493,6 +493,181 @@ func TestScorer_ScoreAll_FreshMap(t *testing.T) {
 	}
 }
 
+// TestDefaultScorer_Composition verifies the spec §8.5 / CONTEXT.md §6
+// canonical composition for DefaultScorer(): exactly six algorithms
+// (DamerauLevenshteinOSA, JaroWinkler, TokenJaccard, QGramJaccard,
+// SorensenDice, DoubleMetaphone) and threshold exactly 0.85.
+func TestDefaultScorer_Composition(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	if s == nil {
+		t.Fatal("DefaultScorer returned nil")
+	}
+	if got := s.Threshold(); got != 0.85 {
+		t.Errorf("Threshold = %g; want 0.85", got)
+	}
+	algos := s.Algorithms()
+	if len(algos) != 6 {
+		t.Fatalf("len(Algorithms) = %d; want 6", len(algos))
+	}
+	wantSet := map[fuzzymatch.AlgoID]bool{
+		fuzzymatch.AlgoDamerauLevenshteinOSA: true,
+		fuzzymatch.AlgoJaroWinkler:           true,
+		fuzzymatch.AlgoQGramJaccard:          true,
+		fuzzymatch.AlgoSorensenDice:          true,
+		fuzzymatch.AlgoTokenJaccard:          true,
+		fuzzymatch.AlgoDoubleMetaphone:       true,
+	}
+	got := make(map[fuzzymatch.AlgoID]bool, 6)
+	for _, a := range algos {
+		got[a.ID] = true
+	}
+	for id := range wantSet {
+		if !got[id] {
+			t.Errorf("DefaultScorer composition missing %v", id)
+		}
+	}
+	for id := range got {
+		if !wantSet[id] {
+			t.Errorf("DefaultScorer composition contains unexpected %v", id)
+		}
+	}
+}
+
+// TestDefaultScorer_WeightsEqual verifies that each post-normalisation
+// weight in DefaultScorer's six-algorithm composition equals 1.0/6.0
+// (six equal raw weights → uniform normalised weights). Comparison is
+// exact == because the same dividend / divisor pair produces the same
+// IEEE-754 quotient on every call.
+func TestDefaultScorer_WeightsEqual(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	algos := s.Algorithms()
+	if len(algos) != 6 {
+		t.Fatalf("len(Algorithms) = %d; want 6", len(algos))
+	}
+	want := 1.0 / 6.0
+	for i, a := range algos {
+		if a.Weight != want {
+			t.Errorf("algos[%d].Weight = %g; want %g (1.0/6.0)", i, a.Weight, want)
+		}
+	}
+}
+
+// TestDefaultScorer_NeverFails verifies that DefaultScorer() can be
+// invoked repeatedly without panicking and without returning nil. The
+// godoc contract is that DefaultScorer cannot fail under normal
+// operation; this test exercises the contract under 100 sequential
+// calls.
+func TestDefaultScorer_NeverFails(t *testing.T) {
+	t.Parallel()
+	for i := 0; i < 100; i++ {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("iteration %d: DefaultScorer panicked: %v", i, r)
+				}
+			}()
+			s := fuzzymatch.DefaultScorer()
+			if s == nil {
+				t.Errorf("iteration %d: DefaultScorer returned nil", i)
+			}
+		}()
+	}
+}
+
+// TestDefaultScorerOptions_FreshSlice verifies that DefaultScorerOptions
+// returns a fresh slice on every call: mutating the returned slice MUST
+// NOT affect a subsequent call's contents, and the mutated state MUST
+// NOT propagate into DefaultScorer's internal construction either.
+func TestDefaultScorerOptions_FreshSlice(t *testing.T) {
+	t.Parallel()
+	opts1 := fuzzymatch.DefaultScorerOptions()
+	if len(opts1) == 0 {
+		t.Fatalf("len(opts1) = 0; want > 0")
+	}
+	// Mutate the first slice (replace the first option with nil).
+	opts1[0] = nil
+
+	opts2 := fuzzymatch.DefaultScorerOptions()
+	if len(opts2) != len(opts1) {
+		t.Errorf("len(opts2) = %d; want %d (same length)", len(opts2), len(opts1))
+	}
+	if opts2[0] == nil {
+		t.Errorf("opts2[0] is nil; want a fresh non-nil ScorerOption (the first slice's mutation must not propagate)")
+	}
+	// NewScorer should still succeed with a freshly-obtained options
+	// slice — the mutation of opts1 must not have corrupted the
+	// underlying composition.
+	if _, err := fuzzymatch.NewScorer(opts2...); err != nil {
+		t.Errorf("NewScorer with fresh DefaultScorerOptions: %v", err)
+	}
+}
+
+// TestDefaultScorerOptions_ProducesEquivalentScorer verifies that
+// `NewScorer(DefaultScorerOptions()...)` produces a Scorer
+// behaviourally identical to `DefaultScorer()`. We compare the
+// composite Score on a representative identifier-style input pair
+// — the float64 results must be byte-identical.
+func TestDefaultScorerOptions_ProducesEquivalentScorer(t *testing.T) {
+	t.Parallel()
+	s1 := fuzzymatch.DefaultScorer()
+	s2, err := fuzzymatch.NewScorer(fuzzymatch.DefaultScorerOptions()...)
+	if err != nil {
+		t.Fatalf("NewScorer(DefaultScorerOptions()...): %v", err)
+	}
+	const a, b = "user_id", "userId"
+	got1 := s1.Score(a, b)
+	got2 := s2.Score(a, b)
+	if got1 != got2 {
+		t.Errorf(
+			"DefaultScorer.Score(%q,%q)=%g, NewScorer(DefaultScorerOptions()...).Score(%q,%q)=%g (must be byte-identical)",
+			a, b, got1, a, b, got2,
+		)
+	}
+	// Threshold and algorithm count also match.
+	if s1.Threshold() != s2.Threshold() {
+		t.Errorf("threshold mismatch: s1=%g, s2=%g", s1.Threshold(), s2.Threshold())
+	}
+	if len(s1.Algorithms()) != len(s2.Algorithms()) {
+		t.Errorf("len(Algorithms) mismatch: s1=%d, s2=%d",
+			len(s1.Algorithms()), len(s2.Algorithms()))
+	}
+}
+
+// TestDefaultScorer_WithoutAlgorithm_Composition verifies the documented
+// composition pattern:
+//
+//	opts := append(DefaultScorerOptions(), WithoutAlgorithm(AlgoDoubleMetaphone))
+//	NewScorer(opts...)
+//
+// produces a Scorer with the six default algorithms minus DoubleMetaphone,
+// i.e. exactly five. The threshold from the default composition (0.85)
+// survives (no WithThreshold override in the example, so it stays).
+func TestDefaultScorer_WithoutAlgorithm_Composition(t *testing.T) {
+	t.Parallel()
+	opts := append(fuzzymatch.DefaultScorerOptions(),
+		fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
+	)
+	s, err := fuzzymatch.NewScorer(opts...)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	algos := s.Algorithms()
+	if len(algos) != 5 {
+		t.Fatalf("len(Algorithms) = %d; want 5", len(algos))
+	}
+	for _, a := range algos {
+		if a.ID == fuzzymatch.AlgoDoubleMetaphone {
+			t.Errorf("DoubleMetaphone still present after WithoutAlgorithm: %v", a.ID)
+		}
+	}
+	// Threshold inherited from DefaultScorerOptions.
+	if got := s.Threshold(); got != 0.85 {
+		t.Errorf("threshold = %g; want 0.85 (inherited from DefaultScorerOptions)", got)
+	}
+}
+
 // TestScorer_ScoreAll_PreNormalises verifies that ScoreAll applies the
 // same normalisation gate as Score: when normalisation is enabled
 // (default), the per-algorithm scores in ScoreAll reflect the algorithm
