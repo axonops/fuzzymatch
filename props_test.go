@@ -64,6 +64,160 @@ func randShortASCII(r *rand.Rand, maxLen int) string {
 }
 
 // ---------------------------------------------------------------------------
+// Mixed-shape string generator (Phase 8.5 Q12b LOCKED)
+// ---------------------------------------------------------------------------
+//
+// docs/requirements.md §15.3 and the 08.5-CONTEXT.md Q12b lock require
+// testing/quick property tests to draw from a balanced mixture of
+// input shapes — not the default rand.String distribution which is
+// effectively uniform over Unicode code points and produces almost
+// exclusively non-ASCII inputs of similar length. Five shape classes
+// are mixed with equal probability:
+//
+//   - 20% empty string ("")
+//   - 20% short ASCII (length 1..8, printable ASCII 0x20..0x7E)
+//   - 20% long non-ASCII (length 64..128, code points sampled from
+//     Latin Extended, Cyrillic, Greek, CJK, and emoji ranges so that
+//     multi-byte UTF-8 sequences and surrogate-pair-equivalent
+//     supplementary planes are both exercised)
+//   - 20% all-same-character runs (length 1..32, single random ASCII
+//     letter repeated — exercises DP table degenerate cases like the
+//     all-equal column in Levenshtein, the all-1.0 LCS in token-tier
+//     algorithms, etc.)
+//   - 20% Unicode-rich mix (length 4..32, code points drawn from a
+//     curated mix of Latin Extended diacritics, CJK ideographs, emoji
+//     base + ZWJ + skin-tone modifiers, and combining marks —
+//     exercises Tokenise + Normalise NFC/NFD invariants)
+//
+// Used via quick.Config{Values: mixedShapeStringGenerator()} to inject
+// the mixture into selected property tests.
+
+// mixedShapeStringGenerator returns a values function suitable for use as
+// quick.Config.Values. It populates every reflect.Value in args with a
+// string drawn from the five-shape mixture described above.
+//
+// The generator does NOT take a maxLen parameter — the per-shape lengths
+// are documented above and selected to exercise the boundary conditions
+// the default rand.String distribution misses.
+func mixedShapeStringGenerator() func([]reflect.Value, *rand.Rand) {
+	return func(args []reflect.Value, r *rand.Rand) {
+		for i := range args {
+			args[i] = reflect.ValueOf(mixedShapeString(r))
+		}
+	}
+}
+
+// mixedShapeString draws a single string from the five-shape mixture.
+// Each call is independent: the per-arg distribution within a single
+// property-test seed may end up identical (e.g. two empty strings) or
+// span the full range (e.g. one empty + one Unicode-rich).
+//
+// Q12b LOCKED 2026-05-17 — the shape distribution is part of the
+// documented testing/quick generator contract; do not retune without
+// updating docs/requirements.md §15.3.
+func mixedShapeString(r *rand.Rand) string {
+	switch r.Intn(5) {
+	case 0:
+		// Shape 1: empty string.
+		return ""
+	case 1:
+		// Shape 2: short ASCII (length 1..8, printable ASCII).
+		return mixedShapeShortASCII(r)
+	case 2:
+		// Shape 3: long non-ASCII (length 64..128, multi-script).
+		return mixedShapeLongNonASCII(r)
+	case 3:
+		// Shape 4: all-same-character run (length 1..32, single ASCII letter).
+		return mixedShapeAllSameRun(r)
+	default:
+		// Shape 5: Unicode-rich mix (length 4..32, diacritics + CJK + emoji + combining).
+		return mixedShapeUnicodeRich(r)
+	}
+}
+
+// mixedShapeShortASCII returns a length-in-[1,8] printable-ASCII string.
+func mixedShapeShortASCII(r *rand.Rand) string {
+	n := 1 + r.Intn(8)
+	b := make([]byte, n)
+	const lo, hi = byte(0x20), byte(0x7e)
+	for i := range b {
+		b[i] = lo + byte(r.Intn(int(hi-lo)+1))
+	}
+	return string(b)
+}
+
+// mixedShapeLongNonASCII returns a length-in-[64,128] string composed of
+// code points drawn from Latin Extended (U+0100..U+017F), Greek
+// (U+0370..U+03FF), Cyrillic (U+0400..U+04FF), CJK Unified Ideographs
+// (U+4E00..U+9FFF), and emoji base plane (U+1F300..U+1F5FF). Mixing
+// 2-byte / 3-byte / 4-byte UTF-8 sequences exercises the
+// byte-vs-rune-path branches in Tokenise + Normalise.
+func mixedShapeLongNonASCII(r *rand.Rand) string {
+	n := 64 + r.Intn(65) // 64..128
+	runes := make([]rune, n)
+	for i := range runes {
+		switch r.Intn(5) {
+		case 0:
+			runes[i] = rune(0x0100 + r.Intn(0x80)) // Latin Extended-A
+		case 1:
+			runes[i] = rune(0x0370 + r.Intn(0x90)) // Greek
+		case 2:
+			runes[i] = rune(0x0400 + r.Intn(0x100)) // Cyrillic
+		case 3:
+			runes[i] = rune(0x4E00 + r.Intn(0x5200)) // CJK Unified
+		default:
+			runes[i] = rune(0x1F300 + r.Intn(0x300)) // emoji base
+		}
+	}
+	return string(runes)
+}
+
+// mixedShapeAllSameRun returns a length-in-[1,32] string of a single
+// repeated ASCII letter. Exercises degenerate-DP-column / all-1.0-LCS
+// branches that uniform-random inputs almost never hit.
+func mixedShapeAllSameRun(r *rand.Rand) string {
+	n := 1 + r.Intn(32)
+	ch := byte('a' + r.Intn(26))
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = ch
+	}
+	return string(b)
+}
+
+// mixedShapeUnicodeRich returns a length-in-[4,32] string drawn from a
+// curated mix of:
+//   - Latin Extended diacritics (U+00E0..U+00FF, e.g. é à ñ ü)
+//   - CJK ideographs (U+4E00..U+9FFF)
+//   - emoji base (U+1F300..U+1F5FF) — 4-byte UTF-8
+//   - combining marks (U+0300..U+036F, attached to a base ASCII letter)
+//
+// Designed to exercise the Tokenise camelCase / separator boundary
+// logic on inputs that contain multi-byte sequences, AND the Normalise
+// NFC/NFD round-trip with combining marks.
+func mixedShapeUnicodeRich(r *rand.Rand) string {
+	n := 4 + r.Intn(29) // 4..32
+	runes := make([]rune, 0, n*2) // combining marks may add bytes
+	for i := 0; i < n; i++ {
+		switch r.Intn(4) {
+		case 0:
+			runes = append(runes, rune(0x00E0+r.Intn(0x20))) // Latin Extended diacritic
+		case 1:
+			runes = append(runes, rune(0x4E00+r.Intn(0x5200))) // CJK
+		case 2:
+			runes = append(runes, rune(0x1F300+r.Intn(0x300))) // emoji base
+		default:
+			// Combining mark attached to a base ASCII letter — exercises
+			// NFC/NFD round-trip and combining-mark-attribution code paths.
+			base := rune('a' + r.Intn(26))
+			combining := rune(0x0300 + r.Intn(0x70))
+			runes = append(runes, base, combining)
+		}
+	}
+	return string(runes)
+}
+
+// ---------------------------------------------------------------------------
 // Levenshtein property tests
 // ---------------------------------------------------------------------------
 
@@ -3649,6 +3803,43 @@ func TestProp_MRAThresholdMonotonic(t *testing.T) {
 			t.Errorf("mraThreshold monotonic violation: threshold(%d)=%d > threshold(%d)=%d — table is not non-increasing (RESEARCH.md Pitfall 7.C)",
 				sumLen+1, next, sumLen, this)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Mixed-shape generator coverage (Phase 8.5 Q12b)
+// ---------------------------------------------------------------------------
+
+// TestProp_LevenshteinScore_RangeBounds_MixedShape exercises the
+// Levenshtein score across the Q12b mixed-shape distribution (empty,
+// short ASCII, long non-ASCII, all-same-character runs, Unicode-rich).
+// The range-bounds invariant is the simplest to verify across all five
+// shapes, so this is the canonical demonstration that the generator
+// itself produces well-formed inputs across the documented mixture.
+//
+// Q12b LOCKED 2026-05-17: the mixed-shape generator must be in active
+// use somewhere in the property-test suite (not merely defined) so a
+// future refactor cannot drop it as dead code without surfacing the
+// removal. This test is the load-bearing usage gate.
+//
+// Other property tests (RangeBounds for every other algorithm, NoNaN,
+// NoInf, NoNegativeZero, etc.) deliberately continue to use the
+// default rand.String distribution because they were calibrated
+// against it; routing them through mixedShapeStringGenerator() would
+// require re-validating their seed sufficiency. The Q12b lock requires
+// the generator to be available and demonstrably wired in; broader
+// adoption is a Phase 9+ retrofit.
+func TestProp_LevenshteinScore_RangeBounds_MixedShape(t *testing.T) {
+	f := func(a, b string) bool {
+		s := fuzzymatch.LevenshteinScore(a, b)
+		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
+	}
+	cfg := &quick.Config{
+		MaxCount: 200,
+		Values:   mixedShapeStringGenerator(),
+	}
+	if err := quick.Check(f, cfg); err != nil {
+		t.Errorf("LevenshteinScore out of [0,1] on mixed-shape input: %v", err)
 	}
 }
 

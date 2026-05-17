@@ -824,7 +824,15 @@ func TestProp_Scorer_WeightSumOne(t *testing.T) {
 		toPositive := func(u uint16) float64 {
 			// Avoid zero by adding 1 in the numerator; range becomes
 			// (0, 100].
-			return float64(u+1) / float64(uint32(1)<<16) * 100.0
+			//
+			// Q12b uint16 overflow fix: widen u to uint32 BEFORE the
+			// `+ 1` so the addition cannot wrap. The previous form
+			// `float64(u+1)` wrapped to 0 when u == 65535 (the uint16
+			// addition saturates inside the uint16 type before the
+			// float64 conversion), producing weight == 0 which is
+			// rejected by ErrInvalidWeight at the option layer — a
+			// flaky failure on the single uint16-max seed.
+			return float64(uint32(u)+1) / float64(uint32(1)<<16) * 100.0
 		}
 		w := []float64{toPositive(w0), toPositive(w1), toPositive(w2)}
 		algos := []fuzzymatch.AlgoID{
