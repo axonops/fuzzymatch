@@ -176,10 +176,30 @@
   7. **Devops / CI / build hygiene** — Q13 `needs: [ci]` on `release.yml`, `nightly.yml` implementation, `ci.yml` job split, action SHA pinning, `make verify-llms-sync` target plus CI check, bench-diff CI check, `docs/algorithms.md` H2 hyphenated anchor standardisation + README link fix, `verify-coverage-floors.sh` AST-based detection, HashiCorp utility-library licence audit
   8. **Documentation surface** — Q12c panic-surface section in `docs/algorithms.md` plus README cross-ref; Q14a 5 MB/call expected-behaviour note in `docs/algorithms.md#performance-characteristics`; all consumer-facing doc updates from `REVIEW-FINDINGS.md` (README, `docs/algorithms.md`, `docs/scorer.md`, `llms.txt`, `llms-full.txt`); `Validate` documented across all six required surfaces per the documentation-standards SKILL
   9. **Improvement sweep (Path A)** — all 196 Improvement-tier findings; auto-fix items including `WriteGoldenFile` exported-but-test-only rename to lowercase; `var _ = func() bool {...}()` dispatch-init pattern refactor; 30+ Code-fix-tagged items from cross-cutting themes
-**Phase split decision**: If the planner determines the work is too large for a single phase, split into 8.5a (Critical + spec/API surface changes + breaking changes) and 8.5b (Important + Improvement + devops cluster + Improvement sweep). Otherwise execute as one phase. Decision is the planner's during `/gsd-plan-phase 8.5`.
+**Phase split decision**: Planner judged single-phase, 18 plans across 7 waves (sequencing driven by file ownership — Plan 01 sentinel rename touches 5 files that downstream plans modify, so it lands solo in Wave 1; subsequent waves spread to honour zero-file-overlap discipline). Task count is at the upper end of the single-phase threshold but the verification gate is a single binary decision and the 9 clusters are tightly coupled across the API surface. See RESEARCH.md §5 for rationale.
 **Verification gate**: Re-run the Phase 8 comprehensive review prompt at end of Phase 8.5. Zero Critical and zero Important findings required before Phase 9 begins. Improvement-tier residue is acknowledged in the verification report but does not block Phase 9.
 **Deferred to v1.x**: Cross-algorithm allocation budget / tokenisation cache (Q14a, GitHub issue [#2](https://github.com/axonops/fuzzymatch/issues/2)).
-**Plans**: TBD (created by `/gsd-plan-phase 8.5`)
+**Plans**: 20 plans (post-revision 2026-05-17: Plans 15 and 17 split into 15a/15b and 17a/17b per checker MAJOR findings)
+  - [ ] 08.5-01-PLAN.md (Wave 1) — Sentinel hygiene foundation: Gap 4 atomic rename `ErrInvalidAlgorithm` → `ErrInvalidAlgoID` (15 call sites in 5 files) + Q4 sentinel additions (`ErrInvalidInnerAlgo`, `ErrInternalInvariantViolated`) + Q4 removals (3 unused) + 4-section godoc rewrites + Gap 5 typed panic at scorer.go:586 + Monge-Elkan direct-call typed panic + Q1 placeholder note removal (Wave 1; hard predecessor of Plans 13, 15)
+  - [ ] 08.5-02-PLAN.md (Wave 2) — Q3 MongeElkan symmetric-by-default rename + inert opts removal (atomic across 7+ files, ~22 call sites; breaking pre-v1.0) (Wave 1)
+  - [ ] 08.5-03-PLAN.md (Wave 3) — Q5 PartialRatioScoreRunes removal (atomic across 8 files; breaking pre-v1.0) (Wave 1)
+  - [ ] 08.5-04-PLAN.md (Wave 2) — Q2 functional-option NaN/Inf/α+β guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + direct-call TverskyScore typed-panic discipline (Wave 1)
+  - [ ] 08.5-05-PLAN.md (Wave 1) — Q11c paper-anchored Philips 2000 worked-examples test (~10 cases with citations; Gap 6 gate for Plan 14) (Wave 1)
+  - [ ] 08.5-06-PLAN.md (Wave 2) — Q11b FMA-defeating double-cast at cosine.go:343 + scorer.go:380; cross-platform CI matrix verification (Wave 1)
+  - [ ] 08.5-07-PLAN.md (Wave 1) — Performance optimisations: Q7a DoubleMetaphone `[dmMaxLen]byte` + Q7d Q-gram capacity hint + Q11e DL-Full ZeroAllocs un-skip + Q7c long-input scope notes + Q7b/Q8a/Q8c/Q8d benchmark assertion updates (Wave 1)
+  - [ ] 08.5-08-PLAN.md (Wave 3) — Q8b Tokenise ASCII fast path (dedicated plan with property test + benchmarks + BDD) (Wave 1)
+  - [ ] 08.5-09-PLAN.md (Wave 1) — 9 missing TestGolden_*_Staging functions for DoubleMetaphone/MongeElkan/MRA/NYSIIS/PartialRatio/Soundex/TokenJaccard/TokenSetRatio/TokenSortRatio (Wave 1)
+  - [ ] 08.5-10-PLAN.md (Wave 1) — Q10 cross-validation corpora: character (jellyfish), q-gram + Monge-Elkan (py_stringmatching) — 3 generators + 3 vectors.json + 3 Go loader tests + Makefile + CONTRIBUTING (Wave 1)
+  - [ ] 08.5-11-PLAN.md (Wave 4) — Test infra cleanups: Q11a bench.txt.new deletion + Q11d partial_ratio.go:148 rename + Q12b mixed-shape property-test generators + uint16 overflow fix + Q12a AST-based Coverage Floor 3 helper (Wave 1)
+  - [ ] 08.5-12-PLAN.md (Wave 4) — Test surface expansion: 3 missing meta-tests + FuzzScorer_* harnesses + 9 rune-variant fuzz + 4 distance-variant fuzz + 1 phonetic-code fuzz + cross-algorithm convergence + Scorer property tests (Wave 1)
+  - [ ] 08.5-13-PLAN.md (Wave 5) — Q4 Validate public surface: validate.go + warn_kind.go + tests + bench + fuzz + BDD validate.feature (Wave 2; depends on 01)
+  - [ ] 08.5-14-PLAN.md (Wave 5) — Q9 DoubleMetaphone dupBranchBody removal (Wave 2; depends on 05 — Gap 6 gate)
+  - [ ] 08.5-15a-PLAN.md (Wave 5) — Improvement sweep, mechanical half: Q14b WriteGoldenFile unexport + 23 dispatch init() refactor + Gap 1 filename rename (Wave 5; depends on 01, 02, 03)
+  - [ ] 08.5-15b-PLAN.md (Wave 5) — Improvement sweep, non-mechanical half: Gap 2 BDD scenarios for 3 sentinels + Gap 5 companion test + Gap 7 outcomes + 30+ Code-fix lint sweep + British English misspell sweep across .go files (Wave 5; depends on 01, 02, 03)
+  - [ ] 08.5-16-PLAN.md (Wave 6) — Q13 devops: release.yml needs:[ci] + nightly.yml + SHA-pin all action references + make verify-llms-sync + HashiCorp licence audit + bench.txt regeneration + docs/algorithms.md anchor casing (Wave 3; depends on 06, 07, 08)
+  - [ ] 08.5-17a-PLAN.md (Wave 6) — Documentation cluster, codebase-heavy half: docs/algorithms.md full fill-in + Q12c panic-surface + Q14a 5 MB ceiling + 22-23 per-algorithm godoc cross-refs to fuzzymatch.Validate + Q6a SKILL update (Wave 6; depends on 01, 02, 03, 13)
+  - [ ] 08.5-17b-PLAN.md (Wave 6) — Documentation cluster, docs-heavy half: Validate's remaining 4 doc surfaces (README Quick Start + llms.txt + llms-full.txt + user-guide section + runnable example) + README Quick Start refresh + doc.go + CONTRIBUTING + docs/scorer.md/tuning.md/faq.md/extending.md/best-practices.md staleness + Gap 3 normalisation.feature + determinism.feature + British English sweep across docs (Wave 6; depends on 01, 02, 03, 13, 17a)
+  - [ ] 08.5-18-PLAN.md (Wave 7) — Verification gate: re-run Phase 8 comprehensive review with 14 specialist agents; assert zero Critical + zero Important; write 08.5-VERIFICATION.md; user sign-off checkpoint (Wave 7; depends on all 19 prior plans: 01–14, 15a, 15b, 16, 17a, 17b)
 
 ### Phase 9: Collection Scan Sub-package
 **Goal**: Ship the `scan/` sub-package (Layer 3 of the three-layer architecture) — turnkey collection-scan layer over the Scorer with within-group + cross-group passes (separate thresholds), token-bucket optimisation property-test-verified equivalent to naive O(N²), suppression composition (per-item `SilenceLint` flag + global `SuppressedPairs` list + cross-group identical-name default), deterministic output sort by `(Kind, NameA, NameB, GroupA, GroupB)` with in-line completeness assertion that no duplicate sort keys remain. Performance budget < 2s for 10,000 items committed to `bench.txt`. Sentinel error hierarchy for scan-specific failures. Cross-platform `scan-default.json` golden file pinned.
@@ -226,7 +246,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
 | 8. Composite Scorer | 4/4 | Complete   | 2026-05-17 |
-| 8.5. Review Remediation Gate | 0/TBD | Not started | - |
+| 8.5. Review Remediation Gate | 0/18 | Not started | - |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |
