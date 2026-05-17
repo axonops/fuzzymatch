@@ -56,8 +56,11 @@
 // branches. It then applies a position-by-position state machine over the
 // ASCII-uppercased input, dispatching on the current character with
 // look-ahead and look-behind context of up to 4 positions. Two
-// strings.Builder instances accumulate the primary and secondary keys; both
-// stop accumulating once they reach 4 characters (the canonical max length).
+// stack-allocated [dmMaxLen]byte buffers (with int length counters)
+// accumulate the primary and secondary keys; both stop accumulating
+// once they reach 4 characters (the canonical max length). The pair of
+// `string(buf[:n])` conversions on return are the only heap allocations
+// in the key-accumulation path (Q7a — docs/requirements.md §14.1).
 //
 // Language-origin branches (5 total — mandatory checklist per CONTEXT.md §3):
 //   - Germanic (Schmidt, Smith, Schwartz, Mueller, ...)
@@ -86,7 +89,7 @@
 // Implementation discipline:
 //
 //   - Pre-scan for ASCII letters; non-ASCII runes skipped per CONTEXT.md §5.
-//   - Two strings.Builder (primary + secondary) — stop at 4 chars each.
+//   - Two [dmMaxLen]byte stack buffers (primary + secondary) — stop at 4 chars each (Q7a).
 //   - NO init()-time table builds (per docs/requirements.md §5(12)).
 //   - NO map iteration on output paths (DET-03).
 //   - NO transcendental float operations (DET-06) — no floats at all.
@@ -142,27 +145,39 @@ func dmContains(s string, start int, sub string) bool {
 	return s[start:start+len(sub)] == sub
 }
 
-// dmAdd appends primary and secondary phonemes to the builders, stopping once
-// each has reached dmMaxLen. When p == "" the primary receives nothing;
-// when alt == "" the secondary receives the same value as the primary.
-func dmAdd(primary, secondary *strings.Builder, p, alt string) {
-	if p != "" && primary.Len() < dmMaxLen {
-		need := dmMaxLen - primary.Len()
+// dmAdd appends primary and secondary phonemes to the [dmMaxLen]byte
+// accumulator buffers, stopping once each has reached dmMaxLen bytes.
+// When p == "" the primary receives nothing; when alt == "" the secondary
+// receives the same value as the primary.
+//
+// Performance (Q7a, docs/requirements.md §14.1): the buffers are
+// stack-allocated by the caller (DoubleMetaphoneKeys); this helper only
+// performs bounded in-place writes plus the *pLen / *sLen counter
+// increments. No allocation, no heap escape.
+func dmAdd(pBuf, sBuf *[dmMaxLen]byte, pLen, sLen *int, p, alt string) {
+	if p != "" && *pLen < dmMaxLen {
+		need := dmMaxLen - *pLen
 		if len(p) > need {
 			p = p[:need]
 		}
-		primary.WriteString(p)
+		for i := 0; i < len(p); i++ {
+			pBuf[*pLen] = p[i]
+			*pLen++
+		}
 	}
 	target := alt
 	if target == "" {
 		target = p
 	}
-	if target != "" && secondary.Len() < dmMaxLen {
-		need := dmMaxLen - secondary.Len()
+	if target != "" && *sLen < dmMaxLen {
+		need := dmMaxLen - *sLen
 		if len(target) > need {
 			target = target[:need]
 		}
-		secondary.WriteString(target)
+		for i := 0; i < len(target); i++ {
+			sBuf[*sLen] = target[i]
+			*sLen++
+		}
 	}
 }
 
@@ -250,7 +265,15 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 	// triggers Germanic/Slavic rule variants (per Philips 2000).
 	isSlavoGermanic := dmSlgCheck(v)
 
-	var p, alt strings.Builder
+	// Stack-allocated [dmMaxLen]byte accumulators (Q7a, docs/requirements.md §14.1).
+	// Replaces the prior strings.Builder pair. Measured impact: alloc count
+	// per DoubleMetaphoneKeys call is unchanged at 3 (dmPrep result + primary
+	// key string + secondary key string — each `string(buf[:n])` conversion
+	// is a single heap allocation), but allocated bytes drop from 24 B/op to
+	// 16 B/op on the canonical "Schmidt" benchmark by eliminating the
+	// strings.Builder grow-buffer overhead.
+	var pBuf, sBuf [dmMaxLen]byte
+	var pLen, sLen int
 
 	// Pad the string with two sentinel chars on each side to simplify
 	// bounds checking for look-behind / look-ahead.
@@ -283,23 +306,23 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 
 	// initial vowel → maps to A
 	if i < n && dmIsVowel(v[i]) {
-		dmAdd(&p, &alt, "A", "")
+		dmAdd(&pBuf, &sBuf, &pLen, &sLen, "A", "")
 		i++
 	}
 
-	for i < n && (p.Len() < dmMaxLen || alt.Len() < dmMaxLen) {
+	for i < n && (pLen < dmMaxLen || sLen < dmMaxLen) {
 		c := v[i]
 		switch c {
 		case 'B':
 			// -mb → B was already handled (silent B after M), just emit B
-			dmAdd(&p, &alt, "P", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "P", "")
 			if i+1 < n && v[i+1] == 'B' {
 				i++
 			}
 			i++
 
 		case 'Ç': // not reachable (non-ASCII stripped) — guard only
-			dmAdd(&p, &alt, "S", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 			i++
 
 		case 'C':
@@ -307,19 +330,19 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if i > 1 && !dmIsVowel(at(i-2)) && dmContains(v, i-1, "ACH") &&
 				at(i+2) != 'I' && (at(i+2) != 'E' || dmContains(v, i-2, "BACHER") || dmContains(v, i-2, "MACHER")) {
 				// Germanic "ACH" → K
-				dmAdd(&p, &alt, "K", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 				i += 2
 				continue
 			}
 			// Initial "CAESAR"
 			if i == 0 && dmContains(v, i, "CAESAR") {
-				dmAdd(&p, &alt, "S", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 				i += 2
 				continue
 			}
 			// "CHIA" → K
 			if dmContains(v, i, "CHIA") {
-				dmAdd(&p, &alt, "K", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 				i += 2
 				continue
 			}
@@ -327,7 +350,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if dmContains(v, i, "CH") {
 				if i == 0 && n > 5 && dmContains(v, 0, "CHAE") {
 					// "CHAE" (Greek)
-					dmAdd(&p, &alt, "K", "X")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "X")
 					i += 2
 					continue
 				}
@@ -335,61 +358,61 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				if i == 0 && (dmContains(v, 0, "CHARAC") || dmContains(v, 0, "CHARIS") ||
 					dmContains(v, 0, "CHOR") || dmContains(v, 0, "CHYM") ||
 					dmContains(v, 0, "CHIA") || dmContains(v, 0, "CHEM")) {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				// "ORCHID", "ORCHIS"  → K
 				if dmContains(v, i-2, "ORCHES") || dmContains(v, i-2, "ARCHIT") || dmContains(v, i-2, "ORCHID") {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				// T, S after CH
 				if at(i+2) == 'T' || at(i+2) == 'S' {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				// Germanic before A, O, U
 				if (i == 0 && dmContains(v, i+2, "A")) || dmContains(v, i-2, "VANNE") || dmContains(v, i-2, "BORCH") ||
 					dmContains(v, i-2, "MANCH") || dmContains(v, i-2, "OLCH") || dmContains(v, i-2, "ULCH") {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				if dmContains(v, i-3, "MACHER") || dmContains(v, i-2, "MACHE") {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				// Greek / Chinese-origin: initial CHE, CHI, CHO
 				if i == 0 && (at(i+2) == 'E' || at(i+2) == 'I' || at(i+2) == 'O') && n > 3 {
 					// Might be Chinese-origin or Greek
-					dmAdd(&p, &alt, "X", "K")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "K")
 					i += 2
 					continue
 				}
 				// SlavoGermanic or Germanic: CH → K
 				if isSlavoGermanic {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				// Default CH: X (English "sh" sound)
-				dmAdd(&p, &alt, "X", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				i += 2
 				continue
 			}
 			// "CZ" (but not "TCZ")
 			if dmContains(v, i, "CZ") && !dmContains(v, i-2, "WICZ") {
-				dmAdd(&p, &alt, "S", "X")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "X")
 				i += 2
 				continue
 			}
 			// "CIA" suffix
 			if dmContains(v, i+1, "CIA") {
-				dmAdd(&p, &alt, "X", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				i += 3
 				continue
 			}
@@ -398,18 +421,18 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				// "CCH", "CCHI"
 				if at(i+2) == 'I' || at(i+2) == 'E' || at(i+2) == 'H' {
 					// ACCIDENT, ACCEDE, SUCCEED
-					dmAdd(&p, &alt, "KS", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "KS", "")
 					i += 3
 					continue
 				}
 				// default CC → K
-				dmAdd(&p, &alt, "K", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 				i += 2
 				continue
 			}
 			// "CK", "CG", "CQ"
 			if dmContains(v, i, "CK") || dmContains(v, i, "CG") || dmContains(v, i, "CQ") {
-				dmAdd(&p, &alt, "K", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 				i += 2
 				continue
 			}
@@ -417,15 +440,15 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if dmContains(v, i, "CI") || dmContains(v, i, "CE") || dmContains(v, i, "CY") {
 				// Italian/Greek: CIA, CIO, CIE → S; else S
 				if dmContains(v, i, "CIO") || dmContains(v, i, "CIE") || dmContains(v, i, "CIA") {
-					dmAdd(&p, &alt, "S", "X")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "X")
 				} else {
-					dmAdd(&p, &alt, "S", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 				}
 				i += 2
 				continue
 			}
 			// Default C → K (includes CQ, CW silent in initial)
-			dmAdd(&p, &alt, "K", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 			if dmContains(v, i+1, " C") || dmContains(v, i+1, " Q") || dmContains(v, i+1, " G") {
 				i += 3
 			} else {
@@ -436,43 +459,43 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if dmContains(v, i, "DG") {
 				// "DGI", "DGE", "DGY" → J
 				if at(i+2) == 'I' || at(i+2) == 'E' || at(i+2) == 'Y' {
-					dmAdd(&p, &alt, "J", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "")
 					i += 3
 					continue
 				}
 				// default "DG" → TK
-				dmAdd(&p, &alt, "TK", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "TK", "")
 				i += 2
 				continue
 			}
 			if dmContains(v, i, "DT") || dmContains(v, i, "DD") {
-				dmAdd(&p, &alt, "T", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "T", "")
 				i += 2
 				continue
 			}
-			dmAdd(&p, &alt, "T", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "T", "")
 			i++
 
 		case 'F':
 			if at(i+1) == 'F' {
 				i++
 			}
-			dmAdd(&p, &alt, "F", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "F", "")
 			i++
 
 		case 'G':
 			if at(i+1) == 'H' {
 				if i > 0 && !dmIsVowel(at(i-1)) {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					i += 2
 					continue
 				}
 				if i == 0 {
 					// "GHI" → J, else K
 					if at(i+2) == 'I' {
-						dmAdd(&p, &alt, "J", "")
+						dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "")
 					} else {
-						dmAdd(&p, &alt, "K", "")
+						dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 					}
 					i += 2
 					continue
@@ -487,21 +510,21 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				// "GHT" or end-position GH
 				if i > 2 && at(i-1) == 'U' &&
 					(at(i-3) == 'C' || at(i-3) == 'G' || at(i-3) == 'L' || at(i-3) == 'R' || at(i-3) == 'T') {
-					dmAdd(&p, &alt, "F", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "F", "")
 				} else if i > 0 && at(i-1) != 'I' {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 				}
 				i += 2
 				continue
 			}
 			if at(i+1) == 'N' {
 				if i == 1 && dmIsVowel(v[0]) && !isSlavoGermanic {
-					dmAdd(&p, &alt, "KN", "N")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "KN", "N")
 				} else {
 					if !dmContains(v, i+2, "EY") && at(i+1) != 'Y' && !isSlavoGermanic {
-						dmAdd(&p, &alt, "N", "KN")
+						dmAdd(&pBuf, &sBuf, &pLen, &sLen, "N", "KN")
 					} else {
-						dmAdd(&p, &alt, "KN", "")
+						dmAdd(&pBuf, &sBuf, &pLen, &sLen, "KN", "")
 					}
 				}
 				i += 2
@@ -509,7 +532,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			}
 			// Italian "gli"
 			if dmContains(v, i, "GLI") {
-				dmAdd(&p, &alt, "KL", "L")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "KL", "L")
 				i += 2
 				continue
 			}
@@ -519,14 +542,14 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				dmContains(v, i, "GIB") || dmContains(v, i, "GIG") || dmContains(v, i, "GIL") ||
 				dmContains(v, i, "GIN") || dmContains(v, i, "GIS") || dmContains(v, i, "GIT") ||
 				dmContains(v, i, "GEI") || dmContains(v, i, "GEA")) {
-				dmAdd(&p, &alt, "K", "J")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "J")
 				i += 2
 				continue
 			}
 			// "GER", "GEY"
 			if (dmContains(v, i, "GER") || dmContains(v, i, "GEY")) &&
 				!dmContains(v, 0, "DANG") && !dmContains(v, 0, "DONG") {
-				dmAdd(&p, &alt, "K", "J")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "J")
 				i += 2
 				continue
 			}
@@ -534,9 +557,9 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if at(i+1) == 'E' || at(i+1) == 'I' || at(i+1) == 'Y' ||
 				dmContains(v, i-1, "AGGI") || dmContains(v, i-1, "OGGI") {
 				if isSlavoGermanic {
-					dmAdd(&p, &alt, "K", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 				} else {
-					dmAdd(&p, &alt, "J", "K")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "K")
 				}
 				i += 2
 				continue
@@ -545,13 +568,13 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if at(i+1) == 'G' {
 				i++
 			}
-			dmAdd(&p, &alt, "K", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 			i++
 
 		case 'H':
 			// Keep H if before vowel and not after vowel
 			if (i == 0 || !dmIsVowel(at(i-1))) && dmIsVowel(at(i+1)) {
-				dmAdd(&p, &alt, "H", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "H", "")
 				i += 2
 			} else {
 				i++
@@ -561,28 +584,28 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			// Spanish initial "JOSE", "SAN JOSE" → H
 			if dmContains(v, i, "JOSE") || dmContains(v, 0, "SAN") {
 				if i == 0 && at(i+4) == 0 || dmContains(v, 0, "SAN") {
-					dmAdd(&p, &alt, "H", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "H", "")
 				} else {
-					dmAdd(&p, &alt, "J", "H")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "H")
 				}
 				i++
 				continue
 			}
 			if i == 0 && !dmContains(v, i, "JOSE") {
-				dmAdd(&p, &alt, "J", "A") // initial J
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "A") // initial J
 			} else {
 				if !isSlavoGermanic && (at(i-1) == 'A' || at(i-1) == 'O') {
-					dmAdd(&p, &alt, "J", "H")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "H")
 				} else {
 					if i+1 >= n {
-						dmAdd(&p, &alt, "J", "")
+						dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "")
 					} else {
 						if at(i+1) != 'L' && at(i+1) != 'T' && at(i+1) != 'K' &&
 							at(i+1) != 'S' && at(i+1) != 'N' && at(i+1) != 'M' &&
 							at(i+1) != 'B' && at(i+1) != 'Z' {
-							dmAdd(&p, &alt, "J", "H")
+							dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "H")
 						} else {
-							dmAdd(&p, &alt, "J", "")
+							dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "")
 						}
 					}
 				}
@@ -596,7 +619,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if at(i+1) == 'K' {
 				i++
 			}
-			dmAdd(&p, &alt, "K", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 			i++
 
 		case 'L':
@@ -605,13 +628,13 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				if (i == n-3 && (dmContains(v, i-1, "ILLO") || dmContains(v, i-1, "ILLA") || dmContains(v, i-1, "ALLE"))) ||
 					((dmContains(v, n-2, "AS") || dmContains(v, n-2, "OS")) &&
 						dmContains(v, i-1, "ALLE")) {
-					dmAdd(&p, &alt, "L", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "L", "")
 					i += 2
 					continue
 				}
 				i++
 			}
-			dmAdd(&p, &alt, "L", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "L", "")
 			i++
 
 		case 'M':
@@ -620,27 +643,27 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				if at(i+1) == 'M' {
 					i++
 				}
-				dmAdd(&p, &alt, "M", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "M", "")
 				i++
 				continue
 			}
-			dmAdd(&p, &alt, "M", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "M", "")
 			i++
 
 		case 'N':
 			if at(i+1) == 'N' {
 				i++
 			}
-			dmAdd(&p, &alt, "N", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "N", "")
 			i++
 
 		case 'Ñ': // non-ASCII — not reachable after prep, guard
-			dmAdd(&p, &alt, "N", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "N", "")
 			i++
 
 		case 'P':
 			if at(i+1) == 'H' {
-				dmAdd(&p, &alt, "F", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "F", "")
 				i += 2
 				continue
 			}
@@ -648,22 +671,22 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if at(i+1) == 'P' || at(i+1) == 'B' {
 				i++
 			}
-			dmAdd(&p, &alt, "P", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "P", "")
 			i++
 
 		case 'Q':
 			if at(i+1) == 'Q' {
 				i++
 			}
-			dmAdd(&p, &alt, "K", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "K", "")
 			i++
 
 		case 'R':
 			// French/Romance "ier" end → silent R
 			if i == n-1 && !isSlavoGermanic && dmContains(v, i-2, "IER") {
-				dmAdd(&p, &alt, "", "R")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "", "R")
 			} else {
-				dmAdd(&p, &alt, "R", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "R", "")
 			}
 			if at(i+1) == 'R' {
 				i++
@@ -678,7 +701,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			}
 			// Initial "SUGAR"
 			if i == 0 && dmContains(v, i, "SUGAR") {
-				dmAdd(&p, &alt, "X", "S")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "S")
 				i++
 				continue
 			}
@@ -686,9 +709,9 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				// Germanic / Slavic before vowel SH → X
 				if dmContains(v, i+1, "HEIM") || dmContains(v, i+1, "HOEK") ||
 					dmContains(v, i+1, "HOLM") || dmContains(v, i+1, "HOLZ") {
-					dmAdd(&p, &alt, "S", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 				} else {
-					dmAdd(&p, &alt, "X", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				}
 				i += 2
 				continue
@@ -696,9 +719,9 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			// "SION", "SIAN" → X
 			if dmContains(v, i, "SIO") || dmContains(v, i, "SIA") {
 				if !isSlavoGermanic {
-					dmAdd(&p, &alt, "S", "X")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "X")
 				} else {
-					dmAdd(&p, &alt, "S", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 				}
 				i += 3
 				continue
@@ -706,7 +729,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			// Germanic "SM", "SN", "SL", "SW"
 			if i == 0 && (dmContains(v, i+1, "M") || dmContains(v, i+1, "N") ||
 				dmContains(v, i+1, "L") || dmContains(v, i+1, "W")) {
-				dmAdd(&p, &alt, "S", "X")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "X")
 				i++
 				continue
 			}
@@ -714,13 +737,13 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if dmContains(v, i, "SCH") {
 				// Preceding vowel Germanic: "SCHER", "SCHEN" → X, SK
 				if dmContains(v, i+3, "ER") || dmContains(v, i+3, "EN") {
-					dmAdd(&p, &alt, "X", "SK")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "SK")
 				} else if i == 0 && !dmIsVowel(at(3)) && at(3) != 'W' {
 					// Initial SCH + consonant (not W) — Germanic names like Schmidt.
 					// Primary is X (sh-sound); secondary is S (Germanic hard SCH).
-					dmAdd(&p, &alt, "X", "S")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "S")
 				} else {
-					dmAdd(&p, &alt, "X", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				}
 				i += 3
 				continue
@@ -732,19 +755,19 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			// (produces SKPN, not SKSP).
 			if dmContains(v, i, "SC") {
 				if at(i+2) == 'I' || at(i+2) == 'E' || at(i+2) == 'Y' {
-					dmAdd(&p, &alt, "S", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 					i += 3
 					continue
 				}
-				dmAdd(&p, &alt, "SK", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "SK", "")
 				i += 3
 				continue
 			}
 			// French "SAIS" end
 			if i == n-1 && (at(i-1) == 'A' || at(i-1) == 'I') {
-				dmAdd(&p, &alt, "S", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 			} else {
-				dmAdd(&p, &alt, "S", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 			}
 			if at(i+1) == 'S' || at(i+1) == 'Z' {
 				i++
@@ -753,12 +776,12 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 
 		case 'T':
 			if dmContains(v, i, "TION") {
-				dmAdd(&p, &alt, "X", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				i += 3
 				continue
 			}
 			if dmContains(v, i, "TIA") || dmContains(v, i, "TCH") {
-				dmAdd(&p, &alt, "X", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				i += 3
 				continue
 			}
@@ -772,10 +795,10 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				if dmContains(v, i+2, "OM") || dmContains(v, i+2, "AM") ||
 					dmContains(v, 0, "VAN ") || dmContains(v, 0, "VON ") ||
 					dmContains(v, 0, "SCH") {
-					dmAdd(&p, &alt, "T", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "T", "")
 				} else {
 					// Default TH → theta "0" (primary), T (secondary)
-					dmAdd(&p, &alt, "0", "T")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "0", "T")
 				}
 				if dmContains(v, i, "TTH") {
 					i += 3
@@ -787,34 +810,34 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			if at(i+1) == 'T' || at(i+1) == 'D' {
 				i++
 			}
-			dmAdd(&p, &alt, "T", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "T", "")
 			i++
 
 		case 'V':
 			if at(i+1) == 'V' {
 				i++
 			}
-			dmAdd(&p, &alt, "F", "")
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "F", "")
 			i++
 
 		case 'W':
 			// Initial "WR" → R
 			if i == 0 && dmContains(v, i, "WR") {
-				dmAdd(&p, &alt, "R", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "R", "")
 				i += 2
 				continue
 			}
 			if i == 0 && (dmIsVowel(at(i+1)) || dmContains(v, i, "WH")) {
 				// Initial W + vowel → two sounds A, F
 				if dmIsVowel(at(i + 1)) {
-					dmAdd(&p, &alt, "A", "F")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "A", "F")
 				} else {
-					dmAdd(&p, &alt, "A", "")
+					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "A", "")
 				}
 			}
 			// Slavic: "WICZ", "WITZ" → TS or FX
 			if dmContains(v, i, "WICZ") || dmContains(v, i, "WITZ") {
-				dmAdd(&p, &alt, "TS", "FX")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "TS", "FX")
 				i += 4
 				continue
 			}
@@ -824,7 +847,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 		case 'X':
 			if !(i == n-1 && (dmContains(v, i-3, "IAU") || dmContains(v, i-3, "EAU") ||
 				dmContains(v, i-2, "AU") || dmContains(v, i-2, "OU"))) {
-				dmAdd(&p, &alt, "KS", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "KS", "")
 			}
 			if at(i+1) == 'C' || at(i+1) == 'X' {
 				i++
@@ -835,15 +858,15 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			// Greek initial "ZA", "ZI", "ZO" or double "ZZ"
 			if at(i+1) == 'H' {
 				// ZH → J sound
-				dmAdd(&p, &alt, "J", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "J", "")
 				i += 2
 				continue
 			}
 			if dmContains(v, i+1, "ZO") || dmContains(v, i+1, "ZI") || dmContains(v, i+1, "ZA") ||
 				(isSlavoGermanic && i > 0 && at(i-1) != 'T') {
-				dmAdd(&p, &alt, "S", "TS")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "TS")
 			} else {
-				dmAdd(&p, &alt, "S", "")
+				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 			}
 			if at(i+1) == 'Z' {
 				i++
@@ -857,15 +880,11 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 		}
 	}
 
-	pri := p.String()
-	sec := alt.String()
-	if len(pri) > dmMaxLen {
-		pri = pri[:dmMaxLen]
-	}
-	if len(sec) > dmMaxLen {
-		sec = sec[:dmMaxLen]
-	}
-	return pri, sec
+	// Convert the stack-buffer slices to strings. Each `string(buf[:n])`
+	// is the single heap allocation per non-empty key (Q7a, §14.1).
+	// The dmAdd write loops already cap pLen / sLen at dmMaxLen, so no
+	// additional bounds clamp is required here.
+	return string(pBuf[:pLen]), string(sBuf[:sLen])
 }
 
 // DoubleMetaphoneScore returns 1.0 if a and b share at least one non-empty
