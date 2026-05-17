@@ -142,7 +142,7 @@
   4. `scorer-default.json` golden file diffs byte-identically across the CI matrix; the Scorer composite explicit-parenthesisation + left-to-right reduction is verified by code review and documented; BDD scenarios in `tests/bdd/features/scorer.feature` exercise composition patterns; goleak confirms zero goroutine leaks
 
 **Plans**: 4 plans
-  - [ ] 08-01-PLAN.md — Sentinel errors + ScorerOption type + scorerConfig + 12 option functions (foundation; no Scorer methods yet)
+  - [x] 08-01-PLAN.md — Sentinel errors + ScorerOption type + scorerConfig + 12 option functions (foundation; no Scorer methods yet)
   - [ ] 08-02-PLAN.md — Scorer struct + NewScorer validation pipeline (missing-threshold first) + weight auto-normalisation + last-write-wins + Score + Match
   - [ ] 08-03-PLAN.md — ScoreAll (SPEC OVERRIDE: map[AlgoID]float64) + Threshold + Algorithms + ScorerAlgorithm + DefaultScorer + DefaultScorerOptions + property + concurrent tests
   - [ ] 08-04-PLAN.md — Finalisation: scorer-default.json golden + scorer.feature BDD + scorer_bench_test + examples (scorer-composition + identifier-similarity extension) + docs/scorer.md + docs/tuning.md + spec amendments
@@ -191,7 +191,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Q-gram Algorithms | 5/5 | Complete    | 2026-05-15 |
 | 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
-| 8. Composite Scorer | 0/4 | Not started | - |
+| 8. Composite Scorer | 1/4 | In Progress|  |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |
