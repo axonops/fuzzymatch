@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Patent screen for Metaphone 3 documented as the "Metaphone 3 Precedent" — patent-encumbered algorithms are excluded.
 - `fuzzymatch.Validate(a, b string) []Warning` — returns warnings for problematic-but-non-fatal input shapes (empty input, unequal length where the algorithm cares, no tokens after normalise, all non-ASCII dropped, pathologically large input). Companion to the lenient comparison-data contract: algorithms always produce a value; `Validate` reports whether the value is meaningful. Per Phase 8.5 Q4.
 - `Warning` and `WarnKind` types accompanying `Validate`. `WarnKind` constants: `WarnEmptyInput`, `WarnUnequalLength`, `WarnNoTokensAfterNormalise`, `WarnAllNonASCIIDropped`, `WarnPathologicallyLargeInput`. `WarnKind.String()` returns CamelCase matching the constant suffix, per the AlgoID.String naming convention. Per Phase 8.5 Q4 + Q6b.
+- `ErrInternalInvariantViolated` sentinel — typed panic value for library-internal invariants that should be impossible in correct usage (e.g. `DefaultScorer()` construction failure on a dispatch-table gap that survived option-time validation). Replaces the bare `panic("...this is a bug...")` at `scorer.go:586` with a structured panic carrying the wrapped internal cause. Consumers seeing this sentinel are observing a library bug, not a usage error, and should file an issue at https://github.com/axonops/fuzzymatch/issues. Discriminated via `errors.Is(panicValue.(error), ErrInternalInvariantViolated)`. The sentinel MUST NOT be used to wrap caller-supplied parameter errors. Per Phase 8.5 Gap 5 resolution.
 
 ### Changed
 
@@ -24,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Every exported error sentinel now carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation. Per Phase 8.5 Q4.
 - `AlgoID.String()` is documented as CamelCase matching the constant suffix (`"Levenshtein"`, `"JaroWinkler"`, `"NYSIIS"`, `"DamerauLevenshteinOSA"`, etc.) — locking the convention against earlier draft language that referenced snake_case forms. Per Phase 8.5 Q6b.
 - Monge-Elkan direct calls (`MongeElkanScore`, `MongeElkanScoreAsymmetric`) now panic with `ErrInvalidInnerAlgo` when passed an invalid inner AlgoID (unknown AlgoID, `AlgoMongeElkan` self-reference, or a token-tier AlgoID). This aligns Monge-Elkan with the data-vs-parameter framework locked in Phase 8.5 Q2. Scorer-construction callers receive the same sentinel as a typed error. New sentinel `ErrInvalidInnerAlgo` added to the canonical `errors.go` set. Per Phase 8.5 Q4 follow-up.
+- Renamed `ErrInvalidAlgorithm` → `ErrInvalidAlgoID` to match the canonical sentinel name in `docs/requirements.md §6` and resolve the dangling `monge_elkan.go` / `llms-full.txt` non-existent-sentinel Critical finding from the Phase 8 review. Code and spec are now aligned. Per Phase 8.5 Gap 4 resolution.
 
 ### Breaking (pre-v1.0)
 

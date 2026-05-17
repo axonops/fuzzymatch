@@ -215,15 +215,20 @@ The Scorer applies normalisation (if configured) to both inputs once per `Score`
 
 ```go
 var (
-    ErrEmptyScorer        = errors.New("fuzzymatch: scorer has no algorithms configured")
-    ErrInvalidWeight      = errors.New("fuzzymatch: invalid weight")
-    ErrInvalidThreshold   = errors.New("fuzzymatch: invalid threshold")
-    ErrInvalidAlgoID      = errors.New("fuzzymatch: invalid algorithm identifier")
-    ErrInvalidQGramSize   = errors.New("fuzzymatch: invalid q-gram size")
-    ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
-    ErrInvalidInnerAlgo   = errors.New("fuzzymatch: invalid Monge-Elkan inner algorithm")
+    ErrEmptyScorer             = errors.New("fuzzymatch: scorer has no algorithms configured")
+    ErrInvalidWeight           = errors.New("fuzzymatch: invalid weight")
+    ErrInvalidThreshold        = errors.New("fuzzymatch: invalid threshold")
+    ErrInvalidAlgoID           = errors.New("fuzzymatch: invalid algorithm identifier")
+    ErrInvalidQGramSize        = errors.New("fuzzymatch: invalid q-gram size")
+    ErrInvalidTverskyParam     = errors.New("fuzzymatch: invalid tversky parameter")
+    ErrInvalidInnerAlgo        = errors.New("fuzzymatch: invalid Monge-Elkan inner algorithm")
+    ErrInternalInvariantViolated = errors.New("fuzzymatch: internal invariant violated (library bug — please file an issue)")
 )
 ```
+
+**Naming history (Phase 8.5 Gap 4 resolution).** The pre-8.5 code declared this sentinel as `ErrInvalidAlgorithm`; the spec always named it `ErrInvalidAlgoID`. Phase 8.5 renames the code to match the spec — a breaking change recorded in `CHANGELOG.md` "Breaking (pre-v1.0)". After the rename, every reference (`monge_elkan.go`, `llms-full.txt`, `scorer_options.go`, `scorer.go`, `scorer_options_test.go`, `errors_test.go`) uses `ErrInvalidAlgoID`. The non-existent-sentinel Critical finding from the Phase 8 review closes as a side-effect of the rename.
+
+**Internal-invariant sentinel (Phase 8.5 Gap 5 resolution).** `ErrInternalInvariantViolated` is the typed panic value for "this should be impossible in correct usage; if you see it, it is a library bug, please file a GitHub issue." It replaces the bare `panic("fuzzymatch: DefaultScorer construction failed (this is a bug): " + err.Error())` at the previous `scorer.go:586` with `panic(fmt.Errorf("%w: DefaultScorer construction failed: %w", ErrInternalInvariantViolated, err))`. Consumers can `recover()` and call `errors.Is(panicValue.(error), ErrInternalInvariantViolated)` to discriminate library-internal panics from data / parameter panics. The sentinel is reserved for genuine internal invariants — it MUST NOT be used to wrap caller-supplied parameter errors, which use the typed parameter sentinels (`ErrInvalidAlgoID`, `ErrInvalidTverskyParam`, etc.).
 
 All sentinel errors are exported from the root package, defined in `errors.go`. Error wrapping uses `fmt.Errorf("...: %w", err)` with `%w` as the final verb. Error discrimination uses `errors.Is` / `errors.As`.
 
@@ -391,10 +396,11 @@ The complete v1.0 sentinel set (declared in `errors.go`, all exported, all `fuzz
 - `ErrEmptyScorer` — `NewScorer` called with no algorithms configured
 - `ErrInvalidWeight` — option function passed `weight ≤ 0` (or sum of weights `≤ 0`)
 - `ErrInvalidThreshold` — `WithThreshold` passed value outside `[0.0, 1.0]` or `NaN`
-- `ErrInvalidAlgoID` — option function passed an out-of-range `AlgoID` or a Monge-Elkan inner that is not in the permitted set
+- `ErrInvalidAlgoID` — option function passed an out-of-range `AlgoID` (renamed from `ErrInvalidAlgorithm` in Phase 8.5 — Gap 4 resolution)
 - `ErrInvalidQGramSize` — q-gram option or direct call passed `n < 1`
 - `ErrInvalidTverskyParam` — Tversky option or direct call passed `α < 0`, `β < 0`, or `α + β ≤ 0`
 - `ErrInvalidInnerAlgo` — Monge-Elkan option or direct call passed an inner `AlgoID` that is unknown / out-of-range, the `AlgoMongeElkan` self-reference, or a token-tier `AlgoID`
+- `ErrInternalInvariantViolated` — typed panic value raised when a library-internal invariant fails (e.g. `DefaultScorer()` construction failure on a dispatch-table gap that should be impossible). Never fires in correct usage; consumers seeing it should file a bug. Added in Phase 8.5 Gap 5 resolution.
 
 Every sentinel carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation. The exemplar block below shows the locked template form for `ErrInvalidInnerAlgo`; every other sentinel follows the same structure:
 
@@ -430,6 +436,68 @@ Every sentinel carries the four-section godoc block (What / Common causes / Reso
 //   // valid:
 //   _ = fuzzymatch.MongeElkanScore("a", "b", fuzzymatch.AlgoJaroWinkler)
 var ErrInvalidInnerAlgo = errors.New("fuzzymatch: invalid Monge-Elkan inner algorithm")
+```
+
+The locked four-section template for `ErrInternalInvariantViolated` (Gap 5 resolution) — same shape, different semantic class:
+
+```go
+// ErrInternalInvariantViolated is raised as the typed panic value when a
+// library-internal invariant fails. It NEVER fires in correct usage.
+// Consumers who observe a panic carrying this sentinel are observing a
+// library bug, not a usage error — please file an issue at
+// https://github.com/axonops/fuzzymatch/issues.
+//
+// What it means:
+//   A library-internal assertion has failed. The library reached a state
+//   that should be impossible given the type system, the option-time
+//   validation, and the immutable-after-construction Scorer contract.
+//   Examples of "should be impossible": DefaultScorer() construction
+//   failure on a hard-coded option set; dispatch-table lookup miss on
+//   an AlgoID that survived option-time validation; a Score path that
+//   produces a NaN despite all parameter sentinels being clean.
+//
+//   This sentinel is the structured replacement for bare
+//   `panic("library bug: ...")` strings. The error wrapping carries the
+//   internal-cause error so debugging tools see the chain via
+//   errors.Unwrap / errors.Is.
+//
+// Common causes:
+//   - A library code change introduced a dispatch-table gap that the
+//     compile-time tests failed to catch
+//   - A platform-specific floating-point divergence escaped the
+//     cross-platform CI matrix gate
+//   - A future Go runtime change altered the semantics of a stdlib
+//     primitive the library relies on
+//
+//   None of these are caller-fault. All are library-fault.
+//
+// Resolution:
+//   - File a GitHub issue with the panic message, the calling code, the
+//     Go version, and the platform. The library maintainers will fix
+//     the root cause in the next patch release.
+//   - As a temporary workaround, defer-recover around the affected call
+//     and discriminate via errors.Is(panicValue.(error),
+//     ErrInternalInvariantViolated) — but please file the issue so the
+//     workaround can be removed.
+//
+//   ErrInternalInvariantViolated MUST NOT be used to wrap caller-supplied
+//   parameter errors. Parameter errors use the dedicated parameter
+//   sentinels (ErrInvalidAlgoID, ErrInvalidTverskyParam, etc.).
+//
+// Example:
+//   // Library-internal panic (DefaultScorer() construction):
+//   //   panics with: ErrInternalInvariantViolated: DefaultScorer
+//   //   construction failed: <wrapped cause>
+//
+//   defer func() {
+//       if r := recover(); r != nil {
+//           if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInternalInvariantViolated) {
+//               // library bug — log and recover
+//               log.Printf("fuzzymatch library bug: %v", err)
+//           }
+//       }
+//   }()
+var ErrInternalInvariantViolated = errors.New("fuzzymatch: internal invariant violated (library bug — please file an issue)")
 ```
 
 ---
