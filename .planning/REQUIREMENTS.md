@@ -14,7 +14,7 @@
 - [ ] **FOUND-01**: Module bootstrap — `go.mod` (Go 1.26+, root module with `golang.org/x/text` as the sole runtime dep), Apache-2.0 LICENSE + NOTICE, `tests/bdd/go.mod` sub-module with `replace` directive (`docs/requirements.md` §1, §5)
 - [ ] **FOUND-02**: `AlgoID` typed enum with `String()`, `AlgoIDs()`, and dispatch-table backing (no `Algorithm` interface — avoids hot-path boxing) (`docs/requirements.md` §6, `.claude/skills/go-coding-standards/SKILL.md`)
 - [ ] **FOUND-03**: `Normalise` pipeline — case-fold, separator-strip, ASCII fast path, **Unicode NFC/NFD normalisation + diacritic stripping via `golang.org/x/text/unicode/norm`** (`docs/requirements.md` §9)
-- [ ] **FOUND-04**: `Tokenise` — camelCase / snake_case / PascalCase / kebab-case splitting with stable ordering (`docs/requirements.md` §10)
+- [x] **FOUND-04**: `Tokenise` — camelCase / snake_case / PascalCase / kebab-case splitting with stable ordering (`docs/requirements.md` §10)
 - [x] **FOUND-05**: Sentinel error hierarchy composing well with `errors.Is` / `errors.As` (`docs/requirements.md` §6, §6.A). Canonical v1.0 sentinels: `ErrEmptyScorer`, `ErrInvalidWeight`, `ErrInvalidThreshold`, `ErrInvalidAlgoID` (renamed from `ErrInvalidAlgorithm` in Phase 8.5 Gap 4 resolution), `ErrInvalidQGramSize`, `ErrInvalidTverskyParam`, `ErrInvalidInnerAlgo` (added Phase 8.5 Q4 follow-up), `ErrInternalInvariantViolated` (added Phase 8.5 Gap 5 resolution — typed panic value for library-internal bugs). The pre-8.5 sentinels `ErrInvalidInput`, `ErrInvalidConfiguration`, `ErrEmptyInput` are removed (Phase 8.5 Q4 — none had call sites).
 
 ### Character-based algorithms (CHAR)
@@ -211,7 +211,7 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | FOUND-01 | Phase 1 | Pending |
 | FOUND-02 | Phase 1 | Pending |
 | FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Complete |
 | FOUND-05 | Phase 1 | Complete |
 | CHAR-01 | Phase 2 | Complete |
 | CHAR-02 | Phase 2 | Complete |

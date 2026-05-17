@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Completed Plan 08.5-04 (Q2 — data-vs-parameter validation framework guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + Tversky direct-call typed-error panic discipline)
-last_updated: "2026-05-17T14:22:08.599Z"
+stopped_at: Completed Plan 08.5-08 (Q8b — Tokenise ASCII fast path with zero-copy substrings, equivalence property test, dedicated benchmarks, and BDD scenario)
+last_updated: "2026-05-17T14:36:57.576Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 11 of 20 (08.5-06 just completed; 8 plans done: 01, 02, 04, 05, 06, 07, 09, 10)
+Plan: 12 of 20 (08.5-08 just completed; 10 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10)
 Status: Ready to execute
 Last activity: 2026-05-17
 
@@ -67,6 +67,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08.5 P04 | 12min | 1 tasks | 4 files |
 | Phase 08.5 P06 | 25min | - tasks | - files |
 | Phase 08.5 P03 | 35min | 1 tasks | 14 files |
+| Phase 08.5 P08 | 25min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - [Phase ?]: Phase 08.5 Plan 04 (Q2): atomic single-commit landing of NaN/Inf/(α+β≤0) strict-parameter guards on WithThreshold + WithAlgorithm + WithTverskyAlgorithm; TverskyScore + TverskyScoreRunes direct-call panics upgraded to typed-error values wrapping ErrInvalidTverskyParam / ErrInvalidQGramSize. Data-vs-parameter framework (docs/requirements.md §6.A) is now uniformly enforced at every parameter entry point.
 - [Phase ?]: Plan 08.5-06: Applied Q11b FMA-defeating double-cast at cosine.go:343 and scorer.go:380 per docs/requirements.md §14.4; regenerated testdata/golden/scorer-default.json (4 entries × 1 ULP); algorithms.json byte-identical
 - [Phase ?]: Phase 08.5 Plan 03 (Q5): atomic single-commit removal of the PartialRatio rune-variant across 14 Go files (138 insertions / 656 deletions). Acceptance grep gate satisfied (PartialRatioScoreRunes Go-source references = 0). Third of four breaking pre-v1.0 surface changes landed (Q1 pending; Q3/Q5 complete; Q4 sentinel-removal pending). Doc-tier residuals (1 docs/requirements.md + 1 llms.txt + 4 llms-full.txt) deferred to Plan 15.
+- [Phase ?]: Plan 08.5-08 (Q8b): Tokenise ASCII fast path with byte-level dispatch. Lowercase=false emits zero-copy substrings (158→6 allocs on Long benchmark, 96% reduction). Lowercase=true uses single scratch buffer + per-token string conversion (unsafe.String excluded per m11 LOCKED 2026-05-17). Non-ASCII falls back to preserved rune path. TestProp_Tokenise_ASCIIFastPathEquivalent (500 seeds × 8 option-bitfield) is the load-bearing T-08.5-17 mitigation gate. Memory-retention scope documented in public godoc (T-08.5-16 mitigation). Token-tier algorithms inherit alloc savings.
 
 ### Pending Todos
 
@@ -115,7 +117,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T14:21:54.256Z
-Stopped at: Completed Plan 08.5-04 (Q2 — data-vs-parameter validation framework guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + Tversky direct-call typed-error panic discipline)
+Last session: 2026-05-17T14:36:03.797Z
+Stopped at: Completed Plan 08.5-08 (Q8b — Tokenise ASCII fast path with zero-copy substrings, equivalence property test, dedicated benchmarks, and BDD scenario)
 Resume file: 
 None
