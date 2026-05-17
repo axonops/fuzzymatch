@@ -1043,6 +1043,41 @@ func WithThreshold(t float64) ScorerOption
 // weight by the sum so Score ∈ [0.0, 1.0]; false preserves raw
 // weights and waives the [0, 1] composite guarantee.
 func WithNormaliseWeights(normalise bool) ScorerOption
+
+// WithQGramJaccardAlgorithm registers Q-Gram Jaccard with weight and
+// q-gram length n. weight must be > 0 (else ErrInvalidWeight); n must
+// be ≥ 1 (else ErrInvalidQGramSize). Use instead of WithAlgorithm
+// when n must differ from the dispatch default of 3.
+func WithQGramJaccardAlgorithm(weight float64, n int) ScorerOption
+
+// WithSorensenDiceAlgorithm registers Sørensen-Dice with weight and
+// q-gram length n. weight must be > 0; n must be ≥ 1.
+func WithSorensenDiceAlgorithm(weight float64, n int) ScorerOption
+
+// WithCosineAlgorithm registers Cosine n-gram similarity with weight
+// and q-gram length n. weight must be > 0; n must be ≥ 1.
+func WithCosineAlgorithm(weight float64, n int) ScorerOption
+
+// WithTverskyAlgorithm registers Tversky with weight and asymmetric
+// parameters alpha + beta plus q-gram length n. weight must be > 0;
+// n must be ≥ 1; alpha and beta must be ≥ 0. The α + β > 0 constraint
+// is enforced at runtime by TverskyScore itself.
+func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption
+
+// WithMongeElkanAlgorithm registers Monge-Elkan symmetric with weight
+// and inner-metric AlgoID. weight must be > 0; inner must be in
+// [0, numAlgorithms) with a populated dispatch entry (else
+// ErrInvalidAlgorithm); inner == AlgoMongeElkan is rejected as
+// trivial-recursion. The full 18-entry permitted-inner allow-list is
+// enforced inside MongeElkanScoreSymmetric at Score time.
+func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption
+
+// WithSmithWatermanGotohAlgorithm registers Smith-Waterman-Gotoh
+// local-alignment similarity with weight and affine-gap params.
+// weight must be > 0. params validation is delegated to
+// SmithWatermanGotohScoreWithParams (nonsense values produce a
+// deterministic-but-meaningless score; no pre-validation here).
+func WithSmithWatermanGotohAlgorithm(weight float64, params SWGParams) ScorerOption
 ```
 
 ### Sentinel errors (errors.go)

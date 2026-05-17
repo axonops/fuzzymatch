@@ -243,3 +243,289 @@ func TestWithNormaliseWeights_StoresValue(t *testing.T) {
 		}
 	})
 }
+
+// --- Parameterised options (Task 3) -----------------------------------------
+
+// assertParameterisedHappy is shared by the four q-gram options: they all
+// share the (weight float64, n int) signature and the same accumulator
+// invariants — single entry appended with the expected id / weight /
+// non-nil scoreFn. The scoreFn is then exercised on a deterministic
+// (a, b) pair to confirm the closure captures n correctly.
+func assertParameterisedHappy(t *testing.T, opt ScorerOption, wantID AlgoID, wantWeight float64) {
+	t.Helper()
+	cfg, err := applyOptionForProbe(opt)
+	if err != nil {
+		t.Fatalf("option err = %v; want nil", err)
+	}
+	if got := probeEntryCount(cfg); got != 1 {
+		t.Fatalf("entry count = %d; want 1", got)
+	}
+	id, w := probeEntryAt(cfg, 0)
+	if id != wantID {
+		t.Errorf("entry[0].id = %v; want %v", id, wantID)
+	}
+	if w != wantWeight {
+		t.Errorf("entry[0].weight = %g; want %g", w, wantWeight)
+	}
+	if !probeEntryHasScoreFn(cfg, 0) {
+		t.Errorf("entry[0].scoreFn is nil")
+	}
+}
+
+// --- WithQGramJaccardAlgorithm ----------------------------------------------
+
+func TestWithQGramJaccardAlgorithm_HappyPath(t *testing.T) {
+	assertParameterisedHappy(t, WithQGramJaccardAlgorithm(0.5, 3), AlgoQGramJaccard, 0.5)
+}
+
+func TestWithQGramJaccardAlgorithm_CapturesN(t *testing.T) {
+	// Confirm n is captured into the closure (not hardcoded to dispatch
+	// default n=3). Compute the option's closure score against the
+	// expected QGramJaccardScore(a, b, n) for n=2 and n=5.
+	const a, b = "kitten", "sitting"
+	for _, n := range []int{2, 5} {
+		cfg, err := applyOptionForProbe(WithQGramJaccardAlgorithm(1.0, n))
+		if err != nil {
+			t.Fatalf("n=%d: option err = %v", n, err)
+		}
+		got := probeScoreFnInvoke(cfg, 0, a, b)
+		want := QGramJaccardScore(a, b, n)
+		if got != want {
+			t.Errorf("n=%d: closure score = %g; want QGramJaccardScore(_,_,%d) = %g", n, got, n, want)
+		}
+	}
+}
+
+func TestWithQGramJaccardAlgorithm_InvalidWeight(t *testing.T) {
+	for _, w := range []float64{0, -0.1, -1.0} {
+		_, err := applyOptionForProbe(WithQGramJaccardAlgorithm(w, 3))
+		if !errors.Is(err, ErrInvalidWeight) {
+			t.Errorf("weight=%g err = %v; want ErrInvalidWeight", w, err)
+		}
+	}
+}
+
+func TestWithQGramJaccardAlgorithm_InvalidN(t *testing.T) {
+	for _, n := range []int{0, -1, -100} {
+		_, err := applyOptionForProbe(WithQGramJaccardAlgorithm(1.0, n))
+		if !errors.Is(err, ErrInvalidQGramSize) {
+			t.Errorf("n=%d err = %v; want ErrInvalidQGramSize", n, err)
+		}
+	}
+}
+
+// --- WithSorensenDiceAlgorithm ----------------------------------------------
+
+func TestWithSorensenDiceAlgorithm_HappyPath(t *testing.T) {
+	assertParameterisedHappy(t, WithSorensenDiceAlgorithm(0.4, 2), AlgoSorensenDice, 0.4)
+}
+
+func TestWithSorensenDiceAlgorithm_CapturesN(t *testing.T) {
+	const a, b = "kitten", "sitting"
+	for _, n := range []int{2, 5} {
+		cfg, err := applyOptionForProbe(WithSorensenDiceAlgorithm(1.0, n))
+		if err != nil {
+			t.Fatalf("n=%d: option err = %v", n, err)
+		}
+		got := probeScoreFnInvoke(cfg, 0, a, b)
+		want := SorensenDiceScore(a, b, n)
+		if got != want {
+			t.Errorf("n=%d: closure score = %g; want SorensenDiceScore(_,_,%d) = %g", n, got, n, want)
+		}
+	}
+}
+
+func TestWithSorensenDiceAlgorithm_InvalidWeight(t *testing.T) {
+	_, err := applyOptionForProbe(WithSorensenDiceAlgorithm(0, 3))
+	if !errors.Is(err, ErrInvalidWeight) {
+		t.Errorf("weight=0 err = %v; want ErrInvalidWeight", err)
+	}
+}
+
+func TestWithSorensenDiceAlgorithm_InvalidN(t *testing.T) {
+	_, err := applyOptionForProbe(WithSorensenDiceAlgorithm(1.0, 0))
+	if !errors.Is(err, ErrInvalidQGramSize) {
+		t.Errorf("n=0 err = %v; want ErrInvalidQGramSize", err)
+	}
+}
+
+// --- WithCosineAlgorithm ----------------------------------------------------
+
+func TestWithCosineAlgorithm_HappyPath(t *testing.T) {
+	assertParameterisedHappy(t, WithCosineAlgorithm(0.6, 3), AlgoCosine, 0.6)
+}
+
+func TestWithCosineAlgorithm_CapturesN(t *testing.T) {
+	const a, b = "kitten", "sitting"
+	for _, n := range []int{2, 4} {
+		cfg, err := applyOptionForProbe(WithCosineAlgorithm(1.0, n))
+		if err != nil {
+			t.Fatalf("n=%d: option err = %v", n, err)
+		}
+		got := probeScoreFnInvoke(cfg, 0, a, b)
+		want := CosineScore(a, b, n)
+		if got != want {
+			t.Errorf("n=%d: closure score = %g; want CosineScore(_,_,%d) = %g", n, got, n, want)
+		}
+	}
+}
+
+func TestWithCosineAlgorithm_InvalidWeight(t *testing.T) {
+	_, err := applyOptionForProbe(WithCosineAlgorithm(-1, 3))
+	if !errors.Is(err, ErrInvalidWeight) {
+		t.Errorf("weight=-1 err = %v; want ErrInvalidWeight", err)
+	}
+}
+
+func TestWithCosineAlgorithm_InvalidN(t *testing.T) {
+	_, err := applyOptionForProbe(WithCosineAlgorithm(1.0, -1))
+	if !errors.Is(err, ErrInvalidQGramSize) {
+		t.Errorf("n=-1 err = %v; want ErrInvalidQGramSize", err)
+	}
+}
+
+// --- WithTverskyAlgorithm ---------------------------------------------------
+
+func TestWithTverskyAlgorithm_HappyPath(t *testing.T) {
+	assertParameterisedHappy(t, WithTverskyAlgorithm(0.7, 1.0, 1.0, 3), AlgoTversky, 0.7)
+}
+
+func TestWithTverskyAlgorithm_CapturesParams(t *testing.T) {
+	const a, b = "abcdef", "abcxyz"
+	cases := []struct {
+		name        string
+		alpha, beta float64
+		n           int
+	}{
+		{"jaccard_like", 1.0, 1.0, 3},
+		{"asymmetric", 0.5, 2.0, 2},
+		{"large_alpha", 10.0, 0.1, 4},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, c.alpha, c.beta, c.n))
+			if err != nil {
+				t.Fatalf("option err = %v", err)
+			}
+			got := probeScoreFnInvoke(cfg, 0, a, b)
+			want := TverskyScore(a, b, c.n, c.alpha, c.beta)
+			if got != want {
+				t.Errorf("closure score = %g; want TverskyScore(a, b, %d, %g, %g) = %g", got, c.n, c.alpha, c.beta, want)
+			}
+		})
+	}
+}
+
+func TestWithTverskyAlgorithm_InvalidWeight(t *testing.T) {
+	_, err := applyOptionForProbe(WithTverskyAlgorithm(0, 1.0, 1.0, 3))
+	if !errors.Is(err, ErrInvalidWeight) {
+		t.Errorf("weight=0 err = %v; want ErrInvalidWeight", err)
+	}
+}
+
+func TestWithTverskyAlgorithm_InvalidN(t *testing.T) {
+	_, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, 1.0, 1.0, 0))
+	if !errors.Is(err, ErrInvalidQGramSize) {
+		t.Errorf("n=0 err = %v; want ErrInvalidQGramSize", err)
+	}
+}
+
+func TestWithTverskyAlgorithm_InvalidAlpha(t *testing.T) {
+	_, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, -0.1, 1.0, 3))
+	if !errors.Is(err, ErrInvalidTverskyParam) {
+		t.Errorf("alpha=-0.1 err = %v; want ErrInvalidTverskyParam", err)
+	}
+}
+
+func TestWithTverskyAlgorithm_InvalidBeta(t *testing.T) {
+	_, err := applyOptionForProbe(WithTverskyAlgorithm(1.0, 1.0, -0.1, 3))
+	if !errors.Is(err, ErrInvalidTverskyParam) {
+		t.Errorf("beta=-0.1 err = %v; want ErrInvalidTverskyParam", err)
+	}
+}
+
+// --- WithMongeElkanAlgorithm ------------------------------------------------
+
+func TestWithMongeElkanAlgorithm_HappyPath(t *testing.T) {
+	assertParameterisedHappy(t, WithMongeElkanAlgorithm(0.8, AlgoJaroWinkler), AlgoMongeElkan, 0.8)
+}
+
+func TestWithMongeElkanAlgorithm_CapturesInner(t *testing.T) {
+	const a, b = "alpha beta", "alpha gamma"
+	cases := []struct {
+		name  string
+		inner AlgoID
+	}{
+		{"JaroWinkler", AlgoJaroWinkler},
+		{"Levenshtein", AlgoLevenshtein},
+		{"Jaro", AlgoJaro},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg, err := applyOptionForProbe(WithMongeElkanAlgorithm(1.0, c.inner))
+			if err != nil {
+				t.Fatalf("inner=%v option err = %v", c.inner, err)
+			}
+			got := probeScoreFnInvoke(cfg, 0, a, b)
+			want := MongeElkanScoreSymmetric(a, b, c.inner, DefaultNormalisationOptions())
+			if got != want {
+				t.Errorf("inner=%v: closure score = %g; want MongeElkanScoreSymmetric = %g", c.inner, got, want)
+			}
+		})
+	}
+}
+
+func TestWithMongeElkanAlgorithm_InvalidWeight(t *testing.T) {
+	_, err := applyOptionForProbe(WithMongeElkanAlgorithm(0, AlgoJaroWinkler))
+	if !errors.Is(err, ErrInvalidWeight) {
+		t.Errorf("weight=0 err = %v; want ErrInvalidWeight", err)
+	}
+}
+
+func TestWithMongeElkanAlgorithm_RejectsSelf(t *testing.T) {
+	// Trivial recursion guard — MongeElkan as its own inner is
+	// infinite-loop-equivalent at Score time. The option layer
+	// short-circuits here (not at runtime).
+	_, err := applyOptionForProbe(WithMongeElkanAlgorithm(1.0, AlgoMongeElkan))
+	if !errors.Is(err, ErrInvalidAlgorithm) {
+		t.Errorf("inner=AlgoMongeElkan err = %v; want ErrInvalidAlgorithm", err)
+	}
+}
+
+func TestWithMongeElkanAlgorithm_InvalidInner(t *testing.T) {
+	for _, inner := range []AlgoID{AlgoID(999), AlgoID(-1)} {
+		_, err := applyOptionForProbe(WithMongeElkanAlgorithm(1.0, inner))
+		if !errors.Is(err, ErrInvalidAlgorithm) {
+			t.Errorf("inner=%v err = %v; want ErrInvalidAlgorithm", inner, err)
+		}
+	}
+}
+
+// --- WithSmithWatermanGotohAlgorithm ----------------------------------------
+
+func TestWithSmithWatermanGotohAlgorithm_HappyPath(t *testing.T) {
+	assertParameterisedHappy(t, WithSmithWatermanGotohAlgorithm(0.5, NewSWGParams()), AlgoSmithWatermanGotoh, 0.5)
+}
+
+func TestWithSmithWatermanGotohAlgorithm_CapturesParams(t *testing.T) {
+	const a, b = "kitten", "sitting"
+	params := NewSWGParams()
+	params.Match = 2.0
+	params.Mismatch = -0.5
+	cfg, err := applyOptionForProbe(WithSmithWatermanGotohAlgorithm(1.0, params))
+	if err != nil {
+		t.Fatalf("option err = %v", err)
+	}
+	got := probeScoreFnInvoke(cfg, 0, a, b)
+	want := SmithWatermanGotohScoreWithParams(a, b, params)
+	if got != want {
+		t.Errorf("closure score = %g; want SmithWatermanGotohScoreWithParams = %g", got, want)
+	}
+}
+
+func TestWithSmithWatermanGotohAlgorithm_InvalidWeight(t *testing.T) {
+	_, err := applyOptionForProbe(WithSmithWatermanGotohAlgorithm(-1, NewSWGParams()))
+	if !errors.Is(err, ErrInvalidWeight) {
+		t.Errorf("weight=-1 err = %v; want ErrInvalidWeight", err)
+	}
+}

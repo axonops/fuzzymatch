@@ -282,3 +282,198 @@ func WithNormaliseWeights(normalise bool) ScorerOption {
 		return nil
 	}
 }
+
+// --- Parameterised algorithm options ---------------------------------------
+
+// WithQGramJaccardAlgorithm returns a ScorerOption that registers the
+// Q-Gram Jaccard algorithm (Ukkonen 1992 — see docs/algorithms.md) with
+// the given weight and q-gram window length n. Use this option instead
+// of WithAlgorithm(AlgoQGramJaccard, weight) when n must differ from
+// the dispatch-registered default of 3.
+//
+// weight must be strictly positive (else ErrInvalidWeight). n must be
+// ≥ 1 (else ErrInvalidQGramSize) — q-gram extraction is undefined for
+// window length < 1.
+//
+// The captured n is stored by value inside the closure, so applying
+// this option to multiple NewScorer calls is safe.
+func WithQGramJaccardAlgorithm(weight float64, n int) ScorerOption {
+	return func(cfg *scorerConfig) error {
+		if weight <= 0 {
+			return ErrInvalidWeight
+		}
+		if n < 1 {
+			return ErrInvalidQGramSize
+		}
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:      AlgoQGramJaccard,
+			weight:  weight,
+			scoreFn: func(a, b string) float64 { return QGramJaccardScore(a, b, n) },
+		})
+		return nil
+	}
+}
+
+// WithSorensenDiceAlgorithm returns a ScorerOption that registers the
+// Sørensen-Dice coefficient (Sørensen 1948 / Dice 1945 — see
+// docs/algorithms.md) with the given weight and q-gram window length
+// n. Use this instead of WithAlgorithm(AlgoSorensenDice, weight) when
+// n must differ from the dispatch default of 3.
+//
+// weight must be > 0 (else ErrInvalidWeight); n must be ≥ 1 (else
+// ErrInvalidQGramSize).
+func WithSorensenDiceAlgorithm(weight float64, n int) ScorerOption {
+	return func(cfg *scorerConfig) error {
+		if weight <= 0 {
+			return ErrInvalidWeight
+		}
+		if n < 1 {
+			return ErrInvalidQGramSize
+		}
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:      AlgoSorensenDice,
+			weight:  weight,
+			scoreFn: func(a, b string) float64 { return SorensenDiceScore(a, b, n) },
+		})
+		return nil
+	}
+}
+
+// WithCosineAlgorithm returns a ScorerOption that registers the Cosine
+// n-gram similarity (Salton & McGill 1983 — see docs/algorithms.md)
+// with the given weight and q-gram window length n. Use this instead
+// of WithAlgorithm(AlgoCosine, weight) when n must differ from the
+// dispatch default of 3.
+//
+// weight must be > 0 (else ErrInvalidWeight); n must be ≥ 1 (else
+// ErrInvalidQGramSize).
+func WithCosineAlgorithm(weight float64, n int) ScorerOption {
+	return func(cfg *scorerConfig) error {
+		if weight <= 0 {
+			return ErrInvalidWeight
+		}
+		if n < 1 {
+			return ErrInvalidQGramSize
+		}
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:      AlgoCosine,
+			weight:  weight,
+			scoreFn: func(a, b string) float64 { return CosineScore(a, b, n) },
+		})
+		return nil
+	}
+}
+
+// WithTverskyAlgorithm returns a ScorerOption that registers the
+// Tversky index (Tversky 1977 — see docs/algorithms.md) with the given
+// weight, asymmetric parameters alpha + beta, and q-gram window length
+// n. Use this instead of WithAlgorithm(AlgoTversky, weight) when any
+// of alpha, beta, or n must differ from the dispatch defaults
+// (alpha = beta = 1.0, n = 3 — Jaccard-equivalent).
+//
+// weight must be > 0 (else ErrInvalidWeight); n must be ≥ 1 (else
+// ErrInvalidQGramSize); alpha and beta must be ≥ 0 (else
+// ErrInvalidTverskyParam). The α + β > 0 constraint (which guards
+// the Tversky denominator) is enforced at runtime by TverskyScore
+// itself; this option does not re-check it because either α or β
+// being > 0 is satisfied by the typical use cases (alpha = beta = 1
+// for Jaccard-equivalent, alpha = 1, beta = 0 for prototype matching).
+func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption {
+	return func(cfg *scorerConfig) error {
+		if weight <= 0 {
+			return ErrInvalidWeight
+		}
+		if n < 1 {
+			return ErrInvalidQGramSize
+		}
+		if alpha < 0 || beta < 0 {
+			return ErrInvalidTverskyParam
+		}
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:      AlgoTversky,
+			weight:  weight,
+			scoreFn: func(a, b string) float64 { return TverskyScore(a, b, n, alpha, beta) },
+		})
+		return nil
+	}
+}
+
+// WithMongeElkanAlgorithm returns a ScorerOption that registers the
+// Monge-Elkan symmetric similarity (Monge & Elkan 1996 — see
+// docs/algorithms.md) with the given weight and inner-metric AlgoID.
+// Use this instead of WithAlgorithm(AlgoMongeElkan, weight) when the
+// inner metric must differ from the dispatch default of AlgoJaroWinkler.
+//
+// weight must be > 0 (else ErrInvalidWeight); inner must be a
+// permitted Monge-Elkan inner AlgoID with a populated dispatch entry
+// (else ErrInvalidAlgorithm). The trivial-recursion case inner ==
+// AlgoMongeElkan is rejected explicitly here so the consumer sees a
+// typed error at construction time instead of a runtime panic from
+// MongeElkanScoreSymmetric's allow-list gate.
+//
+// The full 18-entry inner allow-list is enforced inside
+// MongeElkanScoreSymmetric (Phase 6 + Phase 7 locked behaviour) — this
+// option performs only the bounds + self-rejection check. Passing an
+// inner AlgoID that the underlying ME implementation rejects will
+// panic at Score time (programmer error); the panic surfaces via
+// godog's recover mechanism in plan 08-04's BDD scenarios.
+//
+// The captured inner is stored by value inside the closure;
+// DefaultNormalisationOptions() is also captured by value (ME's opts
+// parameter is currently a no-op per Phase 6 — accepted-but-ignored —
+// and is plumbed through for forward-compat per CONTEXT.md §8).
+func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption {
+	return func(cfg *scorerConfig) error {
+		if weight <= 0 {
+			return ErrInvalidWeight
+		}
+		if int(inner) < 0 || int(inner) >= numAlgorithms || dispatch[inner] == nil {
+			return ErrInvalidAlgorithm
+		}
+		if inner == AlgoMongeElkan {
+			// Trivial recursion guard — see godoc above.
+			return ErrInvalidAlgorithm
+		}
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:     AlgoMongeElkan,
+			weight: weight,
+			scoreFn: func(a, b string) float64 {
+				return MongeElkanScoreSymmetric(a, b, inner, DefaultNormalisationOptions())
+			},
+		})
+		return nil
+	}
+}
+
+// WithSmithWatermanGotohAlgorithm returns a ScorerOption that
+// registers the Smith-Waterman-Gotoh local-alignment similarity
+// (Smith & Waterman 1981 + Gotoh 1982 — see docs/algorithms.md) with
+// the given weight and affine-gap parameters. Use this instead of
+// WithAlgorithm(AlgoSmithWatermanGotoh, weight) when the params must
+// differ from NewSWGParams() defaults.
+//
+// weight must be > 0 (else ErrInvalidWeight). params validation is
+// the responsibility of SmithWatermanGotohScoreWithParams itself:
+// nonsense values produce a deterministic-but-meaningless score (per
+// the documented contract on SWGParams) rather than an error. The
+// Scorer layer therefore does not pre-validate params.
+//
+// The captured params struct is stored by value inside the closure
+// (SWGParams is a plain value type per Phase 3); the consumer may
+// freely mutate their local SWGParams variable after this call
+// without affecting the registered closure.
+func WithSmithWatermanGotohAlgorithm(weight float64, params SWGParams) ScorerOption {
+	return func(cfg *scorerConfig) error {
+		if weight <= 0 {
+			return ErrInvalidWeight
+		}
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:     AlgoSmithWatermanGotoh,
+			weight: weight,
+			scoreFn: func(a, b string) float64 {
+				return SmithWatermanGotohScoreWithParams(a, b, params)
+			},
+		})
+		return nil
+	}
+}
