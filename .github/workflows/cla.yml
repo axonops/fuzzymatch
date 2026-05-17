@@ -19,6 +19,9 @@
 # until that plan ships, which is acceptable because no external PRs are
 # expected before then.
 #
+# Q13: every third-party action `uses:` reference is pinned to a 40-char
+# commit SHA with a `# vN.x.y` comment for human readability.
+#
 # Spec: STACK.md (contributor-assistant/github-action v2.6.1);
 # 01-CONTEXT.md D-08 — CLA Assistant, NOT DCO; mirror mask.
 name: CLA Assistant
@@ -55,7 +58,7 @@ jobs:
     if: (github.event_name == 'issue_comment' && contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')) || github.event_name == 'pull_request_target'
     steps:
       - name: CLA Assistant
-        uses: contributor-assistant/github-action@v2.6.1
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08  # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_PAT }}

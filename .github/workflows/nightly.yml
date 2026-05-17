@@ -1,0 +1,267 @@
+# Nightly — long-form fuzz + benchstat regression + auto-PR for new fuzz
+# corpus entries discovered during the nightly run. Q13 (Plan 08.5-16).
+#
+# Spec:
+#   - CLAUDE.md "Releases — CI Only" + agent-gates section.
+#   - docs/requirements.md §15.4 (native fuzz at 5 min per fuzzer in
+#     nightly cadence), §14.4 (benchstat >10% regression gate).
+#   - 08.5-RESEARCH.md §3.7 (Q13 lock — nightly.yml long-form fuzz,
+#     benchstat regression, auto-PR corpus).
+#   - 08.5-CONTEXT.md (Q13 multi-part lock).
+#
+# Three jobs:
+#   1. long-form-fuzz — matrix over every root-package fuzzer, 5 min
+#      per fuzzer, uploads any new corpus entries as an artefact.
+#   2. benchstat-regression — runs on self-hosted runner if available
+#      (preferred for stable hardware); falls back to ubuntu-latest as
+#      informational only (continue-on-error) per D-09.
+#   3. auto-pr-fuzz-corpus — if long-form-fuzz discovered new corpus
+#      entries, opens a PR via peter-evans/create-pull-request with
+#      branch auto/fuzz-corpus-YYYY-MM-DD.
+#
+# Q13 SHA-pinning: every `uses:` reference is pinned to a 40-char commit
+# SHA with a `# vN.x.y` comment for human readability (T-08.5-30
+# mitigation against upstream tag movement).
+name: Nightly
+
+on:
+  schedule:
+    # 02:00 UTC daily — separated from the weekly CodeQL (Tue 06:00) and
+    # weekly Security (Mon 06:00) cron windows so failures do not stack
+    # on the same morning EU/UK on-call window.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: "Per-fuzzer fuzz time (default 5m)"
+        required: false
+        default: "5m"
+      fallback_runner:
+        description: "Benchstat fallback runner label when self-hosted is unavailable"
+        required: false
+        default: "ubuntu-latest"
+
+permissions:
+  contents: read
+
+env:
+  # Workflow-level: enforce no-cgo across every job.
+  CGO_ENABLED: "0"
+  # Per-fuzzer wall-clock budget. Override via workflow_dispatch input.
+  NIGHTLY_FUZZTIME: ${{ inputs.fuzztime || '5m' }}
+
+jobs:
+  long-form-fuzz:
+    name: long-form fuzz (${{ matrix.fuzzer }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # 26+ fuzzers across the root package — enumerated explicitly so
+        # the matrix is reviewable. New fuzzers added to *_fuzz_test.go
+        # must be appended here for the nightly run to cover them.
+        fuzzer:
+          - FuzzLevenshteinDistance
+          - FuzzLevenshteinScore
+          - FuzzDamerauLevenshteinOSADistance
+          - FuzzDamerauLevenshteinOSAScore
+          - FuzzDamerauLevenshteinFullDistance
+          - FuzzDamerauLevenshteinFullScore
+          - FuzzHammingDistance
+          - FuzzHammingScore
+          - FuzzJaroScore
+          - FuzzJaroWinklerScore
+          - FuzzStrcmp95Score
+          - FuzzSmithWatermanGotohScore
+          - FuzzLCSStrScore
+          - FuzzLongestCommonSubstring
+          - FuzzQGramJaccardScore
+          - FuzzSorensenDiceScore
+          - FuzzCosineScore
+          - FuzzTverskyScore
+          - FuzzMongeElkanScore
+          - FuzzTokenSortRatioScore
+          - FuzzTokenSetRatioScore
+          - FuzzPartialRatioScore
+          - FuzzTokenJaccardScore
+          - FuzzSoundexCode
+          - FuzzDoubleMetaphoneKeys
+          - FuzzNYSIISCode
+          - FuzzMRACode
+          - FuzzMRACompare
+          - FuzzRatcliffObershelpScore
+          - FuzzNormalise
+          - FuzzTokenise
+          - FuzzValidate
+          - FuzzScorer_Score
+          - FuzzScorer_ScoreAll
+          - FuzzScorer_Match
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run fuzzer ${{ matrix.fuzzer }}
+        # `-fuzztime=${NIGHTLY_FUZZTIME}` (default 5m) per docs/
+        # requirements.md §15.4. `-run=^$` suppresses non-fuzz tests.
+        # `|| true` is intentional: a fuzz finding (failing input) is
+        # captured by the corpus-upload step below as a NEW corpus entry
+        # rather than failing the job — the auto-PR step then surfaces
+        # it for triage. The Go test runner exit code is non-zero on a
+        # new finding, which `|| true` masks; the corpus diff is the
+        # canonical signal that something was found.
+        run: |
+          set -uo pipefail
+          go test -run='^$' -fuzz='^${{ matrix.fuzzer }}$' \
+            -fuzztime="${NIGHTLY_FUZZTIME}" \
+            ./... || true
+
+      - name: Capture new corpus entries
+        # The fuzz cache lives at ~/.cache/go-build/fuzz/<module>/<test>
+        # by default; new findings are also written to
+        # testdata/fuzz/<TestName>/<input-hash> under the package
+        # directory. We snapshot both into a per-fuzzer artefact.
+        run: |
+          set -uo pipefail
+          mkdir -p "fuzz-artefacts/${{ matrix.fuzzer }}"
+          if [ -d "testdata/fuzz/${{ matrix.fuzzer }}" ]; then
+            cp -r "testdata/fuzz/${{ matrix.fuzzer }}" "fuzz-artefacts/${{ matrix.fuzzer }}/testdata-fuzz" || true
+          fi
+          # `go test` writes findings into the build cache; the user-
+          # facing canonical location is `testdata/fuzz`. We rely on the
+          # testdata/fuzz path for the auto-PR.
+          ls -laR "fuzz-artefacts/${{ matrix.fuzzer }}" || true
+
+      - name: Upload fuzz artefacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        continue-on-error: true
+        with:
+          name: fuzz-${{ matrix.fuzzer }}
+          path: fuzz-artefacts/${{ matrix.fuzzer }}
+          retention-days: 7
+
+  benchstat-regression:
+    name: benchstat regression
+    # Q13 lock: self-hosted runner preferred for stable hardware
+    # (mask/audit shared runner per STACK.md). When the self-hosted
+    # runner is unavailable, fall back to ubuntu-latest with
+    # continue-on-error so a hardware-noise regression does not block
+    # the nightly run. Per D-09 the gate is informational on
+    # GitHub-hosted runners until the shared self-hosted runner lands.
+    runs-on: ${{ inputs.fallback_runner || '[''self-hosted'', ''fuzzymatch-bench'']' }}
+    continue-on-error: ${{ inputs.fallback_runner == 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: make bench
+        run: make bench
+
+      - name: make bench-compare (10% regression gate)
+        # `make bench-compare` runs `benchstat bench.txt bench.txt.new`.
+        # On a self-hosted runner this is the canonical Q13 + PERF-04
+        # blocking gate (>10% regression at p<0.05 fails the job). On
+        # ubuntu-latest fallback the job has continue-on-error: true
+        # above so hardware noise does not block the nightly run.
+        run: make bench-compare
+
+  auto-pr-fuzz-corpus:
+    name: auto-PR new fuzz corpus
+    needs: [long-form-fuzz]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Download all fuzz artefacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        continue-on-error: true
+        with:
+          path: nightly-fuzz-artefacts
+
+      - name: Merge new corpus entries into testdata/fuzz
+        # The fuzz cache writes new findings to testdata/fuzz/<TestName>/
+        # in the working tree of the runner that produced them. We
+        # downloaded each runner's snapshot into nightly-fuzz-artefacts/
+        # and now merge any new files into the repo's testdata/fuzz tree.
+        # If no new entries exist the next step short-circuits the PR.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          merged_any=false
+          for artefact_dir in nightly-fuzz-artefacts/fuzz-*/testdata-fuzz; do
+            [ -d "$artefact_dir" ] || continue
+            fuzzer_name=$(basename "$(dirname "$artefact_dir")" | sed 's/^fuzz-//')
+            mkdir -p "testdata/fuzz/${fuzzer_name}"
+            for f in "$artefact_dir"/*; do
+              base=$(basename "$f")
+              if [ ! -f "testdata/fuzz/${fuzzer_name}/${base}" ]; then
+                cp "$f" "testdata/fuzz/${fuzzer_name}/${base}"
+                echo "NEW: testdata/fuzz/${fuzzer_name}/${base}"
+                merged_any=true
+              fi
+            done
+          done
+          if [ "$merged_any" = "false" ]; then
+            echo "No new fuzz corpus entries discovered in this nightly run."
+            echo "NEW_FUZZ_ENTRIES=false" >> "${GITHUB_ENV}"
+          else
+            echo "NEW_FUZZ_ENTRIES=true" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Create Pull Request
+        if: env.NEW_FUZZ_ENTRIES == 'true'
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676  # v7.x
+        with:
+          branch: auto/fuzz-corpus-${{ github.run_id }}
+          base: main
+          commit-message: "test(fuzz): add nightly corpus entries"
+          title: "test(fuzz): nightly corpus entries from run ${{ github.run_id }}"
+          body: |
+            Automatically opened by `.github/workflows/nightly.yml` after the long-form
+            fuzz job discovered new corpus inputs. Each new file lives under
+            `testdata/fuzz/<FuzzerName>/`.
+
+            Triage protocol:
+            1. Run `make test-fuzz` locally to verify each entry still fails
+               (or to confirm it is now a regression).
+            2. If the input represents a real bug, file an issue and reference
+               it from a follow-up PR that fixes the bug.
+            3. Merge this PR to commit the corpus entries — Go's fuzz runner
+               will replay them on every future `go test` invocation.
+
+            **Threat model (T-08.5-32):** the auto-PR is opened by the
+            controlled `peter-evans/create-pull-request` action; a human
+            must approve and merge. Corpus entries contain synthetic test
+            input only, no PII.
+          labels: |
+            test
+            fuzz
+            automated
+          delete-branch: true

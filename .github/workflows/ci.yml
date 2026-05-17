@@ -7,6 +7,10 @@
 #
 # Plan 01-04 (determinism infra) expanded the matrix from the single
 # ubuntu-latest baseline that plan 01-02 (quality gates) landed.
+#
+# Q13: every third-party action `uses:` reference is pinned to a 40-char
+# commit SHA with a `# vN.x.y` comment for human readability (Q13,
+# T-08.5-30 mitigation against upstream tag movement).
 name: CI
 
 on:
@@ -55,12 +59,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
           go-version-file: go.mod
 
@@ -78,6 +82,15 @@ jobs:
       # surfaced immediately, not buried inside the aggregate output.
       - name: verify determinism
         run: make verify-determinism
+
+      # Q13 (Plan 08.5-16): verify-llms-sync asserts every exported
+      # root-package symbol appears in llms.txt and llms-full.txt. The
+      # AST-walk is shared with verify-exported-coverage via
+      # scripts/internal/astwalk. Drift between code and the AI-friendly
+      # docs fails CI here, not just in the existing
+      # TestAIFriendly_LLMSTxtReferencesEveryExportedSymbol unit test.
+      - name: verify llms.txt / llms-full.txt sync
+        run: make verify-llms-sync
 
       - name: make check
         run: make check
@@ -98,12 +111,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
         with:
           go-version-file: go.mod
 
@@ -123,10 +136,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@latest-stable
+        uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd  # v23.2.0
         with:
           globs: "**/*.md"
           config: .markdownlint-cli2.yaml
