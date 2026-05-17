@@ -168,3 +168,12 @@ var IndelRatioRunesForTest = indelRatioRunes
 // by TestMRAThresholdTable_Clamp to assert the sum>12 clamp behaviour
 // (RESEARCH.md Pitfall 7.C — the clamp is often omitted from Wikipedia summaries).
 var MRAThresholdForTest = mraThreshold
+
+// TokeniseRuneForTest re-exports the unexported tokeniseRune function — the
+// pre-Phase-8.5 rune-based Tokenise implementation retained as an internal
+// entry point. Used by TestProp_Tokenise_ASCIIFastPathEquivalent to assert
+// that the byte-level ASCII fast path (Phase 8.5 Q8b) produces output
+// byte-identical to the rune path on every ASCII input. Load-bearing
+// correctness gate: any divergence between paths is by definition a
+// fast-path bug.
+var TokeniseRuneForTest = tokeniseRune

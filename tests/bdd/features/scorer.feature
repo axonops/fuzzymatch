@@ -149,3 +149,29 @@ Feature: Composite weighted Scorer (Phase 8)
     Then the ScoreAll map should contain AlgoDamerauLevenshteinOSA
     And the ScoreAll map should contain AlgoDoubleMetaphone
     And the ScoreAll map should not contain AlgoCosine
+
+  @tokenise @ascii_fast_path
+  Scenario: Tokenise ASCII fast path produces identical tokens to the rune path
+    # Phase 8.5 Q8b: the byte-level ASCII fast path (introduced in
+    # plan 08.5-08) MUST produce output byte-identical to the
+    # pre-Q8b rune path on any ASCII input. The property test
+    # TestProp_Tokenise_ASCIIFastPathEquivalent locks this on
+    # arbitrary ASCII generators; this BDD scenario locks it on a
+    # canonical mixed-style identifier and asserts the rune path
+    # is reachable via a non-ASCII separator character (which is
+    # the documented Tokenise dispatch criterion — see
+    # tokenise.go's Tokenise() entry).
+    #
+    # The two invocations of Tokenise() under this scenario:
+    #   1. Default ASCII SeparatorChars ("_-.:/ \t\n\r") -> fast path.
+    #   2. SeparatorChars augmented with a non-ASCII byte ("™")
+    #      -> rune path (because containsNonASCII(opts.SeparatorChars)
+    #      returns true; '™' is U+2122, three bytes in UTF-8). The
+    #      '™' character never appears in the input string so it
+    #      adds nothing to the boundary set — the rune path sees
+    #      the same separator semantics as the fast path.
+    Given the Tokenise input "fooBar-baz_qux"
+    And Tokenise options SplitCamelCase=true Lowercase=false
+    When the Tokenise ASCII fast path runs
+    And the Tokenise rune fallback path runs
+    Then both Tokenise paths produce ["foo", "Bar", "baz", "qux"]

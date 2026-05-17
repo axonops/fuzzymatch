@@ -3651,3 +3651,107 @@ func TestProp_MRAThresholdMonotonic(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tokenise ASCII fast path equivalence (Phase 8.5 Q8b)
+// ---------------------------------------------------------------------------
+
+// asciiTokeniseInput is a quick.Generator-compatible type producing
+// ASCII-only strings of length in [0, 128] sampled from a mix of
+// alphabetic characters (lowercase + uppercase, so camelCase
+// transitions are exercised), digits (so Rule-1 digit->upper
+// transitions fire), and the canonical separator set "_-. /\t". The
+// distribution is biased so each class appears with non-trivial
+// probability — uniform random sampling over the full printable-ASCII
+// range would emit too few letter transitions to stress the camelCase
+// boundary rules.
+//
+// Used by TestProp_Tokenise_ASCIIFastPathEquivalent.
+type asciiTokeniseInput string
+
+// Generate implements quick.Generator for asciiTokeniseInput. It draws
+// a length in [0, 128] and fills with bytes sampled from four classes:
+//
+//	35% lowercase letters (a-z, 26 codepoints)
+//	35% uppercase letters (A-Z, 26 codepoints)
+//	15% digits           (0-9, 10 codepoints)
+//	15% separators       ("_-. /\t" — the default separator set, 7 chars)
+//
+// The mix produces inputs that frequently cross camelCase boundaries
+// AND separator boundaries — the two boundary-detection paths that
+// drive the fast-path/rune-path equivalence guarantee.
+func (asciiTokeniseInput) Generate(r *rand.Rand, _ int) reflect.Value {
+	n := r.Intn(129) // 0..128 inclusive
+	if n == 0 {
+		return reflect.ValueOf(asciiTokeniseInput(""))
+	}
+	const seps = "_-. \t/"
+	buf := make([]byte, n)
+	for i := range buf {
+		// Class roll: 0..34 lower, 35..69 upper, 70..84 digit, 85..99 sep.
+		roll := r.Intn(100)
+		switch {
+		case roll < 35:
+			buf[i] = byte('a' + r.Intn(26))
+		case roll < 70:
+			buf[i] = byte('A' + r.Intn(26))
+		case roll < 85:
+			buf[i] = byte('0' + r.Intn(10))
+		default:
+			buf[i] = seps[r.Intn(len(seps))]
+		}
+	}
+	return reflect.ValueOf(asciiTokeniseInput(buf))
+}
+
+// TestProp_Tokenise_ASCIIFastPathEquivalent asserts the Phase 8.5 Q8b
+// load-bearing correctness guarantee: on any ASCII input AND for any
+// combination of TokeniseOptions bool fields, the byte-level ASCII
+// fast path produces a token sequence byte-identical to the rune-based
+// fallback (TokeniseRuneForTest).
+//
+// This is the principal correctness gate for Q8b — if any seed fails
+// the fast path is by definition broken. The threat model assigns this
+// test a T-08.5-17 mitigation disposition.
+//
+// The property is checked across the full 8-value option bitfield
+// (Lowercase × SplitCamelCase × SplitConsecutiveUpper) so every
+// boundary-rule combination is exercised. SeparatorChars is held at
+// the default (pure-ASCII set) so the ASCII-fast-path gate fires; the
+// non-ASCII-separator case is structurally excluded by Tokenise() and
+// therefore not part of this equivalence guarantee.
+//
+// MaxCount is set to 500 (above the stdlib default of 100) because the
+// generator emits ASCII-only inputs and the test loop is cheap; the
+// higher count strengthens the gate.
+func TestProp_Tokenise_ASCIIFastPathEquivalent(t *testing.T) {
+	for optBits := uint8(0); optBits < 8; optBits++ {
+		opts := tokeniseOptsFromBitsLocal(optBits)
+		f := func(input asciiTokeniseInput) bool {
+			s := string(input)
+			fast := fuzzymatch.Tokenise(s, opts)
+			slow := fuzzymatch.TokeniseRuneForTest(s, opts)
+			return reflect.DeepEqual(fast, slow)
+		}
+		if err := quick.Check(f, &quick.Config{MaxCount: 500}); err != nil {
+			t.Errorf("Tokenise ASCII fast path diverged from rune path at optBits=%d (opts=%+v): %v",
+				optBits, opts, err)
+		}
+	}
+}
+
+// tokeniseOptsFromBitsLocal duplicates tokeniseOptsFromBits from
+// tokenise_test.go because props_test.go is independently compiled and
+// the two test files don't share helpers (per .claude/skills/
+// go-coding-standards: each file is locally readable). The 4-bit
+// mapping is identical: bit 0 = Lowercase, bit 1 = SplitCamelCase,
+// bit 2 = SplitConsecutiveUpper; SeparatorChars is held at the default
+// pure-ASCII set so the ASCII fast path is the path under test.
+func tokeniseOptsFromBitsLocal(bits uint8) fuzzymatch.TokeniseOptions {
+	return fuzzymatch.TokeniseOptions{
+		Lowercase:             bits&1 != 0,
+		SplitCamelCase:        bits&2 != 0,
+		SplitConsecutiveUpper: bits&4 != 0,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+}

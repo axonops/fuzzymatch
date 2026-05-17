@@ -29,6 +29,7 @@ package steps
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/cucumber/godog"
@@ -66,6 +67,19 @@ type ScorerContext struct {
 	lastErr           error
 	scoreAll          map[fuzzymatch.AlgoID]float64
 	concurrentResults []float64
+
+	// Tokenise-equivalence scenario state (Phase 8.5 Q8b).
+	// tokeniseInput holds the input string under test; tokeniseOpts
+	// holds the configured TokeniseOptions; tokeniseFastTokens and
+	// tokeniseRuneTokens hold the outputs of the two dispatch paths
+	// (fast = pure-ASCII SeparatorChars; rune = SeparatorChars
+	// augmented with a non-ASCII byte so the Tokenise() dispatch
+	// falls through to the rune path). The two slices are compared
+	// against one another and against the documented token sequence.
+	tokeniseInput      string
+	tokeniseOpts       fuzzymatch.TokeniseOptions
+	tokeniseFastTokens []string
+	tokeniseRuneTokens []string
 }
 
 // iConstructTheDefaultScorer constructs DefaultScorer and stores it in
@@ -485,6 +499,132 @@ func algoIDFromName(name string) (fuzzymatch.AlgoID, error) {
 	return 0, fmt.Errorf("unknown algorithm name %q (must match an AlgoID.String() value such as Levenshtein, DoubleMetaphone, etc.)", name)
 }
 
+// ---------------------------------------------------------------------
+// Tokenise ASCII-fast-path equivalence scenario (Phase 8.5 Q8b)
+// ---------------------------------------------------------------------
+
+// theTokeniseInputIs stores the input string that the scenario will
+// pass to Tokenise. The string is held verbatim — no escape handling
+// beyond Gherkin's own quote-pair parsing.
+// Step regex: `^the Tokenise input "([^"]*)"$`
+func (sc *ScorerContext) theTokeniseInputIs(input string) error {
+	sc.tokeniseInput = input
+	return nil
+}
+
+// theTokeniseOptionsAre parses the two-bool option block and stores
+// it on the context. SeparatorChars and SplitConsecutiveUpper are
+// held at their default values (SplitConsecutiveUpper = true,
+// SeparatorChars = the default pure-ASCII set "_-.:/ \t\n\r") so the
+// scenario stays focused on the SplitCamelCase × Lowercase axes —
+// the two boolean knobs that exercise the boundary-detection and
+// lowercase-fold paths respectively.
+// Step regex: `^Tokenise options SplitCamelCase=(true|false) Lowercase=(true|false)$`
+func (sc *ScorerContext) theTokeniseOptionsAre(splitCamel, lowercase string) error {
+	sc.tokeniseOpts = fuzzymatch.TokeniseOptions{
+		Lowercase:             lowercase == "true",
+		SplitCamelCase:        splitCamel == "true",
+		SplitConsecutiveUpper: true,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+	return nil
+}
+
+// theTokeniseASCIIFastPathRuns invokes Tokenise() with the configured
+// options. Because the input is pure ASCII AND SeparatorChars is
+// pure ASCII (default set), Tokenise's documented dispatch criterion
+// (isASCIITokenise(s) && !containsNonASCII(opts.SeparatorChars))
+// selects the byte-level fast path. The output is stored in
+// tokeniseFastTokens.
+// Step regex: `^the Tokenise ASCII fast path runs$`
+func (sc *ScorerContext) theTokeniseASCIIFastPathRuns() error {
+	sc.tokeniseFastTokens = fuzzymatch.Tokenise(sc.tokeniseInput, sc.tokeniseOpts)
+	return nil
+}
+
+// theTokeniseRuneFallbackPathRuns invokes Tokenise() with the same
+// input and Lowercase/SplitCamelCase settings BUT with a non-ASCII
+// byte appended to SeparatorChars. This forces the documented
+// dispatch criterion to fail (containsNonASCII becomes true), which
+// in turn selects the rune-based fallback. The chosen non-ASCII
+// character "™" (U+2122) is a 3-byte UTF-8 sequence that never
+// occurs in the input — so the separator semantic is unchanged from
+// the fast-path invocation. The output is stored in
+// tokeniseRuneTokens.
+// Step regex: `^the Tokenise rune fallback path runs$`
+func (sc *ScorerContext) theTokeniseRuneFallbackPathRuns() error {
+	runeOpts := sc.tokeniseOpts
+	runeOpts.SeparatorChars = sc.tokeniseOpts.SeparatorChars + "™"
+	sc.tokeniseRuneTokens = fuzzymatch.Tokenise(sc.tokeniseInput, runeOpts)
+	return nil
+}
+
+// bothTokenisePathsProduce asserts that (a) the fast and rune paths
+// produced byte-identical token sequences and (b) the sequence matches
+// the documented expected output. The expected sequence is a literal
+// Go-style slice rendered in the Gherkin step (e.g. `["foo", "Bar",
+// "baz", "qux"]`). Parsing is delegated to a small helper to keep
+// the step body focused.
+// Step regex: `^both Tokenise paths produce (\[.*\])$`
+func (sc *ScorerContext) bothTokenisePathsProduce(expectedLiteral string) error {
+	expected, err := parseTokeniseExpectedSequence(expectedLiteral)
+	if err != nil {
+		return fmt.Errorf("could not parse expected token sequence %q: %w", expectedLiteral, err)
+	}
+	if !reflect.DeepEqual(sc.tokeniseFastTokens, sc.tokeniseRuneTokens) {
+		return fmt.Errorf("ASCII fast path %q diverged from rune path %q (Phase 8.5 Q8b equivalence violation)",
+			sc.tokeniseFastTokens, sc.tokeniseRuneTokens)
+	}
+	if !reflect.DeepEqual(sc.tokeniseFastTokens, expected) {
+		return fmt.Errorf("Tokenise paths agreed on %q, but expected sequence was %q",
+			sc.tokeniseFastTokens, expected)
+	}
+	return nil
+}
+
+// parseTokeniseExpectedSequence parses a Go-style string-slice literal
+// of the form `["foo", "Bar", "baz", "qux"]` into a []string. The
+// parser is intentionally minimal — it accepts single-quoted strings
+// separated by commas and optional whitespace, surrounded by square
+// brackets. This is sufficient for the Tokenise scenario (the only
+// caller); any expansion to more complex slice literals should be
+// re-evaluated against the established BDD step shape.
+func parseTokeniseExpectedSequence(literal string) ([]string, error) {
+	if len(literal) < 2 || literal[0] != '[' || literal[len(literal)-1] != ']' {
+		return nil, fmt.Errorf("expected sequence must be bracket-delimited; got %q", literal)
+	}
+	body := literal[1 : len(literal)-1]
+	// Empty body -> empty slice.
+	if len(body) == 0 {
+		return []string{}, nil
+	}
+	var out []string
+	inQuote := false
+	var cur []byte
+	for i := 0; i < len(body); i++ {
+		c := body[i]
+		switch {
+		case c == '"' && !inQuote:
+			inQuote = true
+			cur = cur[:0]
+		case c == '"' && inQuote:
+			inQuote = false
+			out = append(out, string(cur))
+		case inQuote:
+			cur = append(cur, c)
+		// Outside quotes: skip commas, whitespace.
+		case c == ',' || c == ' ' || c == '\t':
+			// no-op
+		default:
+			return nil, fmt.Errorf("unexpected character %q at index %d in sequence literal %q", c, i, literal)
+		}
+	}
+	if inQuote {
+		return nil, fmt.Errorf("unterminated quoted token in sequence literal %q", literal)
+	}
+	return out, nil
+}
+
 // InitScorerSteps registers all Scorer step regexes with the supplied
 // godog ScenarioContext. Each scenario gets a fresh ScorerContext (one
 // per scenario, not one per step), keyed off the closure-captured `sc`
@@ -609,5 +749,30 @@ func InitScorerSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(
 		`^the ScoreAll map should not contain ([A-Za-z]+)$`,
 		sc.theScoreAllMapShouldNotContain,
+	)
+
+	// Tokenise ASCII-fast-path equivalence scenario (Phase 8.5 Q8b).
+	// The four steps wire the equivalence scenario in
+	// features/scorer.feature: input -> options -> two-path
+	// invocation -> equality assertion.
+	ctx.Step(
+		`^the Tokenise input "([^"]*)"$`,
+		sc.theTokeniseInputIs,
+	)
+	ctx.Step(
+		`^Tokenise options SplitCamelCase=(true|false) Lowercase=(true|false)$`,
+		sc.theTokeniseOptionsAre,
+	)
+	ctx.Step(
+		`^the Tokenise ASCII fast path runs$`,
+		sc.theTokeniseASCIIFastPathRuns,
+	)
+	ctx.Step(
+		`^the Tokenise rune fallback path runs$`,
+		sc.theTokeniseRuneFallbackPathRuns,
+	)
+	ctx.Step(
+		`^both Tokenise paths produce (\[.*\])$`,
+		sc.bothTokenisePathsProduce,
 	)
 }

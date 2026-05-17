@@ -148,3 +148,143 @@ func BenchmarkTokenise_DefaultOptions(b *testing.B) {
 		b.Fatal("sink unexpectedly empty")
 	}
 }
+
+// ---------------------------------------------------------------------
+// Phase 8.5 Q8b — ASCII fast path allocation-budget benchmarks
+// ---------------------------------------------------------------------
+//
+// The benchmarks below exist to prove the Q8b alloc-count budget:
+//
+//   - opts.Lowercase = false on ASCII input: substrings of the input
+//     string with zero per-token allocation. The only alloc is the
+//     []string header itself (1 alloc total, independent of input
+//     length).
+//   - opts.Lowercase = true on ASCII input: one scratch-buffer alloc
+//     plus one per emitted token (the string([]byte) conversion is
+//     structurally unavoidable without unsafe.String, which is
+//     excluded by project policy).
+//
+// Three sizes (Short / Medium / Long) cover the spectrum of identifier
+// lengths in real consumer workloads. The companion BenchmarkTokenise_
+// Unicode_FastPath_Long benchmark documents the rune-path fallback
+// shape on the same input size for a side-by-side bench.txt
+// comparison via benchstat.
+
+// BenchmarkTokenise_ASCII_FastPath_Short — opts.Lowercase=false,
+// ~20-byte camelCase identifier. Expected: 1 alloc (the []string
+// header); tokens are zero-copy substrings of the input.
+func BenchmarkTokenise_ASCII_FastPath_Short(b *testing.B) {
+	input := "fooBarBazQuxQuuxCorge" // 21 bytes, 6 tokens
+	opts := fuzzymatch.TokeniseOptions{
+		Lowercase:             false,
+		SplitCamelCase:        true,
+		SplitConsecutiveUpper: true,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	var sink []string
+	for i := 0; i < b.N; i++ {
+		sink = fuzzymatch.Tokenise(input, opts)
+	}
+	if len(sink) == 0 {
+		b.Fatal("sink unexpectedly empty")
+	}
+}
+
+// BenchmarkTokenise_ASCII_FastPath_Medium — opts.Lowercase=false,
+// ~80-byte mixed-style identifier. Expected: 1 alloc (the []string
+// header); tokens are zero-copy substrings.
+func BenchmarkTokenise_ASCII_FastPath_Medium(b *testing.B) {
+	input := "fooBar_baz.qux/quuxCorge-graultGarply_waldoFredPlughXyzzyThudHelloWorldSpamEggs" // ~80 bytes
+	opts := fuzzymatch.TokeniseOptions{
+		Lowercase:             false,
+		SplitCamelCase:        true,
+		SplitConsecutiveUpper: true,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	var sink []string
+	for i := 0; i < b.N; i++ {
+		sink = fuzzymatch.Tokenise(input, opts)
+	}
+	if len(sink) == 0 {
+		b.Fatal("sink unexpectedly empty")
+	}
+}
+
+// BenchmarkTokenise_ASCII_FastPath_Long — opts.Lowercase=false,
+// ~500-byte compound identifier. Expected: 1 alloc (the []string
+// header); tokens are zero-copy substrings even at long input size,
+// because the scratch buffer is skipped on the no-lowercase branch.
+func BenchmarkTokenise_ASCII_FastPath_Long(b *testing.B) {
+	input := strings.Repeat("fooBarBaz_quxQuuxCorge.", 23) + "garplyWaldo" // ~530 bytes
+	opts := fuzzymatch.TokeniseOptions{
+		Lowercase:             false,
+		SplitCamelCase:        true,
+		SplitConsecutiveUpper: true,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	var sink []string
+	for i := 0; i < b.N; i++ {
+		sink = fuzzymatch.Tokenise(input, opts)
+	}
+	if len(sink) == 0 {
+		b.Fatal("sink unexpectedly empty")
+	}
+}
+
+// BenchmarkTokenise_ASCII_FastPath_LowercaseLong — opts.Lowercase=true,
+// ~500-byte compound identifier. Documents the lowercase branch
+// allocation shape: one scratch-buffer alloc for the lowercased copy
+// of the input plus one alloc per emitted token (string conversion).
+// This is the upper bound of the v1.0 budget per the m11 LOCKED
+// decision (2026-05-17) excluding unsafe.String.
+func BenchmarkTokenise_ASCII_FastPath_LowercaseLong(b *testing.B) {
+	input := strings.Repeat("fooBarBaz_quxQuuxCorge.", 23) + "garplyWaldo"
+	opts := fuzzymatch.TokeniseOptions{
+		Lowercase:             true,
+		SplitCamelCase:        true,
+		SplitConsecutiveUpper: true,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	var sink []string
+	for i := 0; i < b.N; i++ {
+		sink = fuzzymatch.Tokenise(input, opts)
+	}
+	if len(sink) == 0 {
+		b.Fatal("sink unexpectedly empty")
+	}
+}
+
+// BenchmarkTokenise_Unicode_FastPath_Long is the rune-path counterpart
+// to BenchmarkTokenise_ASCII_FastPath_Long: same nominal byte length,
+// same boundary shape, but one Cyrillic byte inserted to force the
+// rune path. Used for a benchstat side-by-side comparison documenting
+// the alloc-count delta between paths.
+func BenchmarkTokenise_Unicode_FastPath_Long(b *testing.B) {
+	// One non-ASCII rune at the front forces the rune path even
+	// though the rest of the input is ASCII-identical to the
+	// ASCII_FastPath_Long shape.
+	input := "Приfoo" + strings.Repeat("BarBaz_quxQuuxCorge.foo", 22) + "garplyWaldo"
+	opts := fuzzymatch.TokeniseOptions{
+		Lowercase:             false,
+		SplitCamelCase:        true,
+		SplitConsecutiveUpper: true,
+		SeparatorChars:        fuzzymatch.DefaultTokeniseOptions().SeparatorChars,
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	var sink []string
+	for i := 0; i < b.N; i++ {
+		sink = fuzzymatch.Tokenise(input, opts)
+	}
+	if len(sink) == 0 {
+		b.Fatal("sink unexpectedly empty")
+	}
+}
