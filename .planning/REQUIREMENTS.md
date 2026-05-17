@@ -24,7 +24,7 @@
 - [ ] **CHAR-03**: **Damerau-Levenshtein Full** (Lowrance-Wagner unrestricted transposition) — distinct AlgoID from OSA (`docs/requirements.md` §7.3)
 - [ ] **CHAR-04**: **Hamming** distance (equal-length strings; defined behaviour for unequal-length) (`docs/requirements.md` §7.4)
 - [ ] **CHAR-05**: **Jaro** similarity (`docs/requirements.md` §7.5)
-- [ ] **CHAR-06**: **Jaro-Winkler** with configurable prefix boost (`docs/requirements.md` §7.6)
+- [x] **CHAR-06**: **Jaro-Winkler** with configurable prefix boost (`docs/requirements.md` §7.6)
 - [ ] **CHAR-07**: **Strcmp95** (Winkler 1994) with similar-character table (`docs/requirements.md` §7.7)
 - [ ] **CHAR-08**: **Smith-Waterman-Gotoh** with configurable affine gap penalty — implementation MUST cross-validate against EMBOSS or biopython reference vectors due to documented Gotoh 1982 erratum (`docs/requirements.md` §7.8, research/PITFALLS.md #3)
 - [ ] **CHAR-09**: **LCSStr** (longest common substring) similarity (`docs/requirements.md` §7.9)
@@ -106,10 +106,10 @@ Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing compani
 
 ### Performance (PERF)
 
-- [ ] **PERF-01**: Per-algorithm allocation budgets enforced via benchmark assertions (`docs/requirements.md` §14)
-- [ ] **PERF-02**: ASCII fast paths for `Normalise`, Levenshtein, and other byte-level algorithms where applicable (`docs/requirements.md` §14.2)
-- [ ] **PERF-03**: Two-row DP (no full table) for all `O(mn)` algorithms (`docs/requirements.md` §14.3)
-- [ ] **PERF-04**: Benchstat regression detection in CI — `-count=10`, regression > 10% at `p < 0.05` fails (`docs/requirements.md` §14.4)
+- [x] **PERF-01**: Per-algorithm allocation budgets enforced via benchmark assertions (`docs/requirements.md` §14)
+- [x] **PERF-02**: ASCII fast paths for `Normalise`, Levenshtein, and other byte-level algorithms where applicable (`docs/requirements.md` §14.2)
+- [x] **PERF-03**: Two-row DP (no full table) for all `O(mn)` algorithms (`docs/requirements.md` §14.3)
+- [x] **PERF-04**: Benchstat regression detection in CI — `-count=10`, regression > 10% at `p < 0.05` fails (`docs/requirements.md` §14.4)
 - [ ] **PERF-05**: `scan.Check` performance budget — < 2s for 10,000 items (`docs/requirements.md` §12.6)
 - [ ] **PERF-06**: Stack-allocated buffers for ASCII fast paths (verified by escape-analysis check) (`docs/requirements.md` §14.5)
 
@@ -218,7 +218,7 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | CHAR-03 | Phase 2 | Pending |
 | CHAR-04 | Phase 2 | Pending |
 | CHAR-05 | Phase 2 | Pending |
-| CHAR-06 | Phase 2 | Pending |
+| CHAR-06 | Phase 2 | Complete |
 | CHAR-07 | Phase 4 | Pending |
 | CHAR-08 | Phase 3 | Pending |
 | CHAR-09 | Phase 4 | Pending |
@@ -268,10 +268,10 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | DET-04 | Phase 2 | Pending |
 | DET-05 | Phase 1 | Pending |
 | DET-06 | Phase 1 | Pending |
-| PERF-01 | Phase 2 | Pending |
-| PERF-02 | Phase 2 | Pending |
-| PERF-03 | Phase 2 | Pending |
-| PERF-04 | Phase 1 | Pending |
+| PERF-01 | Phase 2 | Complete |
+| PERF-02 | Phase 2 | Complete |
+| PERF-03 | Phase 2 | Complete |
+| PERF-04 | Phase 1 | Complete |
 | PERF-05 | Phase 9 | Pending |
 | PERF-06 | Phase 1 | Pending |
 | TEST-01 | Phase 2 | Pending |
