@@ -19,11 +19,11 @@
 
 ### Character-based algorithms (CHAR)
 
-- [ ] **CHAR-01**: **Levenshtein** edit distance with byte + rune variants, two-row DP, ASCII fast path (`docs/requirements.md` §7.1)
-- [ ] **CHAR-02**: **Damerau-Levenshtein OSA** (Optimal String Alignment / restricted transposition) — distinct AlgoID from Full (`docs/requirements.md` §7.2)
-- [ ] **CHAR-03**: **Damerau-Levenshtein Full** (Lowrance-Wagner unrestricted transposition) — distinct AlgoID from OSA (`docs/requirements.md` §7.3)
+- [x] **CHAR-01**: **Levenshtein** edit distance with byte + rune variants, two-row DP, ASCII fast path (`docs/requirements.md` §7.1)
+- [x] **CHAR-02**: **Damerau-Levenshtein OSA** (Optimal String Alignment / restricted transposition) — distinct AlgoID from Full (`docs/requirements.md` §7.2)
+- [x] **CHAR-03**: **Damerau-Levenshtein Full** (Lowrance-Wagner unrestricted transposition) — distinct AlgoID from OSA (`docs/requirements.md` §7.3)
 - [ ] **CHAR-04**: **Hamming** distance (equal-length strings; defined behaviour for unequal-length) (`docs/requirements.md` §7.4)
-- [ ] **CHAR-05**: **Jaro** similarity (`docs/requirements.md` §7.5)
+- [x] **CHAR-05**: **Jaro** similarity (`docs/requirements.md` §7.5)
 - [x] **CHAR-06**: **Jaro-Winkler** with configurable prefix boost (`docs/requirements.md` §7.6)
 - [ ] **CHAR-07**: **Strcmp95** (Winkler 1994) with similar-character table (`docs/requirements.md` §7.7)
 - [ ] **CHAR-08**: **Smith-Waterman-Gotoh** with configurable affine gap penalty — implementation MUST cross-validate against EMBOSS or biopython reference vectors due to documented Gotoh 1982 erratum (`docs/requirements.md` §7.8, research/PITFALLS.md #3)
@@ -39,7 +39,7 @@
 
 ### Token-based algorithms (TOKEN)
 
-- [ ] **TOKEN-01**: **Monge-Elkan** with pluggable inner AlgoID — `MongeElkanScore(a, b, inner AlgoID)` (`docs/requirements.md` §7.15)
+- [x] **TOKEN-01**: **Monge-Elkan** with pluggable inner AlgoID — `MongeElkanScore(a, b, inner AlgoID)` (`docs/requirements.md` §7.15)
 - [ ] **TOKEN-02**: **Token Sort Ratio** — cross-validate against RapidFuzz (Indel formula), not fuzzywuzzy (`docs/requirements.md` §7.16, research/PITFALLS.md #6)
 - [ ] **TOKEN-03**: **Token Set Ratio** (`docs/requirements.md` §7.17)
 - [ ] **TOKEN-04**: **Partial Ratio** (`docs/requirements.md` §7.18)
@@ -118,7 +118,7 @@ Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing compani
 - [ ] **TEST-01**: Literature reference vectors in unit tests for every algorithm, citing the source paper (`docs/requirements.md` §15.1, `.claude/skills/algorithm-correctness-standards/SKILL.md`)
 - [ ] **TEST-02**: Property tests (`testing/quick`) for mathematical invariants per algorithm — identity, symmetry, range bounds, triangle inequality where applicable (`docs/requirements.md` §15.2)
 - [ ] **TEST-03**: Fuzz tests with malformed UTF-8 corpus — panic-free guarantee (`docs/requirements.md` §15.3)
-- [ ] **TEST-04**: Benchmark per algorithm with allocation assertions (`docs/requirements.md` §15.4)
+- [x] **TEST-04**: Benchmark per algorithm with allocation assertions (`docs/requirements.md` §15.4)
 - [ ] **TEST-05**: BDD scenarios (godog) per algorithm + Scorer composition pattern + scan suppression behaviour + Extract behaviour, isolated in `tests/bdd/` sub-module (`docs/requirements.md` §15.5)
 - [ ] **TEST-06**: Meta-tests — README compiles, Makefile targets documented, llms.txt sync-check, godoc examples runnable (`docs/requirements.md` §15.6)
 - [ ] **TEST-07**: Coverage ≥ 95% overall, ≥ 90% per file, 100% public API surface — enforced (not just reported) in CI (`docs/requirements.md` §15.7)
@@ -213,11 +213,11 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | FOUND-03 | Phase 1 | Pending |
 | FOUND-04 | Phase 1 | Pending |
 | FOUND-05 | Phase 1 | Complete |
-| CHAR-01 | Phase 2 | Pending |
-| CHAR-02 | Phase 2 | Pending |
-| CHAR-03 | Phase 2 | Pending |
+| CHAR-01 | Phase 2 | Complete |
+| CHAR-02 | Phase 2 | Complete |
+| CHAR-03 | Phase 2 | Complete |
 | CHAR-04 | Phase 2 | Pending |
-| CHAR-05 | Phase 2 | Pending |
+| CHAR-05 | Phase 2 | Complete |
 | CHAR-06 | Phase 2 | Complete |
 | CHAR-07 | Phase 4 | Pending |
 | CHAR-08 | Phase 3 | Pending |
@@ -227,7 +227,7 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | QGRAM-03 | Phase 5 | Complete |
 | QGRAM-04 | Phase 5 | Complete |
 | QGRAM-05 | Phase 5 | Complete |
-| TOKEN-01 | Phase 6 | Pending |
+| TOKEN-01 | Phase 6 | Complete |
 | TOKEN-02 | Phase 6 | Pending |
 | TOKEN-03 | Phase 6 | Pending |
 | TOKEN-04 | Phase 6 | Pending |
@@ -277,7 +277,7 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | TEST-01 | Phase 2 | Pending |
 | TEST-02 | Phase 2 | Pending |
 | TEST-03 | Phase 1 | Pending |
-| TEST-04 | Phase 2 | Pending |
+| TEST-04 | Phase 2 | Complete |
 | TEST-05 | Phase 2 | Pending |
 | TEST-06 | Phase 1 | Pending |
 | TEST-07 | Phase 1 | Pending |
