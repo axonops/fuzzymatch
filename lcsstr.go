@@ -204,6 +204,9 @@ func LongestCommonSubstringRunes(a, b string) string {
 //
 //	score = 2 · len(lcs) / (len(a) + len(b))
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // Edge cases:
 //   - LCSStrScore("", "")    == 1.0 (both-empty convention)
 //   - LCSStrScore("", "abc") == 0.0 (one-empty)

@@ -127,6 +127,11 @@ func HammingDistanceRunes(a, b string) int {
 // HammingScore returns the Hamming similarity between a and b as a value in
 // [0.0, 1.0], where 1.0 means identical and 0.0 means maximally dissimilar.
 //
+// For programmatic input-quality checks before scoring (including detection
+// of the unequal-length condition that triggers the silent-zero return),
+// see [fuzzymatch.Validate] — it emits WarnUnequalLength scoped to
+// AlgoHamming.
+//
 // Normalisation: score = 1 - distance / max(len(a), len(b)).
 //
 // Inputs of unequal length are not an error: HammingScore returns 0.0

@@ -152,6 +152,10 @@ package fuzzymatch
 // deduplicate each token list to a set, then compute the Jaccard
 // coefficient |A ∩ B| / |A ∪ B| over the two sets.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnNoTokensAfterNormalise scoped to AlgoTokenJaccard),
+// see [fuzzymatch.Validate].
+//
 // Conventions (the STANDARD catalogue both-empty convention; distinct
 // from TokenSetRatio's LOCKED RapidFuzz issue #110 deviation):
 //

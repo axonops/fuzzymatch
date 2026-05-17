@@ -160,6 +160,9 @@ import (
 // multi-byte UTF-8 inputs split q-grams at byte boundaries, which can
 // produce different results than CosineScoreRunes on non-ASCII input.
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // Iteration order over the intersection keys is SORTED (sort.Strings)
 // per CONTEXT.md §3 LOCKED; the dot-product reduction uses explicit
 // (x*y) + z parenthesisation per DET-06 plus an outer float64(...) wrap

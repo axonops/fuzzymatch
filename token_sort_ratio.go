@@ -142,6 +142,10 @@ import (
 // 2·LCS / (|joinedA|+|joinedB|) (Wagner & Fischer 1974
 // LCS-subsequence DP over bytes, RapidFuzz-canonical normalisation).
 //
+// For programmatic input-quality checks before scoring (including
+// WarnNoTokensAfterNormalise scoped to AlgoTokenSortRatio),
+// see [fuzzymatch.Validate].
+//
 // Conventions (mirror Q-Gram Jaccard / LCSStr):
 //
 //   - TokenSortRatioScore("",        "")               == 1.0  (both-empty / identity)

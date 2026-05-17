@@ -256,6 +256,10 @@ func SoundexCode(s string) string { //nolint:gocyclo // canonical Russell-Knuth 
 // (Knuth/Census variant), and 0.0 otherwise. Empty strings: both-empty returns
 // 1.0 (covered by the identity short-circuit); one-empty returns 0.0.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnAllNonASCIIDropped scoped to AlgoSoundex when the input collapses
+// to empty after the ASCII-only path), see [fuzzymatch.Validate].
+//
 // Non-ASCII input handling: this algorithm operates on ASCII letters
 // [A-Za-z] only. Non-ASCII runes (accented characters, emoji,
 // combining marks) are dropped silently before encoding. For

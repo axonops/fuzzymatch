@@ -147,6 +147,9 @@ func DamerauLevenshteinOSADistanceRunes(a, b string) int {
 // between a and b as a value in [0.0, 1.0], where 1.0 means identical and
 // 0.0 means maximally dissimilar.
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // Normalisation: score = 1 - distance / max(len(a), len(b)).
 //
 // Edge cases:

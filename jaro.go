@@ -110,6 +110,9 @@ const maxJaroStackLen = 256
 // [0.0, 1.0], where 1.0 means identical and 0.0 means maximally dissimilar
 // (or one of the two strings is empty while the other is non-empty).
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // Edge cases:
 //   - JaroScore("", "") == 1.0 exactly (both-empty identity convention)
 //   - JaroScore("", "abc") == 0.0 exactly (one-empty)

@@ -445,6 +445,11 @@ func MongeElkanScoreAsymmetric(a, b string, inner AlgoID) float64 {
 //
 //	ME_sym(A, B, sim) = (ME(A, B, sim) + ME(B, A, sim)) / 2.0
 //
+// For programmatic input-quality checks before scoring (including
+// WarnNoTokensAfterNormalise scoped to AlgoMongeElkan when one input
+// produces an empty token list under DefaultNormalisationOptions),
+// see [fuzzymatch.Validate].
+//
 // This is symmetric by default (the sum of two terms swapped under
 // (a, b) → (b, a) is the same sum) and is the surface bound to
 // dispatch[AlgoMongeElkan] per CONTEXT.md §4 LOCKED, so AlgoMongeElkan

@@ -235,6 +235,9 @@ func (p SWGParams) validate() error { //nolint:gocyclo // 4 per-field invariant 
 // similarity between a and b as a value in [0.0, 1.0] using the documented
 // default parameters (Match=1.0, Mismatch=-1.0, GapOpen=-1.5, GapExtend=-0.5).
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // The returned score is CLAMPED: if the underlying alignment score is
 // negative (e.g. two unrelated strings dominated by mismatch/gap penalties)
 // the clamp returns 0.0; if it exceeds min(len(a), len(b)) (custom params

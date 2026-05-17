@@ -191,6 +191,9 @@ import (
 // multi-byte UTF-8 inputs split q-grams at byte boundaries, which can
 // produce different results than TverskyScoreRunes on non-ASCII input.
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // Tversky is symmetric when α = β. When α ≠ β, swapping (a, b) generally
 // produces a different score: TverskyScore(a, b, n, α, β) ≠
 // TverskyScore(b, a, n, α, β). The parameter-swap symmetry

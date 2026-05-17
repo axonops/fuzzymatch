@@ -118,6 +118,9 @@ package fuzzymatch
 // at byte boundaries, which can produce different results than
 // QGramJaccardScoreRunes on non-ASCII input.
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // The q-gram size n MUST be >= 1; n < 1 panics with the message
 // "fuzzymatch: invalid q-gram size" (CONTEXT.md §5 LOCKED — direct
 // calls fail loudly on programmer error; the Phase 8 Scorer option

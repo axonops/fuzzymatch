@@ -99,6 +99,9 @@ const winklerBoostThreshold = 0.7
 // value in [0.0, 1.0], where 1.0 means identical and 0.0 means maximally
 // dissimilar.
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // JaroWinklerScore delegates to JaroScore (Jaro 1989) and then applies the
 // Winkler 1990 prefix boost: when the underlying Jaro score is at least
 // winklerBoostThreshold (0.7), the score is increased by a bonus proportional

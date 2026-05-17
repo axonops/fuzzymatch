@@ -337,6 +337,9 @@ func NYSIISCode(s string) string { //nolint:gocyclo // canonical Taft 1970 state
 // NYSIISScore returns 1.0 if a and b share the same non-empty NYSIIS code
 // (original Taft-1970 variant, 6-char truncation), and 0.0 otherwise.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnAllNonASCIIDropped scoped to AlgoNYSIIS), see [fuzzymatch.Validate].
+//
 // Both-empty convention: both-empty returns 1.0 (covered by the identity
 // short-circuit per algorithm-correctness-standards).
 // One-empty: returns 0.0 (empty code → no phonetic match).

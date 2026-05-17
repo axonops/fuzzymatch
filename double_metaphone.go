@@ -898,6 +898,10 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) { //nolint:gocycl
 // phonetic key (primary or secondary) under the Double Metaphone algorithm
 // (Philips 2000), and 0.0 otherwise.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnAllNonASCIIDropped scoped to AlgoDoubleMetaphone),
+// see [fuzzymatch.Validate].
+//
 // The four-way key match rule (per docs/requirements.md §7.4.2):
 //
 //	1.0 if any of {primary_a == primary_b, primary_a == secondary_b,

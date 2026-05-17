@@ -225,6 +225,10 @@ import (
 // intersection+diff_ba). See the file-header godoc for the full
 // algorithm and the LOCKED RapidFuzz issue #110 empty-set deviation.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnNoTokensAfterNormalise scoped to AlgoTokenSetRatio),
+// see [fuzzymatch.Validate].
+//
 // Conventions:
 //
 //   - TokenSetRatioScore("hello",       "hello")            == 1.0  (identity short-circuit; non-empty)

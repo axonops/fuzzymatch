@@ -225,6 +225,10 @@ package fuzzymatch
 // 2·LCS / (|substr_a|+|substr_b|) per RapidFuzz `_partial_ratio_impl`
 // reference.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnNoTokensAfterNormalise scoped to AlgoPartialRatio),
+// see [fuzzymatch.Validate].
+//
 // Conventions (mirror Q-Gram Jaccard / LCSStr / TokenSortRatio — does
 // NOT inherit TokenSetRatio's RapidFuzz issue #110 deviation):
 //

@@ -209,6 +209,10 @@ func strcmp95SimilarLookup(a, b byte) float64 {
 // value in [0.0, 1.0], where 1.0 means identical and 0.0 means maximally
 // dissimilar.
 //
+// For programmatic input-quality checks before scoring (including the
+// ASCII-only WarnAllNonASCIIDropped surface scoped to AlgoStrcmp95),
+// see [fuzzymatch.Validate].
+//
 // Strcmp95 = Jaro + similar-character credit + Winkler prefix boost
 // + long-string adjustment. The four adjustments only add to the base Jaro
 // score: Strcmp95Score(a, b) >= JaroWinklerScore(a, b) for every (a, b).

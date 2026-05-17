@@ -125,6 +125,9 @@ package fuzzymatch
 // [0.0, 1.0]. Behaves byte-for-byte like
 // difflib.SequenceMatcher(autojunk=False, a=a, b=b).ratio().
 //
+// For programmatic input-quality checks before scoring,
+// see [fuzzymatch.Validate].
+//
 // RatcliffObershelpScore is NOT symmetric in argument order. This mirrors
 // Python's difflib.SequenceMatcher(autojunk=False).ratio() behaviour (see
 // CPython bpo-37004). For symmetric similarity, callers should sort inputs

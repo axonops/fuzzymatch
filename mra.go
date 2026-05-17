@@ -369,6 +369,9 @@ func MRACompare(a, b string) (matched bool, simScore int) { //nolint:gocyclo // 
 // MRAScore returns 1.0 if a and b are an MRA match (MRACompare returns matched=true),
 // and 0.0 otherwise. This is the binary dispatch-table wrapper around MRACompare.
 //
+// For programmatic input-quality checks before scoring (including
+// WarnAllNonASCIIDropped scoped to AlgoMRA), see [fuzzymatch.Validate].
+//
 // Strict consistency invariant: MRAScore(a, b) == 1.0 iff MRACompare(a, b).matched.
 // (Property-tested by PropMRA_ScoreCompareConsistency.)
 //
