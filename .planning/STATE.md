@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Completed Plan 08.5-17a (Q12c + Q14a + Q6a + VALIDATE-06 surfaces 2+3 — docs/algorithms.md full rewrite + 23 algorithm godoc cross-refs).
-last_updated: "2026-05-17T17:45:14.281Z"
+stopped_at: Completed Plan 08.5-17b (VALIDATE-06 surfaces 1+4+5+6 + Gap 3 BDD + consumer-docs Important findings)
+last_updated: "2026-05-17T18:10:13.974Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 18 of 20 (08.5-15b just completed; 16 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15a, 15b)
+Plan: 19 of 20 (08.5-15b just completed; 16 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15a, 15b)
 Status: Ready to execute
 Last activity: 2026-05-17
 
@@ -76,6 +76,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08.5 P15b | 22min | 3 tasks tasks | 43 files files |
 | Phase 08.5 P16 | 55min | 3 tasks | 17 files |
 | Phase 08.5 P17a | 30min | 3 tasks tasks | 25 files files |
+| Phase 08.5 P17b | 50min | 2 tasks tasks | 22 files files |
 
 ## Accumulated Context
 
@@ -108,6 +109,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - [Phase ?]: Phase 08.5 Plan 15b (Q14b residue + Gap 2 + Gap 5 companion + Gap 7): 3 BDD scenarios for ErrInvalidAlgoID/ErrInvalidQGramSize/ErrInvalidTverskyParam landed in scorer.feature; TestDefaultScorer_NeverPanics_PropertyTest at quick.Check MaxCount=100 covers DefaultScorer + all 6 default-removal subsets + AlgoCosine silent-no-op. Gap 7 outcomes per CONTEXT.md defaults: MRACompare tuple documented (no code change); (SWGParams).Validate() added with ErrInvalidSWGParam sentinel + NewSWGParams self-test wrapping ErrInternalInvariantViolated; WithoutAlgorithm silent no-op godoc + BDD scenario; AlgoIDs() hot-path-caching godoc. Q14b lint sweep 63→0 issues across 10 linter classes (30 inline fixes + 28 documented //nolint annotations in golangci_residue.md). British English clean across .go files. runeAt → runeSizeAt rename across 6 phonetic-encoder call sites.
 - [Phase ?]: Plan 08.5-16 (Q13): full devops cluster landed — 36 SHA-pinned action references across 8 workflow files; release.yml gated on a GitHub Checks API verify-ci-green pre-flight job; nightly.yml long-form fuzz + benchstat regression + auto-PR for fuzz corpus; make verify-llms-sync as a CI gate (strict on llms.txt, advisory on llms-full.txt until Plan 17); scripts/internal/astwalk shared AST helper; HashiCorp/MPL-2.0 audit PASS (distributed Apache-2.0 surface clean); docs/algorithms.md 9 H2 anchors standardised to hyphenated form; bench.txt regenerated (1296→1419 lines); Q7d 25% q-gram capacity hint surfaced as +15-19% time / +90-107% bytes regression on Medium/Long ASCII — flagged as out-of-scope follow-up.
 - [Phase ?]: Plan 08.5-17a (Q12c, Q14a, Q6a, VALIDATE-06 surfaces 2+3): docs/algorithms.md rewritten from 239-line TBD scaffold to 1587-line per-algorithm reference (closes docs-writer Critical 100% TBD scaffold finding). 23 algorithm files carry [fuzzymatch.Validate] godoc cross-references with algorithm-scoped WarnKind callouts. Q12c panic-surface table enumerates 8 public functions + 4 typed-error counter-list. Q14a 5 MB/call ceiling documented with forward reference to GH issue #2. Q6a Ratcliff-Obershelp asymmetric-by-design exception added to .claude/skills/algorithm-correctness-standards/SKILL.md (local-only — .claude/ globally gitignored). markdownlint config extended with 4 additional disables tuned to doc structure.
+- [Phase ?]: Phase 08.5 Plan 17b (VALIDATE-06 surfaces 1+4+5+6 + Gap 3 BDD + 30+ docs-writer Important findings): docs/best-practices.md NEW (216 LOC consumer-guide for Validate); examples/validate-input-quality/ NEW (90+122 LOC main + stdout-pinning meta-test); normalisation.feature + determinism.feature NEW (6 + 6 BDD scenarios — scan.feature + suppression.feature deferred to Phase 9 per CONTEXT.md Gap 3 default); README Quick Start refreshed to v1.0 with Common Patterns / Validate-then-Score sub-section; llms-full.txt gained Character-tier foundation section (closes Hamming gap) + Input validation section; Phase 8/9/10 stale framing scrubbed from README + llms.txt + scorer.md + tuning.md + scan.md + extending.md; CONTRIBUTING.md wrong §11.2 → §5 + §13.1 (REL-07 was fictitious); doc.go platform list darwin/amd64 added; faq.md Soft-TFIDF + Validate entries added; British English sweep — 1 hit fixed in prior-art-research.md. 284 BDD scenarios all green (was 272). Phase 8.5 success criterion 3 (6 Validate doc surfaces) FULLY SATISFIED.
 
 ### Pending Todos
 
@@ -133,6 +135,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T17:45:14.276Z
-Stopped at: Completed Plan 08.5-17a (Q12c + Q14a + Q6a + VALIDATE-06 surfaces 2+3 — docs/algorithms.md full rewrite + 23 algorithm godoc cross-refs).
+Last session: 2026-05-17T18:10:13.969Z
+Stopped at: Completed Plan 08.5-17b (VALIDATE-06 surfaces 1+4+5+6 + Gap 3 BDD + consumer-docs Important findings)
 Resume file: 
+None
