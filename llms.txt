@@ -192,6 +192,10 @@ scan / Extract (Phases 9–10).
 - var ErrEmptyInput error
 - var ErrInvalidQGramSize error
 - var ErrInvalidTverskyParam error
+- var ErrEmptyScorer error
+- var ErrInvalidWeight error
+- var ErrInvalidThreshold error
+- var ErrMissingThreshold error
 
 ## Out of v1.0 scope
 

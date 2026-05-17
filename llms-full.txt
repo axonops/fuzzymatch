@@ -1025,6 +1025,31 @@ var ErrInvalidQGramSize = errors.New("fuzzymatch: invalid q-gram size")
 // Scorer's WithTverskyAlgorithm; direct TverskyScore / TverskyScoreRunes
 // calls panic with the sentinel's message text instead per CONTEXT.md §5.
 var ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
+
+// ErrEmptyScorer indicates NewScorer was called without any algorithm
+// option. Pass at least one WithAlgorithm option, or use DefaultScorer()
+// for the opinionated six-algorithm composition. Returned by NewScorer
+// (Phase 8) after the missing-threshold check passes.
+var ErrEmptyScorer = errors.New("fuzzymatch: scorer has no algorithms (pass at least one WithAlgorithm option or use DefaultScorer)")
+
+// ErrInvalidWeight indicates an algorithm weight passed to a Phase 8
+// Scorer With*Algorithm option was ≤ 0. Weights must be strictly
+// positive so that auto-normalisation has a positive divisor and the
+// composite remains in [0.0, 1.0]. Returned at option-application time.
+var ErrInvalidWeight = errors.New("fuzzymatch: invalid algorithm weight (must be > 0)")
+
+// ErrInvalidThreshold indicates a WithThreshold value was outside the
+// closed interval [0.0, 1.0]. Thresholds are compared against composite
+// scores which the Scorer guarantees fall in [0.0, 1.0] under default
+// weight normalisation. Returned at option-application time.
+var ErrInvalidThreshold = errors.New("fuzzymatch: invalid threshold (must be in [0.0, 1.0])")
+
+// ErrMissingThreshold indicates NewScorer was called without
+// WithThreshold. The threshold is a calibration parameter with no
+// universally-safe default, so the library refuses to guess. Pass
+// WithThreshold(t) with t ∈ [0.0, 1.0], or use DefaultScorer() which
+// bakes 0.85 in. This check fires FIRST in the validation pipeline.
+var ErrMissingThreshold = errors.New("fuzzymatch: scorer threshold required (pass WithThreshold or use DefaultScorer)")
 ```
 
 ## Sample programs
