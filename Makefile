@@ -27,7 +27,8 @@ COVERAGE_FLOOR   := 95.0
 	coverage coverage-check tidy tidy-check security verify-deps-allowlist \
 	verify-determinism verify-license-headers regen-swg-cross-validation \
 	regen-ratcliff-obershelp-cross-validation regen-token-ratio-cross-validation \
-	regen-phonetic-cross-validation \
+	regen-phonetic-cross-validation regen-character-cross-validation \
+	regen-qgram-cross-validation regen-monge-elkan-cross-validation \
 	release-check clean
 
 # `check` — the canonical pre-PR aggregate gate. CI runs the same target.
@@ -267,6 +268,30 @@ regen-phonetic-cross-validation:
 	  exit 1; \
 	fi
 	python3 scripts/gen-phonetic-cross-validation.py
+
+# Regenerates testdata/cross-validation/character/vectors.json by invoking the
+# jellyfish==1.2.1 generator script. Developer-only — NOT included in
+# `make check`. The committed JSON is the verification fixture; CI does NOT
+# require Python at test time. Re-run this target when the pinned jellyfish
+# version is bumped or when new test cases are added to
+# scripts/gen-character-cross-validation.py. The script refuses to run on
+# a non-pinned jellyfish version (JELLYFISH_VERSION = "1.2.1") — version
+# is probed via `pip show jellyfish` because jellyfish 1.2.1 dropped its
+# module-level __version__ attribute.
+#
+# Plan 08.5-10 task 1 lands the character-tier cross-validation corpus
+# (Levenshtein, Damerau-OSA, Jaro, JaroWinkler — the four jellyfish
+# surfaces). See CONTRIBUTING.md "Cross-validation corpora" for the
+# pin-bump protocol.
+#
+# Requires: python3 (>= 3.7) + jellyfish==1.2.1
+#   python3 -m pip install --user jellyfish==1.2.1
+regen-character-cross-validation:
+	@if ! command -v python3 >/dev/null 2>&1; then \
+	  echo "python3 not found; install Python 3.7+ and run: python3 -m pip install --user jellyfish==1.2.1"; \
+	  exit 1; \
+	fi
+	python3 scripts/gen-character-cross-validation.py
 
 # Plan 01-03 lands .goreleaser.yml. Until then this is a tolerant no-op.
 release-check:

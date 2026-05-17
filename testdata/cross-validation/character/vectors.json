@@ -1,0 +1,310 @@
+{
+  "version": 1,
+  "_metadata": {
+    "jellyfish_version": "1.2.1",
+    "python_version": "3.12.12",
+    "regenerated_at": "2026-05-17T13:07:04.684232+00:00"
+  },
+  "entries": [
+    {
+      "name": "identity_short",
+      "a": "hello",
+      "b": "hello",
+      "levenshtein_distance": 0,
+      "damerau_levenshtein_distance": 0,
+      "jaro_similarity": 1.0,
+      "jaro_winkler_similarity": 1.0
+    },
+    {
+      "name": "identity_word",
+      "a": "fuzzymatch",
+      "b": "fuzzymatch",
+      "levenshtein_distance": 0,
+      "damerau_levenshtein_distance": 0,
+      "jaro_similarity": 1.0,
+      "jaro_winkler_similarity": 1.0
+    },
+    {
+      "name": "both_empty",
+      "a": "",
+      "b": "",
+      "levenshtein_distance": 0,
+      "damerau_levenshtein_distance": 0,
+      "jaro_similarity": 1.0,
+      "jaro_winkler_similarity": 1.0,
+      "variant_divergence": true,
+      "divergent_jellyfish_jaro": 0.0,
+      "divergent_jellyfish_jw": 0.0
+    },
+    {
+      "name": "one_empty_a",
+      "a": "",
+      "b": "hello",
+      "levenshtein_distance": 5,
+      "damerau_levenshtein_distance": 5,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "one_empty_b",
+      "a": "hello",
+      "b": "",
+      "levenshtein_distance": 5,
+      "damerau_levenshtein_distance": 5,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "lev_kitten_sitting",
+      "a": "kitten",
+      "b": "sitting",
+      "levenshtein_distance": 3,
+      "damerau_levenshtein_distance": 3,
+      "jaro_similarity": 0.746031746031746,
+      "jaro_winkler_similarity": 0.746031746031746
+    },
+    {
+      "name": "lev_saturday_sunday",
+      "a": "Saturday",
+      "b": "Sunday",
+      "levenshtein_distance": 3,
+      "damerau_levenshtein_distance": 3,
+      "jaro_similarity": 0.7527777777777779,
+      "jaro_winkler_similarity": 0.7775000000000001
+    },
+    {
+      "name": "lev_book_back",
+      "a": "book",
+      "b": "back",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 2,
+      "jaro_similarity": 0.6666666666666666,
+      "jaro_winkler_similarity": 0.6666666666666666
+    },
+    {
+      "name": "lev_single_insert",
+      "a": "abc",
+      "b": "abcd",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.9166666666666666,
+      "jaro_winkler_similarity": 0.9416666666666667
+    },
+    {
+      "name": "lev_single_delete",
+      "a": "abcd",
+      "b": "abc",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.9166666666666666,
+      "jaro_winkler_similarity": 0.9416666666666667
+    },
+    {
+      "name": "lev_single_sub",
+      "a": "abc",
+      "b": "abd",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.7777777777777777,
+      "jaro_winkler_similarity": 0.8222222222222222
+    },
+    {
+      "name": "dl_full_transpose_ab",
+      "a": "ab",
+      "b": "ba",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "dl_full_transpose_word",
+      "a": "the cat",
+      "b": "the act",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.9523809523809524,
+      "jaro_winkler_similarity": 0.9714285714285714
+    },
+    {
+      "name": "dl_full_boytsov_example",
+      "a": "ca",
+      "b": "abc",
+      "levenshtein_distance": 3,
+      "damerau_levenshtein_distance": 2,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "dl_full_two_transpositions",
+      "a": "abcd",
+      "b": "badc",
+      "levenshtein_distance": 3,
+      "damerau_levenshtein_distance": 2,
+      "jaro_similarity": 0.8333333333333334,
+      "jaro_winkler_similarity": 0.8333333333333334
+    },
+    {
+      "name": "jaro_martha_marhta",
+      "a": "MARTHA",
+      "b": "MARHTA",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.9444444444444445,
+      "jaro_winkler_similarity": 0.9611111111111111
+    },
+    {
+      "name": "jaro_dixon_dicksonx",
+      "a": "DIXON",
+      "b": "DICKSONX",
+      "levenshtein_distance": 4,
+      "damerau_levenshtein_distance": 4,
+      "jaro_similarity": 0.7666666666666666,
+      "jaro_winkler_similarity": 0.8133333333333332
+    },
+    {
+      "name": "jaro_dwayne_duane",
+      "a": "DWAYNE",
+      "b": "DUANE",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 2,
+      "jaro_similarity": 0.8222222222222223,
+      "jaro_winkler_similarity": 0.8400000000000001
+    },
+    {
+      "name": "jaro_jellyfish_smellyfish",
+      "a": "jellyfish",
+      "b": "smellyfish",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 2,
+      "jaro_similarity": 0.8962962962962964,
+      "jaro_winkler_similarity": 0.8962962962962964
+    },
+    {
+      "name": "jw_short_prefix_match",
+      "a": "TRATE",
+      "b": "TRACE",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.8666666666666667,
+      "jaro_winkler_similarity": 0.9066666666666667
+    },
+    {
+      "name": "jw_long_prefix_match",
+      "a": "TROON",
+      "b": "TROOPER",
+      "levenshtein_distance": 3,
+      "damerau_levenshtein_distance": 3,
+      "jaro_similarity": 0.7904761904761904,
+      "jaro_winkler_similarity": 0.8742857142857143
+    },
+    {
+      "name": "jw_no_prefix_match",
+      "a": "ABCDE",
+      "b": "ZBCDE",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.8666666666666667,
+      "jaro_winkler_similarity": 0.8666666666666667
+    },
+    {
+      "name": "len_mismatch_short_long",
+      "a": "abc",
+      "b": "abcdefghij",
+      "levenshtein_distance": 7,
+      "damerau_levenshtein_distance": 7,
+      "jaro_similarity": 0.7666666666666666,
+      "jaro_winkler_similarity": 0.8366666666666667
+    },
+    {
+      "name": "len_mismatch_long_short",
+      "a": "abcdefghij",
+      "b": "abc",
+      "levenshtein_distance": 7,
+      "damerau_levenshtein_distance": 7,
+      "jaro_similarity": 0.7666666666666666,
+      "jaro_winkler_similarity": 0.8366666666666667
+    },
+    {
+      "name": "len_off_by_two",
+      "a": "abc",
+      "b": "axbxc",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 2,
+      "jaro_similarity": 0.6888888888888888,
+      "jaro_winkler_similarity": 0.6888888888888888
+    },
+    {
+      "name": "fully_different_equal_len",
+      "a": "aaaa",
+      "b": "bbbb",
+      "levenshtein_distance": 4,
+      "damerau_levenshtein_distance": 4,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "fully_different_short",
+      "a": "x",
+      "b": "y",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "mid_length_close_match",
+      "a": "the quick brown fox",
+      "b": "the quick brwon fox",
+      "levenshtein_distance": 2,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.9824561403508771,
+      "jaro_winkler_similarity": 0.9894736842105263
+    },
+    {
+      "name": "long_ascii_close",
+      "a": "the quick brown fox jumps over the lazy dog",
+      "b": "the quick brown fox leaps over the lazy dog",
+      "levenshtein_distance": 3,
+      "damerau_levenshtein_distance": 3,
+      "jaro_similarity": 0.8951550387596899,
+      "jaro_winkler_similarity": 0.937093023255814
+    },
+    {
+      "name": "long_ascii_far",
+      "a": "the quick brown fox jumps over the lazy dog",
+      "b": "all work and no play makes jack a dull boy",
+      "levenshtein_distance": 33,
+      "damerau_levenshtein_distance": 33,
+      "jaro_similarity": 0.6055444813584349,
+      "jaro_winkler_similarity": 0.6055444813584349
+    },
+    {
+      "name": "single_char_match",
+      "a": "a",
+      "b": "a",
+      "levenshtein_distance": 0,
+      "damerau_levenshtein_distance": 0,
+      "jaro_similarity": 1.0,
+      "jaro_winkler_similarity": 1.0
+    },
+    {
+      "name": "single_char_mismatch",
+      "a": "a",
+      "b": "b",
+      "levenshtein_distance": 1,
+      "damerau_levenshtein_distance": 1,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    },
+    {
+      "name": "case_diff_upper_lower",
+      "a": "HELLO",
+      "b": "hello",
+      "levenshtein_distance": 5,
+      "damerau_levenshtein_distance": 5,
+      "jaro_similarity": 0.0,
+      "jaro_winkler_similarity": 0.0
+    }
+  ]
+}
