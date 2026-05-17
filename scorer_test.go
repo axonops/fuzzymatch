@@ -32,7 +32,10 @@ package fuzzymatch_test
 
 import (
 	"errors"
+	"math"
+	"sync"
 	"testing"
+	"testing/quick"
 
 	"github.com/axonops/fuzzymatch"
 )
@@ -702,4 +705,276 @@ func TestScorer_ScoreAll_PreNormalises(t *testing.T) {
 			a, b,
 		)
 	}
+}
+
+// ---------------------------------------------------------------------
+// Property tests (testing/quick)
+// ---------------------------------------------------------------------
+//
+// These tests verify mathematical invariants that hold across an
+// arbitrary input distribution. The standard library's testing/quick
+// generates 100 random inputs per check by default (the project
+// constraint is stdlib only — no rapid, no gopter). For invariants
+// where the default generator is sufficient (string inputs to Score),
+// we use the default. For invariants that require structured input
+// (random weight vectors with constrained positivity), we drive the
+// generator with a wrapper function whose signature is consumed by
+// quick.Check.
+
+// TestProp_Scorer_DeterministicAcrossRuns verifies that DefaultScorer()
+// is deterministic across CONSTRUCTION events: building two FRESH
+// DefaultScorer instances and calling Score(a, b) on each returns
+// byte-identical float64. This is stronger than "deterministic across
+// CALLS on the same Scorer instance" (which scorer_test.go's plan
+// 08-02 TestScorer_Score_DeterministicAcrossCalls already proves);
+// here we re-build the Scorer between invocations to ensure no
+// construction-side state seeps into the result.
+func TestProp_Scorer_DeterministicAcrossRuns(t *testing.T) {
+	t.Parallel()
+	f := func(a, b string) bool {
+		// Construct two fresh Scorers; both should produce byte-identical
+		// floats on the same input pair.
+		s1 := fuzzymatch.DefaultScorer()
+		s2 := fuzzymatch.DefaultScorer()
+		return s1.Score(a, b) == s2.Score(a, b)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("PropScorer_DeterministicAcrossRuns: %v", err)
+	}
+}
+
+// TestProp_Scorer_WeightSumOne verifies the SCORER-03 invariant: when
+// WithNormaliseWeights(true) (the default), the post-normalisation
+// weights of every algorithm entry in the Scorer sum to exactly 1.0
+// (within a small tolerance for many-algorithm float drift).
+//
+// We exercise two regimes: (a) fixed scenarios with known dyadic and
+// non-dyadic weights to pin the tolerance; (b) a quick.Check pass over
+// random positive weight vectors to provide breadth.
+func TestProp_Scorer_WeightSumOne(t *testing.T) {
+	t.Parallel()
+
+	// Fixed scenarios — explicit weight sets.
+	fixed := []struct {
+		name    string
+		weights []float64
+		algos   []fuzzymatch.AlgoID
+	}{
+		{
+			name:    "two dyadic weights (1, 3)",
+			weights: []float64{1.0, 3.0},
+			algos:   []fuzzymatch.AlgoID{fuzzymatch.AlgoLevenshtein, fuzzymatch.AlgoJaroWinkler},
+		},
+		{
+			name:    "six equal weights (DefaultScorer composition)",
+			weights: []float64{1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+			algos: []fuzzymatch.AlgoID{
+				fuzzymatch.AlgoDamerauLevenshteinOSA,
+				fuzzymatch.AlgoJaroWinkler,
+				fuzzymatch.AlgoTokenJaccard,
+				fuzzymatch.AlgoQGramJaccard,
+				fuzzymatch.AlgoSorensenDice,
+				fuzzymatch.AlgoDoubleMetaphone,
+			},
+		},
+		{
+			name:    "three non-dyadic weights (0.7, 0.001, 1000)",
+			weights: []float64{0.7, 0.001, 1000.0},
+			algos: []fuzzymatch.AlgoID{
+				fuzzymatch.AlgoLevenshtein,
+				fuzzymatch.AlgoJaroWinkler,
+				fuzzymatch.AlgoTokenJaccard,
+			},
+		},
+	}
+	for _, c := range fixed {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			opts := make([]fuzzymatch.ScorerOption, 0, len(c.weights)+1)
+			for i, w := range c.weights {
+				opts = append(opts, fuzzymatch.WithAlgorithm(c.algos[i], w))
+			}
+			opts = append(opts, fuzzymatch.WithThreshold(0.5))
+			s, err := fuzzymatch.NewScorer(opts...)
+			if err != nil {
+				t.Fatalf("NewScorer: %v", err)
+			}
+			algos := s.Algorithms()
+			var sum float64
+			for _, a := range algos {
+				// Explicit `sum = sum + …` per DET-06 / CONTEXT.md §5
+				// left-to-right additive accumulation — the same pattern
+				// scorer.go's reduction loop uses; explicit form is the
+				// determinism contract.
+				sum = sum + a.Weight //nolint:gocritic // DET-06 locked left-to-right additive accumulation pattern; explicit form is the contract per CONTEXT.md §5
+			}
+			if math.Abs(sum-1.0) >= 1e-12 {
+				t.Errorf("weight sum: got %g (diff %g); want 1.0 ± 1e-12", sum, sum-1.0)
+			}
+		})
+	}
+
+	// Random-vector quick.Check: random 1-3 positive weights drawn from
+	// uint16 (mapped into a reasonable positive float64 range).
+	f := func(w0, w1, w2 uint16) bool {
+		// Bias the inputs into [0.01, 100.0]: small positive floats, no
+		// zeros (zero weight is rejected by ErrInvalidWeight at the
+		// option layer). Use three algorithms picked deterministically.
+		toPositive := func(u uint16) float64 {
+			// Avoid zero by adding 1 in the numerator; range becomes
+			// (0, 100].
+			return float64(u+1) / float64(uint32(1)<<16) * 100.0
+		}
+		w := []float64{toPositive(w0), toPositive(w1), toPositive(w2)}
+		algos := []fuzzymatch.AlgoID{
+			fuzzymatch.AlgoLevenshtein,
+			fuzzymatch.AlgoJaroWinkler,
+			fuzzymatch.AlgoTokenJaccard,
+		}
+		opts := []fuzzymatch.ScorerOption{
+			fuzzymatch.WithAlgorithm(algos[0], w[0]),
+			fuzzymatch.WithAlgorithm(algos[1], w[1]),
+			fuzzymatch.WithAlgorithm(algos[2], w[2]),
+			fuzzymatch.WithThreshold(0.5),
+		}
+		s, err := fuzzymatch.NewScorer(opts...)
+		if err != nil {
+			return false // constructor failure on positive weights is itself a bug
+		}
+		var sum float64
+		for _, a := range s.Algorithms() {
+			sum = sum + a.Weight //nolint:gocritic // DET-06 locked left-to-right additive accumulation pattern; explicit form is the contract per CONTEXT.md §5
+		}
+		return math.Abs(sum-1.0) < 1e-12
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("PropScorer_WeightSumOne (random vectors): %v", err)
+	}
+}
+
+// TestProp_Scorer_ScoreInRange verifies the SCORER-04 invariant: with
+// normalised weights AND per-algorithm scores in [0, 1] (every
+// algorithm in the catalogue satisfies this), the composite Score is
+// in [0.0, 1.0] for any input pair (a, b).
+func TestProp_Scorer_ScoreInRange(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	f := func(a, b string) bool {
+		score := s.Score(a, b)
+		return score >= 0.0 && score <= 1.0
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("PropScorer_ScoreInRange: %v", err)
+	}
+}
+
+// TestProp_Scorer_NoNaN_NoInf verifies that Score never produces a
+// non-finite value. NaN or Inf would propagate through the threshold
+// comparison in Match and through any consumer's downstream
+// arithmetic; the contract is that Score returns a finite float64 in
+// [0, 1] for every well-formed Scorer.
+func TestProp_Scorer_NoNaN_NoInf(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	f := func(a, b string) bool {
+		score := s.Score(a, b)
+		return !math.IsNaN(score) && !math.IsInf(score, 0)
+	}
+	if err := quick.Check(f, nil); err != nil {
+		t.Errorf("PropScorer_NoNaN_NoInf: %v", err)
+	}
+}
+
+// TestScorer_ConcurrentSafety verifies the SCORER-01 contract: a
+// *Scorer is safe for concurrent use from any number of goroutines
+// without external synchronisation. All Score, ScoreAll, and Match
+// methods are exercised — 100 goroutines per method, three rounds.
+//
+// The test asserts both correctness (every goroutine produces the
+// same result as the first) AND, when run under `go test -race`,
+// non-existence of a data race. The Scorer struct fields are written
+// once in NewScorer and never written again; the methods are
+// read-only.
+//
+// stdlib `sync.WaitGroup` is the synchronisation primitive — no
+// errgroup (the root module is stdlib-only; `golang.org/x/sync` is
+// not in go.mod).
+func TestScorer_ConcurrentSafety(t *testing.T) {
+	s := fuzzymatch.DefaultScorer()
+	const n = 100
+	const a, b = "user_id", "userId"
+
+	t.Run("Score", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(n)
+		results := make([]float64, n)
+		for i := 0; i < n; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				results[idx] = s.Score(a, b)
+			}(i)
+		}
+		wg.Wait()
+		for i, got := range results {
+			if got != results[0] {
+				t.Errorf("goroutine %d: Score = %g; want %g (first goroutine's result)", i, got, results[0])
+			}
+		}
+	})
+
+	t.Run("ScoreAll", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(n)
+		results := make([]map[fuzzymatch.AlgoID]float64, n)
+		for i := 0; i < n; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				results[idx] = s.ScoreAll(a, b)
+			}(i)
+		}
+		wg.Wait()
+		// All maps must have the same length AND identical per-key
+		// values. Comparison is exact (==) because the scores are
+		// deterministic per call.
+		want := results[0]
+		if len(want) != 6 {
+			t.Fatalf("first goroutine: len(ScoreAll) = %d; want 6", len(want))
+		}
+		for i := 0; i < n; i++ {
+			got := results[i]
+			if len(got) != len(want) {
+				t.Errorf("goroutine %d: len(ScoreAll) = %d; want %d", i, len(got), len(want))
+				continue
+			}
+			for id, wantValue := range want {
+				gotValue, ok := got[id]
+				if !ok {
+					t.Errorf("goroutine %d: missing key %v", i, id)
+					continue
+				}
+				if gotValue != wantValue {
+					t.Errorf("goroutine %d: ScoreAll[%v] = %g; want %g", i, id, gotValue, wantValue)
+				}
+			}
+		}
+	})
+
+	t.Run("Match", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(n)
+		results := make([]bool, n)
+		for i := 0; i < n; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				results[idx] = s.Match(a, b)
+			}(i)
+		}
+		wg.Wait()
+		for i, got := range results {
+			if got != results[0] {
+				t.Errorf("goroutine %d: Match = %v; want %v", i, got, results[0])
+			}
+		}
+	})
 }
