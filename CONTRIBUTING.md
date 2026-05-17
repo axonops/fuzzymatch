@@ -127,9 +127,114 @@ removal here.
   `TestPhonetic_CrossValidation` and does not require Python.
   See `docs/cross-validation.md` for the dual-pin rationale and
   variant-divergence tagging mechanism.
+- `make regen-character-cross-validation` — developer-only; regenerate
+  `testdata/cross-validation/character/vectors.json` (Levenshtein
+  distance, unrestricted Damerau-Levenshtein distance, Jaro similarity,
+  Jaro-Winkler similarity — the four character-tier surfaces) from
+  `jellyfish==1.2.1` via
+  `scripts/gen-character-cross-validation.py`. Requires Python 3.7+ and
+  `python3 -m pip install --user jellyfish==1.2.1` (same pin as the
+  phonetic corpus). The script refuses to run on any other jellyfish
+  version. Documented divergences: jellyfish 1.2.1 ships the UNRESTRICTED
+  (Lowrance-Wagner 1975) Damerau variant — NOT OSA — so the corpus
+  cross-validates against `DamerauLevenshteinFullDistance`; and
+  jellyfish's `jaro_similarity("", "")` returns 0.0 vs fuzzymatch's
+  catalogue convention of 1.0 (variant_divergence flag in the affected
+  entry preserves the raw jellyfish value alongside the fuzzymatch
+  expected value). NOT part of `make check`; CI consumes the committed
+  JSON via `TestCharacter_CrossValidation` and does not require Python.
+- `make regen-qgram-cross-validation` — developer-only; regenerate
+  `testdata/cross-validation/qgram/vectors.json` (Q-Gram Jaccard,
+  Sørensen-Dice, Cosine, Tversky — the four q-gram-tier surfaces, at
+  q=2 mandatory and q=3 when both inputs are long enough) from
+  `py_stringmatching==0.4.7` via
+  `scripts/gen-qgram-cross-validation.py`. Requires Python 3.7+ and
+  `python3 -m pip install --user py_stringmatching==0.4.7`. The script
+  refuses to run on any other py_stringmatching version. Documented
+  divergence: py_stringmatching's Jaccard / Dice / Cosine / TverskyIndex
+  treat input token lists as SETS (duplicates collapse) whereas
+  fuzzymatch's q-gram surfaces are MULTISET (Ukkonen 1992); the corpus
+  is restricted to q-gram-UNIQUE inputs so set and multiset semantics
+  coincide. NOT part of `make check`; CI consumes the committed JSON
+  via `TestQGram_CrossValidation` and does not require Python.
+- `make regen-monge-elkan-cross-validation` — developer-only; regenerate
+  `testdata/cross-validation/monge-elkan/vectors.json` (Monge-Elkan
+  asymmetric + symmetric, each with JaroWinkler-inner and
+  Levenshtein-inner — four scores per entry) from
+  `py_stringmatching==0.4.7` via
+  `scripts/gen-monge-elkan-cross-validation.py`. Requires Python 3.7+ and
+  `python3 -m pip install --user py_stringmatching==0.4.7` (same pin as
+  the q-gram corpus). The script refuses to run on any other
+  py_stringmatching version. Documented quirk: py_stringmatching's
+  JaroWinkler uses float32 internally (~6.6e-9 per-token-comparison drift
+  vs fuzzymatch's fp64), so the Go-side test uses a relaxed 1e-6
+  tolerance for the JaroWinkler-inner surfaces (Levenshtein-inner uses
+  the standard 1e-9). Inputs are constrained to whitespace-separated
+  lowercase ASCII so fuzzymatch's `Tokenise` and the script's
+  `str.split()` produce identical token lists (OQ-1 Tokenise-safety
+  pattern). NOT part of `make check`; CI consumes the committed JSON
+  via `TestMongeElkan_CrossValidation` and does not require Python.
 - `make release-check` — validate `.goreleaser.yml` parses; never
   invokes a release locally (releases ship via CI only — see below).
 - `make clean` — clear test cache and coverage outputs.
+
+## Cross-validation Corpora
+
+The repo ships **seven** committed cross-validation corpora under
+`testdata/cross-validation/`, each generated from a primary-source
+Python reference library and cross-validated by a Go-side loader test.
+The corpora are the verification fixtures consumed by CI — **CI does
+NOT install Python**, and the regen targets are developer-only.
+
+| Corpus | Reference library + pin | Generator | Go test |
+|--------|------------------------|-----------|---------|
+| `swg` | `biopython>=1.85` | `scripts/gen-swg-cross-validation.py` | `TestSWG_CrossValidation` |
+| `ratcliff-obershelp` | Python stdlib `difflib` (no pin) | `scripts/gen-ratcliff-obershelp-cross-validation.py` | `TestRatcliffObershelp_CrossValidation` |
+| `token-ratios` | `rapidfuzz==3.14.5` | `scripts/gen-token-ratio-cross-validation.py` | `TestTokenRatios_CrossValidation` |
+| `phonetic` | `jellyfish==1.2.1` + `Metaphone==0.6` (dual pin) | `scripts/gen-phonetic-cross-validation.py` | `TestPhonetic_CrossValidation` |
+| `character` | `jellyfish==1.2.1` | `scripts/gen-character-cross-validation.py` | `TestCharacter_CrossValidation` |
+| `qgram` | `py_stringmatching==0.4.7` | `scripts/gen-qgram-cross-validation.py` | `TestQGram_CrossValidation` |
+| `monge-elkan` | `py_stringmatching==0.4.7` | `scripts/gen-monge-elkan-cross-validation.py` | `TestMongeElkan_CrossValidation` |
+
+### Regeneration Discipline
+
+1. **Pin-asserting generators**: every generator script declares a
+   `<LIBRARY>_VERSION = "x.y.z"` constant and asserts at script entry
+   that the installed library version matches (via `lib.__version__`
+   where available, falling back to `pip show <lib>` for libraries that
+   drop the module-level `__version__` attribute — jellyfish 1.2.1 is
+   the canonical example).
+2. **CI does NOT regenerate**: corpora are committed; CI reads
+   `vectors.json` directly and asserts agreement against the
+   fuzzymatch surface within the per-corpus tolerance. CI does not
+   install Python; `make check` does not invoke any regen target.
+3. **Regenerate only on a pin bump or a corpus extension**: do not
+   regenerate corpora opportunistically. A regeneration is a deliberate
+   act, gated by either (a) bumping the pinned reference-library version
+   in the generator script, or (b) adding new cases to the script's
+   `CASES` list.
+4. **Bump protocol** (six steps):
+   1. Update the generator's `<LIBRARY>_VERSION` constant.
+   2. Update the install hint in the Makefile target's preamble.
+   3. Update this CONTRIBUTING.md row (and the per-target docstring).
+   4. Run `make regen-<corpus>-cross-validation` locally with the new
+      library version installed.
+   5. Commit the regenerated `vectors.json` alongside the generator-
+      and Makefile-side bumps in a single commit.
+   6. Run `go test -run TestXYZ_CrossValidation -race -count=1 ./...`
+      and verify it passes. Any score drift surfaces here and requires
+      `algorithm-correctness-reviewer` review.
+5. **Tolerance and divergence policy**: where the reference library
+   uses precision tricks (e.g. py_stringmatching's float32 JaroWinkler)
+   or set semantics that differ from fuzzymatch's catalogue convention
+   (e.g. multiset q-grams; vacuous-identity for empty inputs), the
+   generator either (a) restricts the corpus to inputs where the
+   semantics coincide (OQ-1 Tokenise-safety; q-gram-unique inputs), or
+   (b) emits a `variant_divergence` flag on the affected entry along
+   with the raw reference value, and the Go-side test asserts against
+   the fuzzymatch-expected value (which is what the corpus stores in
+   its normal score fields). This mirrors the
+   `gen-phonetic-cross-validation.py` Soundex/NYSIIS pattern.
 
 ## Conventional Commits
 

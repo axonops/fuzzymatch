@@ -317,6 +317,36 @@ regen-qgram-cross-validation:
 	fi
 	python3 scripts/gen-qgram-cross-validation.py
 
+# Regenerates testdata/cross-validation/monge-elkan/vectors.json by invoking
+# the py_stringmatching==0.4.7 generator script. Developer-only — NOT
+# included in `make check`. The committed JSON is the verification fixture;
+# CI does NOT require Python at test time. Re-run this target when the pinned
+# py_stringmatching version is bumped or when new test cases are added to
+# scripts/gen-monge-elkan-cross-validation.py.
+#
+# Plan 08.5-10 task 3 lands the Monge-Elkan cross-validation corpus with
+# JaroWinkler-inner and Levenshtein-inner — covering both the asymmetric
+# direct surface (MongeElkanScore) and the symmetric variant
+# (MongeElkanScoreSymmetric, computed in Python as (forward + reverse) /
+# 2 since py_stringmatching does not expose a symmetric primitive).
+#
+# Inputs are restricted to whitespace-separated lowercase ASCII (OQ-1
+# Tokenise-safety pattern) so fuzzymatch's Tokenise and the script's
+# str.split() produce identical token lists. The JaroWinkler-inner
+# surfaces use a relaxed 1e-6 tolerance because py_stringmatching's
+# JaroWinkler uses float32 internally (~6.6e-9 per token-comparison drift
+# vs fuzzymatch's fp64); Levenshtein-inner uses the standard 1e-9
+# tolerance.
+#
+# Requires: python3 (>= 3.7) + py_stringmatching==0.4.7
+#   python3 -m pip install --user py_stringmatching==0.4.7
+regen-monge-elkan-cross-validation:
+	@if ! command -v python3 >/dev/null 2>&1; then \
+	  echo "python3 not found; install Python 3.7+ and run: python3 -m pip install --user py_stringmatching==0.4.7"; \
+	  exit 1; \
+	fi
+	python3 scripts/gen-monge-elkan-cross-validation.py
+
 # Plan 01-03 lands .goreleaser.yml. Until then this is a tolerant no-op.
 release-check:
 	@if [ -f .goreleaser.yml ]; then \

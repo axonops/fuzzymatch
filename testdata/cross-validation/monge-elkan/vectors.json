@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "_metadata": {
+    "py_stringmatching_version": "0.4.7",
+    "python_version": "3.12.12",
+    "regenerated_at": "2026-05-17T13:15:20.584520+00:00"
+  },
+  "entries": [
+    {
+      "name": "identity_short",
+      "a": "hello",
+      "b": "hello",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "identity_two_token",
+      "a": "hello world",
+      "b": "hello world",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "both_empty",
+      "a": "",
+      "b": "",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "one_empty_a",
+      "a": "",
+      "b": "hello",
+      "monge_elkan_asymmetric_jw": 0.0,
+      "monge_elkan_asymmetric_lev": 0.0,
+      "monge_elkan_symmetric_jw": 0.0,
+      "monge_elkan_symmetric_lev": 0.0
+    },
+    {
+      "name": "one_empty_b",
+      "a": "hello",
+      "b": "",
+      "monge_elkan_asymmetric_jw": 0.0,
+      "monge_elkan_asymmetric_lev": 0.0,
+      "monge_elkan_symmetric_jw": 0.0,
+      "monge_elkan_symmetric_lev": 0.0
+    },
+    {
+      "name": "single_token_match",
+      "a": "martha",
+      "b": "marhta",
+      "monge_elkan_asymmetric_jw": 0.9611110687255859,
+      "monge_elkan_asymmetric_lev": 0.6666666666666667,
+      "monge_elkan_symmetric_jw": 0.9611110687255859,
+      "monge_elkan_symmetric_lev": 0.6666666666666667
+    },
+    {
+      "name": "single_token_match_jw",
+      "a": "dwayne",
+      "b": "duane",
+      "monge_elkan_asymmetric_jw": 0.8400000333786011,
+      "monge_elkan_asymmetric_lev": 0.6666666666666667,
+      "monge_elkan_symmetric_jw": 0.8400000333786011,
+      "monge_elkan_symmetric_lev": 0.6666666666666667
+    },
+    {
+      "name": "single_token_match_lev",
+      "a": "kitten",
+      "b": "sitting",
+      "monge_elkan_asymmetric_jw": 0.7460317611694336,
+      "monge_elkan_asymmetric_lev": 0.5714285714285714,
+      "monge_elkan_symmetric_jw": 0.7460317611694336,
+      "monge_elkan_symmetric_lev": 0.5714285714285714
+    },
+    {
+      "name": "single_token_mismatch",
+      "a": "alpha",
+      "b": "zulu",
+      "monge_elkan_asymmetric_jw": 0.4833333194255829,
+      "monge_elkan_asymmetric_lev": 0.0,
+      "monge_elkan_symmetric_jw": 0.4833333194255829,
+      "monge_elkan_symmetric_lev": 0.0
+    },
+    {
+      "name": "two_token_equal_count_match",
+      "a": "hello world",
+      "b": "hello world",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "two_token_equal_count_near",
+      "a": "hello world",
+      "b": "hallo world",
+      "monge_elkan_asymmetric_jw": 0.9399999976158142,
+      "monge_elkan_asymmetric_lev": 0.9,
+      "monge_elkan_symmetric_jw": 0.9399999976158142,
+      "monge_elkan_symmetric_lev": 0.9
+    },
+    {
+      "name": "two_token_equal_count_swap",
+      "a": "alpha beta",
+      "b": "beta alpha",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "three_token_equal_count_near",
+      "a": "the quick fox",
+      "b": "the quik fox",
+      "monge_elkan_asymmetric_jw": 0.9844444394111633,
+      "monge_elkan_asymmetric_lev": 0.9333333333333332,
+      "monge_elkan_symmetric_jw": 0.9844444394111633,
+      "monge_elkan_symmetric_lev": 0.9333333333333332
+    },
+    {
+      "name": "asym_one_extra_token_b",
+      "a": "alpha beta",
+      "b": "alpha beta gamma",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 0.9333333373069763,
+      "monge_elkan_symmetric_lev": 0.8666666666666667
+    },
+    {
+      "name": "asym_one_extra_token_a",
+      "a": "alpha beta gamma",
+      "b": "alpha beta",
+      "monge_elkan_asymmetric_jw": 0.8666666746139526,
+      "monge_elkan_asymmetric_lev": 0.7333333333333334,
+      "monge_elkan_symmetric_jw": 0.9333333373069763,
+      "monge_elkan_symmetric_lev": 0.8666666666666667
+    },
+    {
+      "name": "asym_two_extra_token_b",
+      "a": "alpha",
+      "b": "alpha beta gamma",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 0.8472222238779068,
+      "monge_elkan_symmetric_lev": 0.7333333333333333
+    },
+    {
+      "name": "asym_two_extra_token_a",
+      "a": "alpha beta gamma",
+      "b": "alpha",
+      "monge_elkan_asymmetric_jw": 0.6944444477558136,
+      "monge_elkan_asymmetric_lev": 0.4666666666666666,
+      "monge_elkan_symmetric_jw": 0.8472222238779068,
+      "monge_elkan_symmetric_lev": 0.7333333333333333
+    },
+    {
+      "name": "name_match_extra_middle",
+      "a": "john smith",
+      "b": "john paul smith",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 0.8333333333333333,
+      "monge_elkan_symmetric_lev": 0.8333333333333333
+    },
+    {
+      "name": "name_match_swap_order",
+      "a": "smith john",
+      "b": "john smith",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "name_match_typo",
+      "a": "paul johnson",
+      "b": "paule johnson",
+      "monge_elkan_asymmetric_jw": 0.9799999892711639,
+      "monge_elkan_asymmetric_lev": 0.9,
+      "monge_elkan_symmetric_jw": 0.9799999892711639,
+      "monge_elkan_symmetric_lev": 0.9
+    },
+    {
+      "name": "name_match_typo_two",
+      "a": "paul johnson",
+      "b": "paul jonhson",
+      "monge_elkan_asymmetric_jw": 0.9809523820877075,
+      "monge_elkan_asymmetric_lev": 0.8571428571428572,
+      "monge_elkan_symmetric_jw": 0.9809523820877075,
+      "monge_elkan_symmetric_lev": 0.8571428571428572
+    },
+    {
+      "name": "sentence_close_match",
+      "a": "the quick brown fox",
+      "b": "the quick brown dog",
+      "monge_elkan_asymmetric_jw": 0.8888888955116272,
+      "monge_elkan_asymmetric_lev": 0.8333333333333334,
+      "monge_elkan_symmetric_jw": 0.8888888955116272,
+      "monge_elkan_symmetric_lev": 0.8333333333333334
+    },
+    {
+      "name": "sentence_typo",
+      "a": "the quick brown fox",
+      "b": "the quik brwon fox",
+      "monge_elkan_asymmetric_jw": 0.9749999940395355,
+      "monge_elkan_asymmetric_lev": 0.85,
+      "monge_elkan_symmetric_jw": 0.9749999940395355,
+      "monge_elkan_symmetric_lev": 0.85
+    },
+    {
+      "name": "sentence_reorder",
+      "a": "the quick brown fox",
+      "b": "fox brown quick the",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 1.0,
+      "monge_elkan_symmetric_lev": 1.0
+    },
+    {
+      "name": "subset_short_in_long",
+      "a": "alpha beta",
+      "b": "alpha beta gamma delta",
+      "monge_elkan_asymmetric_jw": 1.0,
+      "monge_elkan_asymmetric_lev": 1.0,
+      "monge_elkan_symmetric_jw": 0.9229166731238365,
+      "monge_elkan_symmetric_lev": 0.8500000000000001
+    },
+    {
+      "name": "subset_long_in_short",
+      "a": "alpha beta gamma delta",
+      "b": "alpha beta",
+      "monge_elkan_asymmetric_jw": 0.845833346247673,
+      "monge_elkan_asymmetric_lev": 0.7000000000000001,
+      "monge_elkan_symmetric_jw": 0.9229166731238365,
+      "monge_elkan_symmetric_lev": 0.8500000000000001
+    },
+    {
+      "name": "disjoint_short",
+      "a": "alpha beta",
+      "b": "uvw xyz",
+      "monge_elkan_asymmetric_jw": 0.0,
+      "monge_elkan_asymmetric_lev": 0.0,
+      "monge_elkan_symmetric_jw": 0.0,
+      "monge_elkan_symmetric_lev": 0.0
+    },
+    {
+      "name": "disjoint_long",
+      "a": "the quick brown fox",
+      "b": "all work and play",
+      "monge_elkan_asymmetric_jw": 0.36944444477558136,
+      "monge_elkan_asymmetric_lev": 0.16249999999999998,
+      "monge_elkan_symmetric_jw": 0.2506944462656975,
+      "monge_elkan_symmetric_lev": 0.11249999999999999
+    },
+    {
+      "name": "mixed_near_far_a",
+      "a": "alpha beta",
+      "b": "alpha xyz",
+      "monge_elkan_asymmetric_jw": 0.7416666597127914,
+      "monge_elkan_asymmetric_lev": 0.6,
+      "monge_elkan_symmetric_jw": 0.6208333298563957,
+      "monge_elkan_symmetric_lev": 0.55
+    },
+    {
+      "name": "mixed_near_far_b",
+      "a": "alpha beta gamma",
+      "b": "alpha xyz qrs",
+      "monge_elkan_asymmetric_jw": 0.6944444477558136,
+      "monge_elkan_asymmetric_lev": 0.4666666666666666,
+      "monge_elkan_symmetric_jw": 0.5138888905445734,
+      "monge_elkan_symmetric_lev": 0.39999999999999997
+    },
+    {
+      "name": "long_six_token_close",
+      "a": "the quick brown fox jumps over",
+      "b": "the quik brown foxx jumps over",
+      "monge_elkan_asymmetric_jw": 0.9824999968210856,
+      "monge_elkan_asymmetric_lev": 0.9249999999999999,
+      "monge_elkan_symmetric_jw": 0.9824999968210856,
+      "monge_elkan_symmetric_lev": 0.9249999999999999
+    },
+    {
+      "name": "long_six_token_diff",
+      "a": "alpha beta gamma delta epsilon zeta",
+      "b": "alpha beta gamma delta epsilon eta",
+      "monge_elkan_asymmetric_jw": 0.9861111144224802,
+      "monge_elkan_asymmetric_lev": 0.9583333333333334,
+      "monge_elkan_symmetric_jw": 0.9861111144224802,
+      "monge_elkan_symmetric_lev": 0.9583333333333334
+    }
+  ]
+}
