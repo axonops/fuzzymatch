@@ -763,12 +763,15 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				i += 3
 				continue
 			}
-			// French "SAIS" end
-			if i == n-1 && (at(i-1) == 'A' || at(i-1) == 'I') {
-				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
-			} else {
-				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
-			}
+			// Q9 simplification: the original Philips C++ port had an if/else
+			// here that discriminated the French SAIS-end rule
+			// (i == n-1 && (at(i-1) == 'A' || at(i-1) == 'I')), but both
+			// branches produced the identical ("S", "") emission. The locked
+			// spec (docs/requirements.md §7.21) confirms both paths collapse to
+			// the same dmAdd call; behaviour preservation is verified by
+			// TestDoubleMetaphone_PaperWorkedExamples (Sais case, Plan 05 Gap 6
+			// gate). British English: deliberate behaviour-preserving cleanup.
+			dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "")
 			if at(i+1) == 'S' || at(i+1) == 'Z' {
 				i++
 			}
