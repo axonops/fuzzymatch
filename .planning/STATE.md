@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-05-17T04:24:15.751Z"
-last_activity: 2026-05-17 -- Phase 8 execution started
+stopped_at: Completed Plan 08.5-01 (sentinel hygiene foundation)
+last_updated: "2026-05-17T12:28:17.108Z"
+last_activity: 2026-05-17
 progress:
   total_phases: 1
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** A developer can compare two strings (or scan a collection) with a known-correct algorithm and trust the resulting similarity score is mathematically sound, deterministic across platforms, and stable across patch releases.
-**Current focus:** Phase 8 — composite-scorer
+**Current focus:** Phase 08.5 — review-remediation-gate
 
 ## Current Position
 
-Phase: 8 (composite-scorer) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 8
-Last activity: 2026-05-17 -- Phase 8 execution started
+Phase: 08.5 (review-remediation-gate) — EXECUTING
+Plan: 2 of 20
+Status: Ready to execute
+Last activity: 2026-05-17
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: — (no execution yet)
 
 *Updated after each plan completion*
+| Phase 08.5 P01 | 6 | 1 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - Scorer placement: AFTER all 23 algorithms (Phase 8) — spec's default choice; bringing it forward would churn default-Scorer composition with every algorithm addition
 - AlgoID dispatch table established in Phase 1 (per FOUND-02) so Monge-Elkan (Phase 6) can take an inner AlgoID parameter without waiting for the full Scorer
 - Extract API isolated into its own phase (Phase 10) after Scan, layering atop both single algorithms and the Scorer
+- [Phase ?]: Phase 8.5 Plan 01: atomic rename ErrInvalidAlgorithm -> ErrInvalidAlgoID across 15 call sites; add ErrInvalidInnerAlgo (Q4 follow-up) + ErrInternalInvariantViolated (Gap 5 typed-panic); remove 3 unused sentinels; apply 4-section godoc template to every remaining sentinel.
 
 ### Pending Todos
 
@@ -97,6 +99,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-16T12:52:35.660Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-composite-scorer/08-CONTEXT.md
+Last session: 2026-05-17T12:28:17.103Z
+Stopped at: Completed Plan 08.5-01 (sentinel hygiene foundation)
+Resume file: None
