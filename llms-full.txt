@@ -1014,6 +1014,21 @@ type Scorer struct
 // auto-normalisation (sum-to-1 when WithNormaliseWeights(true), the
 // default). On any error returns (nil, err).
 func NewScorer(opts ...ScorerOption) (*Scorer, error)
+
+// Score returns the composite similarity score in [0.0, 1.0] for
+// (a, b). When the Scorer was constructed with normalisation enabled
+// (default), Score applies Normalise(s, opts) to BOTH inputs ONCE
+// before dispatching to each algorithm. The reduction loop uses the
+// explicit (entry.weight * score) parenthesisation and AlgoID-sorted
+// iteration order locked at NewScorer time, giving byte-identical
+// results across runs, processes, and CI-matrix platforms. Safe for
+// concurrent use without locks.
+func (s *Scorer) Score(a, b string) float64
+
+// Match returns Score(a, b) >= threshold (boundary inclusive). Threshold
+// is the value supplied to WithThreshold during NewScorer. Safe for
+// concurrent use without locks.
+func (s *Scorer) Match(a, b string) bool
 ```
 
 ### Scorer construction options (scorer_options.go — Phase 8 plan 08-01)

@@ -188,6 +188,8 @@ scan / Extract (Phases 9–10).
 
 - type Scorer struct
 - func NewScorer(opts ...ScorerOption) (*Scorer, error)
+- func (s *Scorer) Score(a, b string) float64
+- func (s *Scorer) Match(a, b string) bool
 - type ScorerOption func(*scorerConfig) error
 - func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
 - func WithoutAlgorithm(id AlgoID) ScorerOption

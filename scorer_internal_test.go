@@ -27,7 +27,7 @@
 //
 // Living in package fuzzymatch (no _test suffix) is the conventional Go
 // pattern for exposing unexported state to internal tests; the file's
-// _test.go suffix ensures it never ships in the public artifact.
+// _test.go suffix ensures it never ships in the public artefact.
 //
 // Stdlib `testing` only — no testify in root tests, per
 // .claude/skills/go-coding-standards.
@@ -170,7 +170,7 @@ func TestScorer_EntriesSorted_AlgoIDAscending(t *testing.T) {
 	for i := 1; i < len(s.algorithmsAlgoIDSorted); i++ {
 		prev := int(s.algorithmsAlgoIDSorted[i-1].id)
 		curr := int(s.algorithmsAlgoIDSorted[i].id)
-		if !(prev < curr) {
+		if prev >= curr {
 			t.Errorf(
 				"entries[%d..%d] not strictly ascending: got int(%v)=%d >= int(%v)=%d",
 				i-1, i,

@@ -177,7 +177,7 @@ type Scorer struct {
 // For the opinionated default 6-algorithm composition with a baked-in
 // threshold of 0.85, use DefaultScorer() (lands in plan 08-03) which
 // cannot fail.
-func NewScorer(opts ...ScorerOption) (*Scorer, error) {
+func NewScorer(opts ...ScorerOption) (*Scorer, error) { //nolint:gocyclo // 9-step LOCKED validation pipeline (CONTEXT.md §2 + 08-RESEARCH.md Pitfall 3); each conditional is a documented sentinel gate that cannot be folded into a sub-helper without splitting the locked-order contract across files
 	// Step 1 — initialise the accumulator with the documented defaults
 	// BEFORE applying options. Options that don't touch normalisation
 	// (WithAlgorithm, WithThreshold, …) leave applyNorm = true and
@@ -274,13 +274,22 @@ func NewScorer(opts ...ScorerOption) (*Scorer, error) {
 	if cfg.normaliseWeights {
 		var sum float64
 		for i := range sorted {
-			sum = sum + sorted[i].weight
+			// Explicit `sum = sum + …` per DET-06 / CONTEXT.md §5 — the
+			// left-to-right additive accumulation is the locked
+			// determinism pattern from cosine.go:343. The +=
+			// shorthand is observationally equivalent but the
+			// explicit form is the contract.
+			sum = sum + sorted[i].weight //nolint:gocritic // DET-06 locked left-to-right additive accumulation pattern; explicit form is the contract per CONTEXT.md §5
 		}
 		if sum == 0 {
 			return nil, ErrInvalidWeight
 		}
 		for i := range sorted {
-			sorted[i].weight = sorted[i].weight / sum
+			// Explicit `x = x / sum` for symmetry with the sum
+			// reduction above. The /= shorthand is observationally
+			// equivalent but the explicit-arithmetic form keeps the
+			// determinism-discipline visible at the read site.
+			sorted[i].weight = sorted[i].weight / sum //nolint:gocritic // explicit-arithmetic form per DET-06 / CONTEXT.md §5 locked discipline; symmetric with the sum reduction above
 		}
 	}
 
@@ -293,4 +302,93 @@ func NewScorer(opts ...ScorerOption) (*Scorer, error) {
 		applyNormalisation:     cfg.applyNorm,
 		normaliseOpts:          cfg.normOpts,
 	}, nil
+}
+
+// Score returns the composite similarity score in [0.0, 1.0] for the
+// pair (a, b). The score is the weight-normalised sum of every
+// registered algorithm's per-pair score evaluated against the
+// (optionally normalised) inputs.
+//
+// Pre-normalisation policy (CONTEXT.md §3 LOCKED): when the Scorer was
+// constructed with normalisation enabled (the default, or
+// WithNormalisation(opts)), Score applies Normalise(s, normaliseOpts)
+// to BOTH a and b ONCE at the Scorer boundary before dispatching to
+// each algorithm. Token-based algorithms (Monge-Elkan, Token*,
+// PartialRatio) continue to call Tokenise internally on the already-
+// normalised string — Phase 8 does not modify any token-based
+// algorithm's internals. When the Scorer was constructed with
+// WithoutNormalisation(), Score passes the raw inputs to every
+// algorithm.
+//
+// Determinism guarantee: Score returns the same float64 to the last
+// bit on every call with the same Scorer configuration and the same
+// (a, b) inputs, across runs, processes, and CI-matrix platforms
+// (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
+// windows/amd64). This is enforced by AlgoID-sorted internal iteration
+// (the slice was sorted at NewScorer time; iteration order does NOT
+// depend on option-application order) and by the explicit
+// (entry.weight * score) parenthesisation in the reduction loop,
+// matching the Phase 5 Cosine precedent at cosine.go:341-344. Per the
+// FMA-fusion caveat documented at cosine.go:288-297, parentheses do
+// not defeat FMA on arm64; the empirical observation is that score *
+// weight products in [0, 1] stay below the byte-diff threshold of the
+// cross-platform golden gate.
+//
+// Range guarantee: with default weight normalisation
+// (WithNormaliseWeights(true), the default) and underlying algorithms
+// that satisfy score ∈ [0.0, 1.0] (all 23 catalogue algorithms do),
+// the returned value lies in [0.0, 1.0]. When the Scorer was
+// constructed with WithNormaliseWeights(false), raw weights are
+// preserved and the [0, 1] range guarantee is waived — the caller
+// takes responsibility for the weight semantics.
+//
+// Concurrency: Score is safe for concurrent use from any number of
+// goroutines on the same *Scorer without external synchronisation. The
+// Scorer is immutable after NewScorer returns; this method does no
+// writes to the receiver's state.
+func (s *Scorer) Score(a, b string) float64 {
+	// Pre-normalisation boundary (CONTEXT.md §3 LOCKED). Single
+	// conditional, two Normalise calls when active — avoids the
+	// function-call overhead when WithoutNormalisation was applied.
+	na, nb := a, b
+	if s.applyNormalisation {
+		na = Normalise(a, s.normaliseOpts)
+		nb = Normalise(b, s.normaliseOpts)
+	}
+
+	// Float-determinism reduction loop. The canonical Phase 5 pattern
+	// from cosine.go:341-344, lifted to the Scorer's per-algorithm
+	// composite: explicit (entry.weight * score) parenthesisation,
+	// left-to-right accumulation (acc = acc + (entry.weight * score)),
+	// AlgoID-sorted iteration order (the slice was sorted at NewScorer
+	// time). Per cosine.go:288-297 the parens do NOT defeat FMA on
+	// arm64; the empirical observation is that score * weight products
+	// in [0, 1] stay below the byte-diff threshold of the cross-platform
+	// golden gate. DET-06 explicit parens — see CONTEXT.md §5 LOCKED.
+	var acc float64
+	for _, entry := range s.algorithmsAlgoIDSorted {
+		score := entry.scoreFn(na, nb)
+		// DET-06 explicit parens — see CONTEXT.md §5 LOCKED. The
+		// `acc = acc + (entry.weight * score)` form (not `acc +=` and
+		// not `acc + (entry.weight*score)` without parens) is the
+		// locked determinism contract carrying forward from
+		// cosine.go:343. The reduction is left-to-right, AlgoID-sorted,
+		// and uses only + and * — no transcendentals, no FMA-defeating
+		// double cast (see scorer.go header for the FMA-fusion
+		// remediation pattern if cross-platform divergence ever
+		// appears in the plan-08-04 golden gate).
+		acc = acc + (entry.weight * score) //nolint:gocritic // DET-06 explicit-arithmetic locked pattern from cosine.go:343 / CONTEXT.md §5; assignOp shorthand would obscure the determinism contract
+	}
+	return acc
+}
+
+// Match returns true when the composite Score(a, b) is at or above the
+// threshold supplied to WithThreshold during NewScorer. The comparison
+// is `>=` so the boundary is inclusive — a Scorer with threshold 0.85
+// matches inputs whose composite score is exactly 0.85.
+//
+// Match is a thin wrapper around Score; the same determinism and
+// concurrency guarantees apply.
+func (s *Scorer) Match(a, b string) bool {
+	return s.Score(a, b) >= s.threshold
 }
