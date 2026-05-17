@@ -48,15 +48,16 @@
 // JaroWinkler default is preserved.
 //
 // See algoid.go for the dispatch array declaration and its design
-// rationale. The var _ = func() bool { ... }() idiom is the canonical
-// Phase-2-onward form for package-level side effects without init()
-// (per determinism-standards §13.5 and docs/requirements.md §5(12)).
+// rationale.
 
 package fuzzymatch
 
-// _ ensures dispatch[AlgoMongeElkan] is populated before any call to the
-// Scorer (Phase 8) or Extract (Phase 10) that reads the dispatch table.
-// Per CONTEXT.md §4 LOCKED + Phase 8.5 Q3 symmetric-by-default rename:
+// init registers the MongeElkan dispatch entry. Q14b option A (Phase 8.5
+// Plan 15a) — explicit init replaces the var _ = func() bool {...}()
+// pattern per the determinism-standards SKILL (pure-write into a
+// pre-allocated slot; no IO, no time, no goroutines, no ordering
+// dependency on other init functions). Per CONTEXT.md §4 LOCKED +
+// Phase 8.5 Q3 symmetric-by-default rename:
 //   - the SYMMETRIC default MongeElkanScore is dispatched (so
 //     AlgoMongeElkan participates in the standard symmetric property-
 //     test set);
@@ -64,9 +65,8 @@ package fuzzymatch
 //
 // See the file-level godoc above for the rationale and the
 // forward-compatibility notes for Phase 7's phonetic-tier additions.
-var _ = func() bool {
+func init() {
 	dispatch[AlgoMongeElkan] = func(a, b string) float64 {
 		return MongeElkanScore(a, b, AlgoJaroWinkler)
 	}
-	return true
-}()
+}

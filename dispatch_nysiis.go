@@ -13,17 +13,18 @@
 // limitations under the License.
 
 // dispatch_nysiis.go wires NYSIISScore into the dispatch table at slot
-// AlgoNYSIIS (25 — see algoid.go). The registration is performed by a
-// package-level init-alternative (`var _ = func() bool {...}()`) to avoid
-// init() side effects per docs/requirements.md §5(12).
+// AlgoNYSIIS (25 — see algoid.go).
 
 package fuzzymatch
 
-// _ registers NYSIISScore in the global dispatch table at AlgoNYSIIS (25).
-// This runs before any test or caller can invoke the dispatch table, ensuring
-// that MongeElkanScore / MongeElkanScoreAsymmetric and Scorer dispatch paths
+// init registers the NYSIIS dispatch entry at AlgoNYSIIS (25). Q14b
+// option A (Phase 8.5 Plan 15a) — explicit init replaces the
+// var _ = func() bool {...}() pattern per the determinism-standards SKILL
+// (pure-write into a pre-allocated slot; no IO, no time, no goroutines,
+// no ordering dependency on other init functions). This runs before any
+// test or caller can invoke the dispatch table, ensuring that
+// MongeElkanScore / MongeElkanScoreAsymmetric and Scorer dispatch paths
 // see the registered function.
-var _ = func() bool {
+func init() {
 	dispatch[AlgoNYSIIS] = NYSIISScore
-	return true
-}()
+}

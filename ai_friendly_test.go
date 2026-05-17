@@ -43,13 +43,14 @@ import (
 // internalAllowlist contains exported identifiers whose absence from
 // llms.txt is permitted. Each entry includes a one-line rationale.
 //
-// WriteGoldenFile is exported by golden_canonical.go for the test-
-// maintenance `-update` workflow in golden_test.go; it is not part of
-// the user-facing public API and is intentionally omitted from llms.txt
-// to avoid steering AI-generated consumer code toward a test helper.
-var internalAllowlist = map[string]string{
-	"WriteGoldenFile": "test-maintenance helper; exported only for the -update workflow in golden_test.go",
-}
+// Phase 8.5 Plan 15a (Q14b mechanical refactor) unexported writeGoldenFile
+// and moved the test-only WriteGoldenFile re-export into export_test.go,
+// so the symbol is no longer an exported root-package identifier and the
+// allowlist no longer needs an entry for it. The map is retained empty
+// (rather than removed) so that any future post-1.0 exported symbol that
+// legitimately needs to be absent from llms.txt has an obvious place to
+// land alongside a rationale.
+var internalAllowlist = map[string]string{}
 
 // TestAIFriendly_LLMSTxtReferencesEveryExportedSymbol enforces the
 // llms.txt sync invariant. Drift between code and llms.txt fails this

@@ -13,9 +13,7 @@
 // limitations under the License.
 
 // dispatch_mra.go wires MRAScore into the dispatch table at slot
-// AlgoMRA (26 — see algoid.go). The registration is performed by a
-// package-level init-alternative (`var _ = func() bool {...}()`) to avoid
-// init() side effects per docs/requirements.md §5(12).
+// AlgoMRA (26 — see algoid.go).
 //
 // NOTE: MRACode and MRACompare are public but NOT dispatched. The dispatch
 // table maps AlgoID to (a, b string) float64; MRACompare returns (bool, int)
@@ -26,11 +24,14 @@
 
 package fuzzymatch
 
-// _ registers MRAScore in the global dispatch table at AlgoMRA (26).
-// This runs before any test or caller can invoke the dispatch table, ensuring
-// that MongeElkanScore / MongeElkanScoreAsymmetric and Scorer dispatch paths
-// see the registered function.
-var _ = func() bool {
+// init registers the MRA dispatch entry at AlgoMRA (26). Q14b option A
+// (Phase 8.5 Plan 15a) — explicit init replaces the var _ = func() bool
+// {...}() pattern per the determinism-standards SKILL (pure-write into a
+// pre-allocated slot; no IO, no time, no goroutines, no ordering
+// dependency on other init functions). This runs before any test or
+// caller can invoke the dispatch table, ensuring that MongeElkanScore /
+// MongeElkanScoreAsymmetric and Scorer dispatch paths see the registered
+// function.
+func init() {
 	dispatch[AlgoMRA] = MRAScore
-	return true
-}()
+}

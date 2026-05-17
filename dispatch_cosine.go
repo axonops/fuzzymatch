@@ -29,18 +29,18 @@
 // byte-path one).
 //
 // See algoid.go for the dispatch array declaration and its design
-// rationale. The var _ = func() bool { ... }() idiom is the canonical
-// Phase-2-onward form for package-level side effects without init()
-// (per determinism-standards §13.5 and docs/requirements.md §5(12)).
+// rationale.
 
 package fuzzymatch
 
-// _ ensures dispatch[AlgoCosine] is populated before any call to the
-// Scorer (Phase 8) or Extract (Phase 10) that reads the dispatch
-// table. Default n = 3 trigram per CONTEXT.md Deferred §4.
-var _ = func() bool {
+// init registers the Cosine dispatch entry. Q14b option A (Phase 8.5
+// Plan 15a) — explicit init replaces the var _ = func() bool {...}()
+// pattern per the determinism-standards SKILL (pure-write into a
+// pre-allocated slot; no IO, no time, no goroutines, no ordering
+// dependency on other init functions). Default n = 3 trigram per
+// CONTEXT.md Deferred §4.
+func init() {
 	dispatch[AlgoCosine] = func(a, b string) float64 {
 		return CosineScore(a, b, 3)
 	}
-	return true
-}()
+}

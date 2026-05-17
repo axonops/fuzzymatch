@@ -72,20 +72,27 @@ func canonicalMarshal(v any) ([]byte, error) {
 	return out, nil
 }
 
-// WriteGoldenFile serialises v via the LOCKED canonical form and writes the
+// writeGoldenFile serialises v via the LOCKED canonical form and writes the
 // result to path. It is intended for test maintenance only — production
 // code never invokes it. The `-update` flag in fuzzymatch's golden-file
 // test harness (see golden_test.go) is the sole expected caller.
+//
+// The helper is unexported (Q14b mechanical refactor, Phase 8.5 Plan 15a)
+// because no production consumer should ever call it; the external test
+// package fuzzymatch_test reaches it through the test-only re-export
+// var WriteGoldenFile = writeGoldenFile in export_test.go, which keeps
+// the symbol visible to _test.go files without polluting the public API
+// surface.
 //
 // The file is written with mode 0o644. Existing content at path is
 // overwritten. No backup is taken; the test harness's `-update` workflow
 // expects the caller to be operating inside a git checkout where the
 // committed file is the source of truth.
 //
-// WriteGoldenFile does not create parent directories — testdata/golden/
+// writeGoldenFile does not create parent directories — testdata/golden/
 // is committed to the repository and is expected to exist before this
 // helper is invoked.
-func WriteGoldenFile(path string, v any) error {
+func writeGoldenFile(path string, v any) error {
 	bytes, err := canonicalMarshal(v)
 	if err != nil {
 		return err
@@ -94,7 +101,7 @@ func WriteGoldenFile(path string, v any) error {
 	// alongside the source — 0o644 is intentional. gosec G306 is silenced
 	// at the call site for that reason.
 	if err := os.WriteFile(path, bytes, 0o644); err != nil { //nolint:gosec // G306: test fixture, world-readable by design
-		return fmt.Errorf("fuzzymatch: WriteGoldenFile: %w", err)
+		return fmt.Errorf("fuzzymatch: writeGoldenFile: %w", err)
 	}
 	return nil
 }

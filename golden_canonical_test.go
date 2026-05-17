@@ -273,10 +273,12 @@ func TestWriteGoldenFile_RejectsUnmarshalableValue(t *testing.T) {
 	}
 }
 
-// TestWriteGoldenFile_WriteFailureSurfacesError covers WriteGoldenFile's
+// TestWriteGoldenFile_WriteFailureSurfacesError covers writeGoldenFile's
 // os.WriteFile error branch. We point it at a path inside a non-existent
 // directory; os.WriteFile cannot create the parent and must return an
-// error that the helper wraps under "fuzzymatch: WriteGoldenFile:".
+// error that the helper wraps under "fuzzymatch: writeGoldenFile:".
+// The test-side WriteGoldenFile symbol is the test-only re-export of the
+// unexported writeGoldenFile helper (see export_test.go, Q14b refactor).
 func TestWriteGoldenFile_WriteFailureSurfacesError(t *testing.T) {
 	t.Helper()
 	tmp := t.TempDir()
@@ -285,7 +287,7 @@ func TestWriteGoldenFile_WriteFailureSurfacesError(t *testing.T) {
 	if err == nil {
 		t.Fatal("WriteGoldenFile: expected error writing to non-existent directory, got nil")
 	}
-	if !strings.Contains(err.Error(), "fuzzymatch: WriteGoldenFile:") {
+	if !strings.Contains(err.Error(), "fuzzymatch: writeGoldenFile:") {
 		t.Errorf("WriteGoldenFile: error message %q is missing the wrapper prefix", err.Error())
 	}
 }

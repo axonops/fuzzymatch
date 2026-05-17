@@ -27,9 +27,18 @@ package fuzzymatch
 // without dragging canonicalMarshal into the public API.
 //
 // Do not use this in production code — it does not exist outside of
-// _test.go compilation. Use WriteGoldenFile (the public test-maintenance
-// wrapper) instead.
+// _test.go compilation. Use WriteGoldenFile (the test-only re-export of
+// the unexported writeGoldenFile helper) for the -update workflow.
 var CanonicalMarshalForTest = canonicalMarshal
+
+// WriteGoldenFile is the test-only re-export of the unexported
+// writeGoldenFile helper from golden_canonical.go. The Q14b mechanical
+// refactor (Phase 8.5 Plan 15a) unexported the production-side helper —
+// no consumer should ever invoke it — while keeping the symbol visible
+// to _test.go callers (algorithms_golden_test.go, golden_canonical_test.go,
+// golden_test.go) under the original capitalised name. The build-tag
+// _test.go file suffix excludes this re-export from the public artefact.
+var WriteGoldenFile = writeGoldenFile
 
 // NumAlgorithmsForTest re-exports the unexported numAlgorithms constant
 // to the external test package. Test code asserts the dispatch array
