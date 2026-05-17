@@ -184,6 +184,16 @@ scan / Extract (Phases 9–10).
 - func DefaultTokeniseOptions() TokeniseOptions
 - func Tokenise(s string, opts TokeniseOptions) []string
 
+### Scorer construction options (Phase 8 — plan 08-01 lays the option layer; NewScorer + Scorer methods land in plans 08-02 / 08-03)
+
+- type ScorerOption func(*scorerConfig) error
+- func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
+- func WithoutAlgorithm(id AlgoID) ScorerOption
+- func WithNormalisation(opts NormalisationOptions) ScorerOption
+- func WithoutNormalisation() ScorerOption
+- func WithThreshold(t float64) ScorerOption
+- func WithNormaliseWeights(normalise bool) ScorerOption
+
 ### Sentinel errors
 
 - var ErrInvalidInput error

@@ -986,6 +986,65 @@ func DefaultTokeniseOptions() TokeniseOptions
 func Tokenise(s string, opts TokeniseOptions) []string
 ```
 
+### Scorer construction options (scorer_options.go — Phase 8 plan 08-01)
+
+Plan 08-01 lays the functional-options surface for the composite weighted
+Scorer. The Scorer type, NewScorer constructor, and Score / ScoreAll /
+Match / Threshold / Algorithms methods land in plans 08-02 / 08-03; the
+options below merely accumulate state into an unexported scorerConfig.
+
+Every option validates its inputs at option-application time and returns
+one of the documented sentinel errors on failure (ErrInvalidWeight,
+ErrInvalidThreshold, ErrInvalidAlgorithm). NewScorer short-circuits on
+the first non-nil error.
+
+```go
+// ScorerOption configures a Scorer at construction time. Options are
+// consumed by NewScorer in option-application order; the constructor
+// short-circuits on the first non-nil error.
+type ScorerOption func(*scorerConfig) error
+
+// WithAlgorithm returns a ScorerOption that registers algo with the
+// given weight using the algorithm's dispatch-table default parameters.
+// weight must be > 0 (else ErrInvalidWeight); algo must be in range
+// [0, numAlgorithms) with a populated dispatch entry (else
+// ErrInvalidAlgorithm).
+func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
+
+// WithoutAlgorithm returns a ScorerOption that removes every previously
+// accumulated entry matching id. If id is not currently present,
+// returns nil without error — the silent-no-op semantic enables
+// composition patterns like
+//   append(DefaultScorerOptions(), WithoutAlgorithm(AlgoX), WithThreshold(t))
+// even when AlgoX is not part of the default mix.
+func WithoutAlgorithm(id AlgoID) ScorerOption
+
+// WithNormalisation returns a ScorerOption that enables pre-comparison
+// normalisation in the resulting Scorer. The Scorer applies
+// Normalise(s, opts) to BOTH inputs once at its boundary; token-based
+// algorithms continue to call Tokenise internally on the already-
+// normalised string.
+func WithNormalisation(opts NormalisationOptions) ScorerOption
+
+// WithoutNormalisation returns a ScorerOption that disables pre-
+// comparison normalisation. The Scorer passes raw inputs to every
+// algorithm; token-based algorithms still tokenise the raw input.
+func WithoutNormalisation() ScorerOption
+
+// WithThreshold returns a ScorerOption that sets the Scorer's match
+// threshold to t ∈ [0.0, 1.0]. Out-of-range values return
+// ErrInvalidThreshold. WithThreshold is MANDATORY for NewScorer — if
+// no WithThreshold option is present, NewScorer returns
+// ErrMissingThreshold. DefaultScorer() bakes 0.85 in.
+func WithThreshold(t float64) ScorerOption
+
+// WithNormaliseWeights returns a ScorerOption that controls weight
+// auto-normalisation at NewScorer time. true (default) divides each
+// weight by the sum so Score ∈ [0.0, 1.0]; false preserves raw
+// weights and waives the [0, 1] composite guarantee.
+func WithNormaliseWeights(normalise bool) ScorerOption
+```
+
 ### Sentinel errors (errors.go)
 
 All sentinels are flat `errors.New` values. Discriminate via
