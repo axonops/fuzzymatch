@@ -183,7 +183,7 @@
   - [x] 08.5-01-PLAN.md (Wave 1) — Sentinel hygiene foundation: Gap 4 atomic rename `ErrInvalidAlgorithm` → `ErrInvalidAlgoID` (15 call sites in 5 files) + Q4 sentinel additions (`ErrInvalidInnerAlgo`, `ErrInternalInvariantViolated`) + Q4 removals (3 unused) + 4-section godoc rewrites + Gap 5 typed panic at scorer.go:586 + Monge-Elkan direct-call typed panic + Q1 placeholder note removal (Wave 1; hard predecessor of Plans 13, 15)
   - [x] 08.5-02-PLAN.md (Wave 2) — Q3 MongeElkan symmetric-by-default rename + inert opts removal (atomic across 7+ files, ~22 call sites; breaking pre-v1.0) (Wave 1)
   - [ ] 08.5-03-PLAN.md (Wave 3) — Q5 PartialRatioScoreRunes removal (atomic across 8 files; breaking pre-v1.0) (Wave 1)
-  - [ ] 08.5-04-PLAN.md (Wave 2) — Q2 functional-option NaN/Inf/α+β guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + direct-call TverskyScore typed-panic discipline (Wave 1)
+  - [x] 08.5-04-PLAN.md (Wave 2) — Q2 functional-option NaN/Inf/α+β guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + direct-call TverskyScore typed-panic discipline (Wave 1)
   - [x] 08.5-05-PLAN.md (Wave 1) — Q11c paper-anchored Philips 2000 worked-examples test (~10 cases with citations; Gap 6 gate for Plan 14) (Wave 1)
   - [ ] 08.5-06-PLAN.md (Wave 2) — Q11b FMA-defeating double-cast at cosine.go:343 + scorer.go:380; cross-platform CI matrix verification (Wave 1)
   - [x] 08.5-07-PLAN.md (Wave 1) — Performance optimisations: Q7a DoubleMetaphone `[dmMaxLen]byte` + Q7d Q-gram capacity hint + Q11e DL-Full ZeroAllocs un-skip + Q7c long-input scope notes + Q7b/Q8a/Q8c/Q8d benchmark assertion updates (Wave 1)
@@ -246,7 +246,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
 | 8. Composite Scorer | 4/4 | Complete   | 2026-05-17 |
-| 8.5. Review Remediation Gate | 0/18 | Not started | - |
+| 8.5. Review Remediation Gate | 7/20 | In Progress | - |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |

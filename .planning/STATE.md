@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Completed Plan 08.5-02 (Q3 — MongeElkan symmetric-by-default rename + opts removal, breaking pre-v1.0)
-last_updated: "2026-05-17T13:44:35Z"
+stopped_at: Completed Plan 08.5-04 (Q2 — data-vs-parameter validation framework guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + Tversky direct-call typed-error panic discipline)
+last_updated: "2026-05-17T13:58:22.811Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 7 of 20 (08.5-02 just completed; 6 plans done: 01, 02, 05, 07, 09, 10)
+Plan: 9 of 20 (08.5-04 just completed; 7 plans done: 01, 02, 04, 05, 07, 09, 10)
 Status: Ready to execute
 Last activity: 2026-05-17
 
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08.5 P09 | 25min | 1 tasks | 11 files |
 | Phase 08.5 P10 | 50min | - tasks | - files |
 | Phase 08.5 P02 | 80min | 1 tasks | 20 files |
+| Phase 08.5 P04 | 12min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - [Phase ?]: Phase 08.5 Plan 09 (Q13): 9 missing TestGolden_*_Staging functions added for DoubleMetaphone/MongeElkan/MRA/NYSIIS/PartialRatio/Soundex/TokenJaccard/TokenSetRatio/TokenSortRatio. Catalogue now at 23/23 producing tests. 9 staging JSONs regenerated to alphabetical-by-Name; informational note fields dropped (rationale lives in test godocs). Phase 8.5 success criterion 9 SATISFIED.
 - [Phase ?]: Plan 08.5-10 (Q10): 3 new cross-validation corpora added — character (jellyfish==1.2.1, 33 cases), q-gram (py_stringmatching==0.4.7, 32 cases at q=2+q=3), monge-elkan (py_stringmatching==0.4.7, 32 cases with JW-inner + Lev-inner, asym + sym surfaces). Documented 4 fuzzymatch-vs-reference divergences via variant_divergence pattern + q-gram-uniqueness constraint + relaxed JW-inner tolerance (1e-6 for fp32-JW).
 - [Phase ?]: Plan 08.5-02 (Q3): atomic rename MongeElkanScore↔MongeElkanScoreSymmetric — the unsuffixed name is now the symmetric default; the v0.x directional surface is now MongeElkanScoreAsymmetric; the inert NormalisationOptions parameter is removed from both surfaces. Breaking pre-v1.0. 20 .go/.txt files modified in a single feat! commit (672 insertions, 634 deletions). Example Output lines bit-stable. Cross-validation corpus JSON unchanged. BDD Gherkin step language preserved (Go-side mappings only updated).
+- [Phase ?]: Phase 08.5 Plan 04 (Q2): atomic single-commit landing of NaN/Inf/(α+β≤0) strict-parameter guards on WithThreshold + WithAlgorithm + WithTverskyAlgorithm; TverskyScore + TverskyScoreRunes direct-call panics upgraded to typed-error values wrapping ErrInvalidTverskyParam / ErrInvalidQGramSize. Data-vs-parameter framework (docs/requirements.md §6.A) is now uniformly enforced at every parameter entry point.
 
 ### Pending Todos
 
@@ -109,7 +111,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T13:44:35Z
-Stopped at: Completed Plan 08.5-02 (Q3 — MongeElkan symmetric-by-default rename + opts removal, breaking pre-v1.0)
+Last session: 2026-05-17T13:58:22.797Z
+Stopped at: Completed Plan 08.5-04 (Q2 — data-vs-parameter validation framework guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + Tversky direct-call typed-error panic discipline)
 Resume file: 
 None
