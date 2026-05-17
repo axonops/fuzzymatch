@@ -1,0 +1,319 @@
+{
+  "_metadata": {
+    "phase": 8,
+    "scorer_signature": "DefaultScorer-2026-05-16"
+  },
+  "entries": [
+    {
+      "a": "user_id",
+      "b": "userId",
+      "score": 0.9999999999999999,
+      "match": true,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 1,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 1,
+        "QGramJaccard": 1,
+        "SorensenDice": 1,
+        "TokenJaccard": 1
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "created_at",
+      "b": "creationTimestamp",
+      "score": 0.26955026455026454,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.38888888888888884,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0.8355555555555555,
+        "QGramJaccard": 0.14285714285714285,
+        "SorensenDice": 0.25,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "status",
+      "b": "state",
+      "score": 0.4219047619047619,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.6666666666666667,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0.8933333333333334,
+        "QGramJaccard": 0.4,
+        "SorensenDice": 0.5714285714285714,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "email",
+      "b": "e_mail",
+      "score": 0.6257936507936508,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.8333333333333334,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.9500000000000001,
+        "QGramJaccard": 0.4,
+        "SorensenDice": 0.5714285714285714,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "org_id",
+      "b": "organisation_id",
+      "score": 0.29106753812636166,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.4,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0.6444444444444445,
+        "QGramJaccard": 0.13333333333333333,
+        "SorensenDice": 0.23529411764705882,
+        "TokenJaccard": 0.3333333333333333
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "latitude",
+      "b": "longitude",
+      "score": 0.36720085470085473,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.6666666666666667,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0.775,
+        "QGramJaccard": 0.3,
+        "SorensenDice": 0.46153846153846156,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "is_deleted",
+      "b": "is_active",
+      "score": 0.25943562610229276,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.4,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0.6185185185185186,
+        "QGramJaccard": 0.07142857142857142,
+        "SorensenDice": 0.13333333333333333,
+        "TokenJaccard": 0.3333333333333333
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "hello",
+      "b": "hello",
+      "score": 0.9999999999999999,
+      "match": true,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 1,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 1,
+        "QGramJaccard": 1,
+        "SorensenDice": 1,
+        "TokenJaccard": 1
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "",
+      "b": "",
+      "score": 0.9999999999999999,
+      "match": true,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 1,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 1,
+        "QGramJaccard": 1,
+        "SorensenDice": 1,
+        "TokenJaccard": 1
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "",
+      "b": "hello",
+      "score": 0,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0,
+        "QGramJaccard": 0,
+        "SorensenDice": 0,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "café",
+      "b": "cafe",
+      "score": 0.5163888888888889,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.6,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.8483333333333334,
+        "QGramJaccard": 0.25,
+        "SorensenDice": 0.4,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "Smith",
+      "b": "Schmidt",
+      "score": 0.36083333333333334,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.4285714285714286,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.7364285714285714,
+        "QGramJaccard": 0,
+        "SorensenDice": 0,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "config",
+      "b": "configs",
+      "score": 0.7529100529100529,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.8571428571428572,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.9714285714285714,
+        "QGramJaccard": 0.8,
+        "SorensenDice": 0.8888888888888888,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "abc",
+      "b": "xyz",
+      "score": 0,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0,
+        "DoubleMetaphone": 0,
+        "JaroWinkler": 0,
+        "QGramJaccard": 0,
+        "SorensenDice": 0,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "XMLParser",
+      "b": "xml_parser",
+      "score": 0.6391975308641975,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.5,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.6851851851851851,
+        "QGramJaccard": 0.25,
+        "SorensenDice": 0.4,
+        "TokenJaccard": 1
+      },
+      "scorer_config": "DefaultScorer-WithoutNormalisation"
+    },
+    {
+      "a": "Smith",
+      "b": "Schmidt",
+      "score": 0.233,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.4285714285714286,
+        "JaroWinkler": 0.7364285714285714,
+        "QGramJaccard": 0,
+        "SorensenDice": 0,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer-MinusDoubleMetaphone"
+    },
+    {
+      "a": "kitten",
+      "b": "sitting",
+      "score": 0.5714285714285714,
+      "match": true,
+      "scoreAll": {
+        "Levenshtein": 0.5714285714285714
+      },
+      "scorer_config": "Levenshtein-Only-Threshold-0.5"
+    },
+    {
+      "a": "user_id",
+      "b": "userId",
+      "score": 4,
+      "match": true,
+      "scoreAll": {
+        "JaroWinkler": 1,
+        "Levenshtein": 1
+      },
+      "scorer_config": "Raw-Weights-Lev-1-JW-3-NoNorm"
+    },
+    {
+      "a": "abbreviation",
+      "b": "abreviation",
+      "score": 0.743970405812511,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.9166666666666666,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.9777777777777777,
+        "QGramJaccard": 0.7272727272727273,
+        "SorensenDice": 0.8421052631578947,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer"
+    },
+    {
+      "a": "Smith",
+      "b": "Schmidt",
+      "score": 2.637857142857143,
+      "match": true,
+      "scoreAll": {
+        "JaroWinkler": 0.7364285714285714,
+        "Levenshtein": 0.4285714285714286
+      },
+      "scorer_config": "Raw-Weights-Lev-1-JW-3-NoNorm"
+    },
+    {
+      "a": "café",
+      "b": "cafe",
+      "score": 0.5163888888888889,
+      "match": false,
+      "scoreAll": {
+        "DamerauLevenshteinOSA": 0.6,
+        "DoubleMetaphone": 1,
+        "JaroWinkler": 0.8483333333333334,
+        "QGramJaccard": 0.25,
+        "SorensenDice": 0.4,
+        "TokenJaccard": 0
+      },
+      "scorer_config": "DefaultScorer-WithoutNormalisation"
+    },
+    {
+      "a": "user_id",
+      "b": "userId",
+      "score": 1,
+      "match": true,
+      "scoreAll": {
+        "Levenshtein": 1
+      },
+      "scorer_config": "Levenshtein-Only-Threshold-0.5"
+    }
+  ]
+}
