@@ -41,11 +41,11 @@ import (
 // scoreMap2 hold the two successive ScoreAll maps; algorithms holds
 // the slice returned by DefaultScorer.Algorithms.
 type DeterminismContext struct {
-	inputA, inputB   string
-	score1, score2   float64
-	scoreMap1        map[fuzzymatch.AlgoID]float64
-	scoreMap2        map[fuzzymatch.AlgoID]float64
-	algorithms       []fuzzymatch.ScorerAlgorithm
+	inputA, inputB string
+	score1, score2 float64
+	scoreMap1      map[fuzzymatch.AlgoID]float64
+	scoreMap2      map[fuzzymatch.AlgoID]float64
+	algorithms     []fuzzymatch.ScorerAlgorithm
 }
 
 // theDeterminismInputPair sets inputA and inputB from the Gherkin

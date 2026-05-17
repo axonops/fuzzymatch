@@ -30,11 +30,11 @@
 // Pairs chosen to exercise distinct WarnKind values:
 //
 //   - "user_id" / ""        — WarnEmptyInput (cross-cutting) plus
-//                              WarnUnequalLength (Hamming) plus
-//                              WarnNoTokensAfterNormalise (5 token-tier algos)
+//     WarnUnequalLength (Hamming) plus
+//     WarnNoTokensAfterNormalise (5 token-tier algos)
 //   - "abc" / "abcd"        — WarnUnequalLength scoped to AlgoHamming
 //   - "中文" / "日本語"        — WarnUnequalLength (Hamming) plus
-//                              WarnAllNonASCIIDropped (5 ASCII-only algos)
+//     WarnAllNonASCIIDropped (5 ASCII-only algos)
 //   - "user_id" / "userId"  — WarnUnequalLength only (Hamming silent-max)
 //
 // A clean nil-return scenario (no warnings emitted) requires two

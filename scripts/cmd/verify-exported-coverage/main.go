@@ -356,15 +356,3 @@ func collectTestRefs(dir string) (map[string]struct{}, error) { //nolint:gocyclo
 
 	return refs, nil
 }
-
-// sortedKeys returns the keys of m sorted lexicographically. Used to
-// produce deterministic output (offender lists, summary counts) so the
-// helper is reproducible across CI runs.
-func sortedKeys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}

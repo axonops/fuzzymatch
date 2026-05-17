@@ -133,6 +133,8 @@ func (e *driftViolationErr) Error() string { return e.msg }
 // strictFull promotes llms-full.txt drift from a warning to a failure;
 // llms.txt drift is always a failure (matches the existing in-process
 // gate semantics).
+//
+//nolint:gocyclo // gate orchestrator: two-arm drift evaluation (llms.txt always strict + llms-full.txt strict-or-advisory) plus deterministic-output sorting + advisory-warning branch — splitting harms readability of the linear gate sequence.
 func run(pkgDir, pkgName, llmsTxtPath, llmsFullPath string, strictFull bool, out, errOut io.Writer) error {
 	llmsTxt, err := readFile(llmsTxtPath)
 	if err != nil {
@@ -233,7 +235,11 @@ func strictOrAdvisorySuffix(strictFull bool, missingFull int, llmsFullPath strin
 // readFile reads a file and returns its contents as a string, returning
 // a wrapped error on failure.
 func readFile(path string) (string, error) {
-	content, err := os.ReadFile(path)
+	// nolint:gosec // G304: path comes from a CLI flag in a developer-tooling
+	// script (not a server endpoint); reading arbitrary paths is the
+	// intended behaviour. The script is invoked by CI/maintainers, not by
+	// untrusted users.
+	content, err := os.ReadFile(path) //nolint:gosec // see comment above
 	if err != nil {
 		return "", fmt.Errorf("verify-llms-sync: read %s: %w", path, err)
 	}

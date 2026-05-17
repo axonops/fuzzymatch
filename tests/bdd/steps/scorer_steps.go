@@ -400,7 +400,7 @@ func (sc *ScorerContext) iAddWithoutAlgorithmForAnUnknownAlgoIDToTheOptionChain(
 // Step regex: `^the Scorer construction succeeds$`
 func (sc *ScorerContext) theScorerConstructionSucceeds() error {
 	if sc.scorer == nil {
-		return fmt.Errorf("scorer not constructed (lastErr=%v)", sc.lastErr)
+		return fmt.Errorf("scorer not constructed (lastErr=%w)", sc.lastErr)
 	}
 	return nil
 }
@@ -416,11 +416,11 @@ func (sc *ScorerContext) theScorerAlgorithmsListIsUnchanged() error {
 	got := sc.scorer.Algorithms()
 	want := sc.defaultScorer.Algorithms()
 	if len(got) != len(want) {
-		return fmt.Errorf("Algorithms length mismatch: got=%d want=%d (WithoutAlgorithm should silently no-op on absent AlgoID)", len(got), len(want))
+		return fmt.Errorf("algorithms length mismatch: got=%d want=%d (WithoutAlgorithm should silently no-op on absent AlgoID)", len(got), len(want))
 	}
 	for i := range got {
 		if got[i].ID != want[i].ID || got[i].Weight != want[i].Weight {
-			return fmt.Errorf("Algorithms[%d] mismatch: got=(%s, %f) want=(%s, %f)", i, got[i].ID, got[i].Weight, want[i].ID, want[i].Weight)
+			return fmt.Errorf("algorithms[%d] mismatch: got=(%s, %f) want=(%s, %f)", i, got[i].ID, got[i].Weight, want[i].ID, want[i].Weight)
 		}
 	}
 	return nil
@@ -454,7 +454,7 @@ func (sc *ScorerContext) constructingTheScorerShouldReturn(errName string) error
 		return fmt.Errorf("unknown sentinel name %q (supported: ErrMissingThreshold, ErrEmptyScorer, ErrInvalidWeight, ErrInvalidThreshold, ErrInvalidAlgoID, ErrInvalidQGramSize, ErrInvalidTverskyParam)", errName)
 	}
 	if !errors.Is(sc.lastErr, target) {
-		return fmt.Errorf("expected errors.Is(err, %s), got err = %v", errName, sc.lastErr)
+		return fmt.Errorf("expected errors.Is(err, %s), got err = %w", errName, sc.lastErr)
 	}
 	return nil
 }
@@ -675,7 +675,7 @@ func (sc *ScorerContext) bothTokenisePathsProduce(expectedLiteral string) error 
 			sc.tokeniseFastTokens, sc.tokeniseRuneTokens)
 	}
 	if !reflect.DeepEqual(sc.tokeniseFastTokens, expected) {
-		return fmt.Errorf("Tokenise paths agreed on %q, but expected sequence was %q",
+		return fmt.Errorf("tokenise paths agreed on %q, but expected sequence was %q",
 			sc.tokeniseFastTokens, expected)
 	}
 	return nil
@@ -688,6 +688,8 @@ func (sc *ScorerContext) bothTokenisePathsProduce(expectedLiteral string) error 
 // brackets. This is sufficient for the Tokenise scenario (the only
 // caller); any expansion to more complex slice literals should be
 // re-evaluated against the established BDD step shape.
+//
+//nolint:gocyclo // canonical mini-lexer: open-bracket → quote-open → quote-close → body-char → comma-or-whitespace → closing-bracket validation; each branch is one cyclomatic point but the linear shape is the simplest expression of the grammar.
 func parseTokeniseExpectedSequence(literal string) ([]string, error) {
 	if len(literal) < 2 || literal[0] != '[' || literal[len(literal)-1] != ']' {
 		return nil, fmt.Errorf("expected sequence must be bracket-delimited; got %q", literal)
