@@ -108,9 +108,9 @@ var ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
 // Resolution: call AlgoIDs() to discover the valid set rather than
 // guessing; for Monge-Elkan inner metrics, prefer one of the 18
 // permitted inner AlgoIDs documented in monge_elkan.go. Direct calls
-// to MongeElkanScore / MongeElkanScoreSymmetric panic with a value
-// wrapping ErrInvalidInnerAlgo (the inner-specific sentinel) on a
-// non-permitted inner.
+// to MongeElkanScore (symmetric default) / MongeElkanScoreAsymmetric
+// (directional) panic with a value wrapping ErrInvalidInnerAlgo (the
+// inner-specific sentinel) on a non-permitted inner.
 //
 // Example:
 //
@@ -138,9 +138,9 @@ var ErrInvalidAlgoID = errors.New("fuzzymatch: invalid algorithm identifier")
 // Resolution: pick one of the 18 permitted inner AlgoIDs (9 character-
 // tier + 4 q-gram tier + 1 gestalt + 4 phonetic-tier). The default
 // inner is AlgoJaroWinkler — pass that via WithAlgorithm(AlgoMongeElkan,
-// w) for the typical case. Direct MongeElkanScore /
-// MongeElkanScoreSymmetric calls with a non-permitted inner panic with
-// a value wrapping this sentinel.
+// w) for the typical case. Direct MongeElkanScore (symmetric default)
+// / MongeElkanScoreAsymmetric (directional) calls with a non-permitted
+// inner panic with a value wrapping this sentinel.
 //
 // Example:
 //
@@ -151,7 +151,7 @@ var ErrInvalidAlgoID = errors.New("fuzzymatch: invalid algorithm identifier")
 //	        }
 //	    }
 //	}()
-//	_ = fuzzymatch.MongeElkanScore("a b", "c d", fuzzymatch.AlgoMongeElkan, fuzzymatch.NormalisationOptions{})
+//	_ = fuzzymatch.MongeElkanScore("a b", "c d", fuzzymatch.AlgoMongeElkan)
 var ErrInvalidInnerAlgo = errors.New("fuzzymatch: invalid inner algorithm for Monge-Elkan composite")
 
 // ErrEmptyScorer indicates NewScorer was called without any algorithm

@@ -28,7 +28,8 @@ package fuzzymatch
 
 // _ registers MRAScore in the global dispatch table at AlgoMRA (26).
 // This runs before any test or caller can invoke the dispatch table, ensuring
-// that MongeElkanScore and Scorer dispatch paths see the registered function.
+// that MongeElkanScore / MongeElkanScoreAsymmetric and Scorer dispatch paths
+// see the registered function.
 var _ = func() bool {
 	dispatch[AlgoMRA] = MRAScore
 	return true

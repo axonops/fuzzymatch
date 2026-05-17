@@ -399,7 +399,7 @@ func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption {
 }
 
 // WithMongeElkanAlgorithm returns a ScorerOption that registers the
-// Monge-Elkan symmetric similarity (Monge & Elkan 1996 — see
+// Monge-Elkan symmetric default (Monge & Elkan 1996 — see
 // docs/algorithms.md) with the given weight and inner-metric AlgoID.
 // Use this instead of WithAlgorithm(AlgoMongeElkan, weight) when the
 // inner metric must differ from the dispatch default of AlgoJaroWinkler.
@@ -409,19 +409,18 @@ func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption {
 // (else ErrInvalidAlgoID). The trivial-recursion case inner ==
 // AlgoMongeElkan is rejected explicitly here so the consumer sees a
 // typed error at construction time instead of a runtime panic from
-// MongeElkanScoreSymmetric's allow-list gate.
+// MongeElkanScore's allow-list gate.
 //
 // The full 18-entry inner allow-list is enforced inside
-// MongeElkanScoreSymmetric (Phase 6 + Phase 7 locked behaviour) — this
-// option performs only the bounds + self-rejection check. Passing an
-// inner AlgoID that the underlying ME implementation rejects will
-// panic at Score time (programmer error); the panic surfaces via
-// godog's recover mechanism in plan 08-04's BDD scenarios.
+// MongeElkanScore (Phase 6 + Phase 7 locked behaviour) — this option
+// performs only the bounds + self-rejection check. Passing an inner
+// AlgoID that the underlying ME implementation rejects will panic at
+// Score time (programmer error); the panic surfaces via godog's
+// recover mechanism in plan 08-04's BDD scenarios.
 //
-// The captured inner is stored by value inside the closure;
-// DefaultNormalisationOptions() is also captured by value (ME's opts
-// parameter is currently a no-op per Phase 6 — accepted-but-ignored —
-// and is plumbed through for forward-compat per CONTEXT.md §8).
+// The captured inner is stored by value inside the closure. Phase 8.5
+// Q3 — the previously-inert NormalisationOptions parameter has been
+// removed from MongeElkanScore; the closure now passes only (a, b, inner).
 func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption {
 	return func(cfg *scorerConfig) error {
 		if weight <= 0 {
@@ -438,7 +437,7 @@ func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption {
 			id:     AlgoMongeElkan,
 			weight: weight,
 			scoreFn: func(a, b string) float64 {
-				return MongeElkanScoreSymmetric(a, b, inner, DefaultNormalisationOptions())
+				return MongeElkanScore(a, b, inner)
 			},
 		})
 		return nil

@@ -17,36 +17,35 @@
 // dispatch[AlgoMongeElkan] (slot 13 — see algoid.go for the slot map).
 //
 // The dispatch table maps AlgoID to (a, b string) float64 — a fixed
-// signature with no place for the inner AlgoID parameter NOR for the
-// NormalisationOptions. Per CONTEXT.md §4 LOCKED the dispatch wrapper
-// binds:
+// signature with no place for the inner AlgoID parameter. Per
+// CONTEXT.md §4 LOCKED + Phase 8.5 Q3 symmetric-by-default rename, the
+// dispatch wrapper binds:
 //
-//   - The SYMMETRIC variant (MongeElkanScoreSymmetric), NOT the asymmetric
-//     direct surface — so AlgoMongeElkan participates in the standard
+//   - The SYMMETRIC default MongeElkanScore (post-rename unsuffixed name)
+//     — so AlgoMongeElkan participates in the standard
 //     PropAlgorithmScore_Symmetric property test set without exemption.
 //   - AlgoJaroWinkler as the default inner — the standard reference for
 //     fuzzy-name matching in the Monge & Elkan 1996 paper's empirical
 //     evaluation and the most widely-known inner-metric choice across
 //     SecondString / py_stringmatching / RapidFuzz lineages.
-//   - DefaultNormalisationOptions() for opts — Tokenise internally
-//     uses DefaultTokeniseOptions() regardless, so the opts forwarded
-//     to MongeElkanScoreSymmetric is currently informational; Phase 8's
-//     WithMongeElkanAlgorithm(weight, inner) will forward user-supplied
-//     NormalisationOptions through.
 //
-// The asymmetric direct surface (MongeElkanScore) is reachable via the
-// public API but NOT via the dispatch table — direction-sensitive
+// The directional surface (MongeElkanScoreAsymmetric) is reachable via
+// the public API but NOT via the dispatch table — direction-sensitive
 // scoring is an advanced use case that requires the caller to be aware
 // of which argument's tokens drive the per-token-max reduction. The
 // dispatch wrapper provides the symmetric "best-of-both-directions"
 // reduction as the safer default for Scorer / Extract integrations.
 //
-// Phase 7 forward-compatibility: when AlgoSoundex / AlgoDoubleMetaphone /
-// AlgoNYSIIS / AlgoMRA land, planners ADD entries to
-// permittedMongeElkanInner (in monge_elkan.go) AND update the panic-test
-// fixture in monge_elkan_test.go (rejected count drops from 9 to 5).
-// The dispatch wrapper itself is UNCHANGED — the JaroWinkler default is
-// preserved.
+// Phase 8.5 Q3 — opts removal: the v0.x dispatch wrapper forwarded
+// DefaultNormalisationOptions() to a NormalisationOptions parameter that
+// was inert inside the body (Tokenise carries its own
+// DefaultTokeniseOptions()). The parameter has been removed and the
+// dispatch wrapper now passes only (a, b, inner).
+//
+// Phase 7 forward-compatibility: AlgoSoundex / AlgoDoubleMetaphone /
+// AlgoNYSIIS / AlgoMRA were ADDED to permittedMongeElkanInner (in
+// monge_elkan.go); the dispatch wrapper itself is UNCHANGED — the
+// JaroWinkler default is preserved.
 //
 // See algoid.go for the dispatch array declaration and its design
 // rationale. The var _ = func() bool { ... }() idiom is the canonical
@@ -57,17 +56,17 @@ package fuzzymatch
 
 // _ ensures dispatch[AlgoMongeElkan] is populated before any call to the
 // Scorer (Phase 8) or Extract (Phase 10) that reads the dispatch table.
-// Per CONTEXT.md §4 LOCKED:
-//   - the SYMMETRIC variant is dispatched (so AlgoMongeElkan participates
-//     in the standard symmetric property-test set);
-//   - the default inner is AlgoJaroWinkler;
-//   - opts is DefaultNormalisationOptions().
+// Per CONTEXT.md §4 LOCKED + Phase 8.5 Q3 symmetric-by-default rename:
+//   - the SYMMETRIC default MongeElkanScore is dispatched (so
+//     AlgoMongeElkan participates in the standard symmetric property-
+//     test set);
+//   - the default inner is AlgoJaroWinkler.
 //
 // See the file-level godoc above for the rationale and the
 // forward-compatibility notes for Phase 7's phonetic-tier additions.
 var _ = func() bool {
 	dispatch[AlgoMongeElkan] = func(a, b string) float64 {
-		return MongeElkanScoreSymmetric(a, b, AlgoJaroWinkler, DefaultNormalisationOptions())
+		return MongeElkanScore(a, b, AlgoJaroWinkler)
 	}
 	return true
 }()

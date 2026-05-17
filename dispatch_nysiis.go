@@ -21,7 +21,8 @@ package fuzzymatch
 
 // _ registers NYSIISScore in the global dispatch table at AlgoNYSIIS (25).
 // This runs before any test or caller can invoke the dispatch table, ensuring
-// that MongeElkanScore and Scorer dispatch paths see the registered function.
+// that MongeElkanScore / MongeElkanScoreAsymmetric and Scorer dispatch paths
+// see the registered function.
 var _ = func() bool {
 	dispatch[AlgoNYSIIS] = NYSIISScore
 	return true

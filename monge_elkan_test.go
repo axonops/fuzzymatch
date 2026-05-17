@@ -17,12 +17,16 @@
 // §1b LOCKED (each carries its per-token-max derivation in the test
 // comment so a reviewer can re-derive the expected value in under a
 // minute), identity, both-empty (STANDARD catalogue convention),
-// one-empty, the symmetric variant pin, the KEYSTONE asymmetry gate
+// one-empty, the symmetric default pin, the KEYSTONE asymmetry gate
 // (RV-ME6 — load-bearing direction-sensitivity regression detector),
 // dispatch registration with the LOCKED CONTEXT.md §4 defaults
-// (symmetric variant + AlgoJaroWinkler default inner +
-// DefaultNormalisationOptions), and the exhaustive panic test walking
-// all 9 NON-permitted AlgoIDs per RESEARCH.md Pitfall 4.
+// (symmetric default MongeElkanScore + AlgoJaroWinkler default inner),
+// and the exhaustive panic test walking all 9 NON-permitted AlgoIDs per
+// RESEARCH.md Pitfall 4.
+//
+// Phase 8.5 Q3 rename: MongeElkanScore is now the symmetric default;
+// the directional surface is MongeElkanScoreAsymmetric. The
+// NormalisationOptions parameter has been removed from both surfaces.
 //
 // Stdlib `testing` only — no testify in root tests, per
 // .claude/skills/go-coding-standards.
@@ -40,21 +44,24 @@ import (
 
 // mongeElkanEpsilon is the float-comparison tolerance for irrational
 // expected values (e.g. 0.9125 from the JaroWinkler-driven max-mean).
-// Phase 2/3/4/5/6 convention is 1e-9; the Monge-Elkan asymmetric formula
-// is a sum of float64 max operations and a single division so the
-// derivation is exact at IEEE-754 precision but values from the inner
-// metric (JaroWinkler) carry their own rounding. 1e-9 is well above the
-// observed accumulated error on these inputs.
+// Phase 2/3/4/5/6 convention is 1e-9; the directional Monge-Elkan
+// formula is a sum of float64 max operations and a single division so
+// the derivation is exact at IEEE-754 precision but values from the
+// inner metric (JaroWinkler) carry their own rounding. 1e-9 is well
+// above the observed accumulated error on these inputs.
 const mongeElkanEpsilon = 1e-9
 
-// TestMongeElkanScore covers the six hand-derived reference vectors
-// RV-ME1..RV-ME6 per CONTEXT.md §1b LOCKED, plus the conventional
-// short-circuit cases (identity, both-empty, one-empty). Each row's
-// derivation is reproduced in the test comment so a reviewer can
-// re-derive the expected value from Monge & Elkan 1996 §3 in under a
-// minute. RV-ME6 (the asymmetry KEYSTONE) is the load-bearing
+// TestMongeElkanScoreAsymmetric covers the six hand-derived reference
+// vectors RV-ME1..RV-ME6 per CONTEXT.md §1b LOCKED, plus the
+// conventional short-circuit cases (identity, both-empty, one-empty).
+// Each row's derivation is reproduced in the test comment so a reviewer
+// can re-derive the expected value from Monge & Elkan 1996 §3 in under
+// a minute. RV-ME6 (the asymmetry KEYSTONE) is the load-bearing
 // regression gate for direction-sensitivity.
-func TestMongeElkanScore(t *testing.T) {
+//
+// Phase 8.5 Q3 rename: this test exercises the directional surface
+// (post-rename MongeElkanScoreAsymmetric — the v0.x MongeElkanScore).
+func TestMongeElkanScoreAsymmetric(t *testing.T) {
 	tests := []struct {
 		name       string
 		a, b       string
@@ -109,7 +116,8 @@ func TestMongeElkanScore(t *testing.T) {
 			derivation: "tokens(A)=[alpha,beta]; tokens(B)=[gamma,delta]; max(JW(alpha,gamma)=0.6, JW(alpha,delta)=0.6)=0.6; max(JW(beta,gamma)=0.4833, JW(beta,delta)=0.7833)=0.7833; ME=(0.6+0.7833)/2=0.6917",
 		},
 		{
-			// RV-ME4 — partial-overlap, token-count asymmetry (|tA| < |tB|).
+			// RV-ME4 — partial-overlap, token-count asymmetry (|tA| < |tB|);
+			// exercises MongeElkanScoreAsymmetric (the directional surface).
 			// tokens(A) = ["alpha"]; tokens(B) = ["alpha","beta","gamma"]
 			// max_inner(alpha, *) = max(Lev(alpha,alpha)=1, Lev(alpha,beta)=0.2,
 			//                           Lev(alpha,gamma)=0.2) = 1.0
@@ -147,8 +155,8 @@ func TestMongeElkanScore(t *testing.T) {
 			// Pair with RV-ME4 above: same (a, b) tokens, swapped
 			// direction. The expected scores differ:
 			//
-			// RV-ME4: MongeElkanScore("alpha", "alpha beta gamma", Lev) = 1.0
-			// RV-ME6: MongeElkanScore("alpha beta gamma", "alpha", Lev) = ?
+			// RV-ME4: MongeElkanScoreAsymmetric("alpha", "alpha beta gamma", Lev) = 1.0
+			// RV-ME6: MongeElkanScoreAsymmetric("alpha beta gamma", "alpha", Lev) = ?
 			//
 			// tokens(A) = ["alpha","beta","gamma"]; tokens(B) = ["alpha"]
 			// max_inner(alpha, *) = Lev(alpha, alpha) = 1.0
@@ -204,112 +212,115 @@ func TestMongeElkanScore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := fuzzymatch.MongeElkanScore(tt.a, tt.b, tt.inner, fuzzymatch.DefaultNormalisationOptions())
+			got := fuzzymatch.MongeElkanScoreAsymmetric(tt.a, tt.b, tt.inner)
 			if tt.exact {
 				if got != tt.want {
-					t.Errorf("MongeElkanScore(%q, %q, %s) = %.17g; want %.17g (exact)\nderivation: %s",
+					t.Errorf("MongeElkanScoreAsymmetric(%q, %q, %s) = %.17g; want %.17g (exact)\nderivation: %s",
 						tt.a, tt.b, tt.inner, got, tt.want, tt.derivation)
 				}
 			} else {
 				if math.Abs(got-tt.want) > mongeElkanEpsilon {
-					t.Errorf("MongeElkanScore(%q, %q, %s) = %.17g; want %.17g ± %g\nderivation: %s",
+					t.Errorf("MongeElkanScoreAsymmetric(%q, %q, %s) = %.17g; want %.17g ± %g\nderivation: %s",
 						tt.a, tt.b, tt.inner, got, tt.want, mongeElkanEpsilon, tt.derivation)
 				}
 			}
 			if got < 0.0 || got > 1.0 {
-				t.Errorf("MongeElkanScore(%q, %q, %s) = %g; want in [0, 1]", tt.a, tt.b, tt.inner, got)
+				t.Errorf("MongeElkanScoreAsymmetric(%q, %q, %s) = %g; want in [0, 1]", tt.a, tt.b, tt.inner, got)
 			}
 		})
 	}
 }
 
-// TestMongeElkanScore_AsymmetryDirectionSensitive is the LOAD-BEARING
+// TestMongeElkanScoreAsymmetric_DirectionSensitive is the LOAD-BEARING
 // regression gate for RV-ME6 / RV-ME-asym: the same inputs in the two
 // argument orders MUST produce different scores. A silent direction
-// swap (or accidental symmetrisation) inside MongeElkanScore would
-// cause both calls to return the same value — both would still be in
-// [0, 1] and still pass RangeBounds + Identity — but this test catches
-// the regression by asserting a MINIMUM separation.
+// swap (or accidental symmetrisation) inside MongeElkanScoreAsymmetric
+// would cause both calls to return the same value — both would still
+// be in [0, 1] and still pass RangeBounds + Identity — but this test
+// catches the regression by asserting a MINIMUM separation.
 //
 // Mirrors the Tversky α≠β asymmetry test pattern.
-func TestMongeElkanScore_AsymmetryDirectionSensitive(t *testing.T) {
+func TestMongeElkanScoreAsymmetric_DirectionSensitive(t *testing.T) {
 	const a = "alpha beta gamma"
 	const b = "alpha"
 	inner := fuzzymatch.AlgoLevenshtein
-	opts := fuzzymatch.DefaultNormalisationOptions()
-	fwd := fuzzymatch.MongeElkanScore(a, b, inner, opts) // ME(B, A) per RV-ME6 (a here is the multi-token side)
-	rev := fuzzymatch.MongeElkanScore(b, a, inner, opts) // ME(A, B) per RV-ME4
+	fwd := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner) // ME(B, A) per RV-ME6 (a here is the multi-token side)
+	rev := fuzzymatch.MongeElkanScoreAsymmetric(b, a, inner) // ME(A, B) per RV-ME4
 	delta := math.Abs(fwd - rev)
 	// The actual difference is 1.0 - 0.4666… ≈ 0.5333; the threshold
 	// 0.1 gates against silent direction-swap regressions while leaving
 	// IEEE-754 rounding headroom.
 	const minDelta = 0.1
 	if delta <= minDelta {
-		t.Errorf("MongeElkanScore asymmetry gate FAILED: fwd=%g (a→b), rev=%g (b→a), |Δ|=%g; want > %g (the input swap with fixed inner should produce direction-sensitive scores per RV-ME6 KEYSTONE)",
+		t.Errorf("MongeElkanScoreAsymmetric asymmetry gate FAILED: fwd=%g (a→b), rev=%g (b→a), |Δ|=%g; want > %g (the input swap with fixed inner should produce direction-sensitive scores per RV-ME6 KEYSTONE)",
 			fwd, rev, delta, minDelta)
 	}
 }
 
-// TestMongeElkanScoreSymmetric pins the symmetric variant:
+// TestMongeElkanScore pins the symmetric default (Phase 8.5 Q3 rename
+// — the unsuffixed MongeElkanScore is now the symmetric default; the
+// directional variant is MongeElkanScoreAsymmetric):
 //
 //   - identity → 1.0
 //   - both-empty → 1.0 (STANDARD)
 //   - one-empty → 0.0
-//   - explicit `MongeElkanScoreSymmetric(a, b, ...) ==
-//     (MongeElkanScore(a, b, ...) + MongeElkanScore(b, a, ...)) / 2.0`
-//   - symmetry pin: `MongeElkanScoreSymmetric(a, b) ==
-//     MongeElkanScoreSymmetric(b, a)` for the RV-ME-asym pair
-func TestMongeElkanScoreSymmetric(t *testing.T) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
+//   - explicit `MongeElkanScore(a, b, ...) ==
+//     (MongeElkanScoreAsymmetric(a, b, ...) +
+//      MongeElkanScoreAsymmetric(b, a, ...)) / 2.0`
+//   - symmetry pin: `MongeElkanScore(a, b) ==
+//     MongeElkanScore(b, a)` for the RV-ME-asym pair
+func TestMongeElkanScore(t *testing.T) {
 	// Identity.
-	if got := fuzzymatch.MongeElkanScoreSymmetric("alpha", "alpha", fuzzymatch.AlgoJaroWinkler, opts); got != 1.0 {
-		t.Errorf("MongeElkanScoreSymmetric identity violated: got %v, want 1.0", got)
+	if got := fuzzymatch.MongeElkanScore("alpha", "alpha", fuzzymatch.AlgoJaroWinkler); got != 1.0 {
+		t.Errorf("MongeElkanScore identity violated: got %v, want 1.0", got)
 	}
 	// Both-empty.
-	if got := fuzzymatch.MongeElkanScoreSymmetric("", "", fuzzymatch.AlgoJaroWinkler, opts); got != 1.0 {
-		t.Errorf("MongeElkanScoreSymmetric both-empty: got %v, want 1.0", got)
+	if got := fuzzymatch.MongeElkanScore("", "", fuzzymatch.AlgoJaroWinkler); got != 1.0 {
+		t.Errorf("MongeElkanScore both-empty: got %v, want 1.0", got)
 	}
 	// One-empty (both directions average to 0.0 since both directions are 0.0).
-	if got := fuzzymatch.MongeElkanScoreSymmetric("hello", "", fuzzymatch.AlgoJaroWinkler, opts); got != 0.0 {
-		t.Errorf("MongeElkanScoreSymmetric one-empty (a-non-empty): got %v, want 0.0", got)
+	if got := fuzzymatch.MongeElkanScore("hello", "", fuzzymatch.AlgoJaroWinkler); got != 0.0 {
+		t.Errorf("MongeElkanScore one-empty (a-non-empty): got %v, want 0.0", got)
 	}
-	if got := fuzzymatch.MongeElkanScoreSymmetric("", "hello", fuzzymatch.AlgoJaroWinkler, opts); got != 0.0 {
-		t.Errorf("MongeElkanScoreSymmetric one-empty (b-non-empty): got %v, want 0.0", got)
+	if got := fuzzymatch.MongeElkanScore("", "hello", fuzzymatch.AlgoJaroWinkler); got != 0.0 {
+		t.Errorf("MongeElkanScore one-empty (b-non-empty): got %v, want 0.0", got)
 	}
-	// Explicit construction pin: symmetric is the mean of the two
-	// asymmetric directions.
+	// Explicit construction pin: the symmetric default is the mean of
+	// the two directional MongeElkanScoreAsymmetric calls.
 	const a = "alpha beta gamma"
 	const b = "alpha"
 	inner := fuzzymatch.AlgoLevenshtein
-	asymAB := fuzzymatch.MongeElkanScore(a, b, inner, opts)
-	asymBA := fuzzymatch.MongeElkanScore(b, a, inner, opts)
-	sym := fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, opts)
+	asymAB := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
+	asymBA := fuzzymatch.MongeElkanScoreAsymmetric(b, a, inner)
+	sym := fuzzymatch.MongeElkanScore(a, b, inner)
 	want := (asymAB + asymBA) / 2.0
 	if sym != want {
-		t.Errorf("MongeElkanScoreSymmetric construction violated: got %v, want (%v + %v)/2 = %v", sym, asymAB, asymBA, want)
+		t.Errorf("MongeElkanScore construction violated: got %v, want (%v + %v)/2 = %v", sym, asymAB, asymBA, want)
 	}
 	// Symmetry pin: swap (a, b) → same score (the load-bearing
 	// arithmetic-mean order-independence property).
-	symSwapped := fuzzymatch.MongeElkanScoreSymmetric(b, a, inner, opts)
+	symSwapped := fuzzymatch.MongeElkanScore(b, a, inner)
 	if sym != symSwapped {
-		t.Errorf("MongeElkanScoreSymmetric not symmetric: ME_sym(a,b)=%v != ME_sym(b,a)=%v", sym, symSwapped)
+		t.Errorf("MongeElkanScore not symmetric: ME_sym(a,b)=%v != ME_sym(b,a)=%v", sym, symSwapped)
 	}
 }
 
 // TestMongeElkan_PanicsOnNonPermittedInner is the load-bearing
 // exhaustive panic test per RESEARCH.md Pitfall 4 + CONTEXT.md §3
 // LOCKED. Walks all 9 NON-permitted AlgoIDs and asserts each panics
-// with the documented message format. When Phase 7 lands and adds the
-// 4 phonetic AlgoIDs to permittedMongeElkanInner, this fixture's
-// `rejected` slice shrinks from 9 to 5 entries; the test structure is
-// unchanged.
+// with the documented message format. With Phase 7 landed (adding the
+// 4 phonetic AlgoIDs to permittedMongeElkanInner), this fixture's
+// `rejected` slice has 5 entries; the test structure is unchanged.
 //
-// Also runs a representative-subset sanity check that 5 permitted
-// AlgoIDs (one per tier — char/q-gram/gestalt + 2 character) return a
-// value in [0, 1] without panic. The exhaustive permitted-list
-// coverage lives in TestMongeElkanScore above (RV-ME1..RV-ME6 cover
-// JaroWinkler + Levenshtein); this sanity check pins the OTHER 12
-// dispatch slots fire correctly.
+// Phase 8.5 Q3 rename: asserts both the directional surface
+// (MongeElkanScoreAsymmetric) and the symmetric default
+// (MongeElkanScore) surface the panic identically.
+//
+// Also runs a representative-subset sanity check that the permitted
+// AlgoIDs return a value in [0, 1] without panic. The exhaustive
+// permitted-list coverage lives in TestMongeElkanScoreAsymmetric above
+// (RV-ME1..RV-ME6 cover JaroWinkler + Levenshtein); this sanity check
+// pins that the OTHER dispatch slots fire correctly.
 func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 	// FINAL Phase 7 state: 5 rejected entries (AlgoMongeElkan + 4 token-tier).
 	// AlgoSoundex/AlgoDoubleMetaphone/AlgoNYSIIS/AlgoMRA are all PERMITTED
@@ -330,7 +341,7 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 				defer func() {
 					r := recover()
 					if r == nil {
-						t.Errorf("MongeElkanScore(\"a b\", \"c d\", %s, opts) did not panic", inner)
+						t.Errorf("MongeElkanScoreAsymmetric(\"a b\", \"c d\", %s) did not panic", inner)
 						return
 					}
 					// Phase 8.5 Q4 follow-up: the panic value is now a
@@ -355,28 +366,28 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 						t.Errorf("panic message %q does not contain documented suffix", msg)
 					}
 				}()
-				_ = fuzzymatch.MongeElkanScore("a b", "c d", inner, fuzzymatch.DefaultNormalisationOptions())
+				_ = fuzzymatch.MongeElkanScoreAsymmetric("a b", "c d", inner)
 			}()
-			// Also verify the symmetric variant surfaces the panic
-			// (the panic fires on the FIRST MongeElkanScore call
-			// inside MongeElkanScoreSymmetric).
+			// Also verify the symmetric default surfaces the panic
+			// (the panic fires on the FIRST MongeElkanScoreAsymmetric
+			// call inside MongeElkanScore).
 			func() {
 				defer func() {
 					r := recover()
 					if r == nil {
-						t.Errorf("MongeElkanScoreSymmetric(\"a b\", \"c d\", %s, opts) did not panic", inner)
+						t.Errorf("MongeElkanScore(\"a b\", \"c d\", %s) did not panic", inner)
 					}
 				}()
-				_ = fuzzymatch.MongeElkanScoreSymmetric("a b", "c d", inner, fuzzymatch.DefaultNormalisationOptions())
+				_ = fuzzymatch.MongeElkanScore("a b", "c d", inner)
 			}()
 		})
 	}
 	// Representative-subset sanity check for the permitted side: pick
 	// one AlgoID per tier so a regression that loosens or tightens the
 	// allow-list surfaces here. The exhaustive permitted-list coverage
-	// is provided by TestMongeElkanScore's RV-ME1..RV-ME6 (covering
-	// JaroWinkler + Levenshtein) plus this loop covering the other 12
-	// permitted entries.
+	// is provided by TestMongeElkanScoreAsymmetric's RV-ME1..RV-ME6
+	// (covering JaroWinkler + Levenshtein) plus this loop covering the
+	// other 12 permitted entries.
 	permittedSanity := []fuzzymatch.AlgoID{
 		fuzzymatch.AlgoLevenshtein,
 		fuzzymatch.AlgoDamerauLevenshteinOSA,
@@ -399,9 +410,9 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 	}
 	for _, inner := range permittedSanity {
 		t.Run("permitted_"+inner.String(), func(t *testing.T) {
-			got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", inner, fuzzymatch.DefaultNormalisationOptions())
+			got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha gamma", inner)
 			if got < 0.0 || got > 1.0 || math.IsNaN(got) || math.IsInf(got, 0) {
-				t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", %s, opts) = %g; want finite value in [0, 1]", inner, got)
+				t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha gamma\", %s) = %g; want finite value in [0, 1]", inner, got)
 			}
 		})
 	}
@@ -450,69 +461,69 @@ func TestMongeElkan_PanicMessageFormat(t *testing.T) {
 						t.Errorf("panic message format drift:\n  got:  %q\n  want: %q", msg, want)
 					}
 				}()
-				_ = fuzzymatch.MongeElkanScore("a b", "c d", c.inner, fuzzymatch.DefaultNormalisationOptions())
+				_ = fuzzymatch.MongeElkanScoreAsymmetric("a b", "c d", c.inner)
 			}()
 		})
 	}
 }
 
-// TestMongeElkanScore_DispatchRegistration verifies the LOCKED CONTEXT.md
-// §4 dispatch defaults: the AlgoMongeElkan dispatch slot binds the
-// TestMongeElkanScore_BinaryInner_Soundex asserts the binary-inner-composition
-// behaviour of MongeElkanScore when AlgoSoundex is used as the inner metric
+// TestMongeElkanScoreAsymmetric_BinaryInner_Soundex asserts the
+// binary-inner-composition behaviour of MongeElkanScoreAsymmetric (the
+// directional surface) when AlgoSoundex is used as the inner metric
 // (per CONTEXT.md §4 LOCKED). Three sub-cases lock the contract:
 //
 //   - one_matches: "alpha beta" vs "alpha gamma" → Soundex("alpha")=="alpha"
 //     identity gives 1.0 for first token; "beta" vs "gamma" codes differ →
-//     0.0 for second token. MongeElkanScore = (1.0 + 0.0) / 2 = 0.5.
+//     0.0 for second token. MongeElkanScoreAsymmetric = (1.0 + 0.0) / 2 = 0.5.
 //
 //   - both_match: "alpha beta" vs "alpha beta" → identity short-circuit
-//     fires in SoundexScore; both tokens match. MongeElkanScore = 1.0.
+//     fires in SoundexScore; both tokens match. MongeElkanScoreAsymmetric = 1.0.
 //
 //   - neither: "alpha" vs "gamma" → codes differ → 0.0.
 //
 // This test locks the binary-inner-composition behaviour against silent
 // regression (e.g. a change to per-token-max accumulation logic that breaks
 // ME over discrete-valued inners).
-func TestMongeElkanScore_BinaryInner_Soundex(t *testing.T) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
-
+func TestMongeElkanScoreAsymmetric_BinaryInner_Soundex(t *testing.T) {
 	t.Run("one_matches", func(t *testing.T) {
 		// "alpha beta" vs "alpha gamma": alpha matches (identity), beta vs gamma
 		// have different Soundex codes (B300 vs G565 — wait: beta=B300, gamma=G650).
-		// MongeElkanScore = max(SoundexScore("alpha","alpha"), SoundexScore("alpha","gamma"))
-		//                 + max(SoundexScore("beta","alpha"), SoundexScore("beta","gamma"))
-		// = max(1.0, 0.0) + max(0.0, 0.0) ) / 2 = 0.5
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoSoundex, opts)
+		// MongeElkanScoreAsymmetric =
+		//   (max(SoundexScore("alpha","alpha"), SoundexScore("alpha","gamma"))
+		//  + max(SoundexScore("beta","alpha"),  SoundexScore("beta","gamma"))) / 2
+		// = (max(1.0, 0.0) + max(0.0, 0.0)) / 2 = 0.5
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha gamma", fuzzymatch.AlgoSoundex)
 		if got != 0.5 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoSoundex, opts) = %g; want 0.5 (one token matches)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha gamma\", AlgoSoundex) = %g; want 0.5 (one token matches)", got)
 		}
 	})
 
 	t.Run("both_match", func(t *testing.T) {
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoSoundex, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha beta", fuzzymatch.AlgoSoundex)
 		if got != 1.0 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoSoundex, opts) = %g; want 1.0 (both tokens match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha beta\", AlgoSoundex) = %g; want 1.0 (both tokens match)", got)
 		}
 	})
 
 	t.Run("neither", func(t *testing.T) {
 		// "alpha" vs "gamma": A416 vs G650 — codes differ → 0.0.
-		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoSoundex, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha", "gamma", fuzzymatch.AlgoSoundex)
 		if got != 0.0 {
-			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoSoundex, opts) = %g; want 0.0 (no token match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha\", \"gamma\", AlgoSoundex) = %g; want 0.0 (no token match)", got)
 		}
 	})
 }
 
-// SYMMETRIC variant with AlgoJaroWinkler as the default inner and
-// DefaultNormalisationOptions(). A regression here would break Phase 8
-// Scorer integration silently.
+// TestMongeElkanScore_DispatchRegistration verifies the LOCKED CONTEXT.md
+// §4 dispatch defaults: the AlgoMongeElkan dispatch slot binds
+// the symmetric default MongeElkanScore with AlgoJaroWinkler as the
+// default inner. A regression here would break Phase 8 Scorer integration
+// silently.
 func TestMongeElkanScore_DispatchRegistration(t *testing.T) {
 	got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoMongeElkan), "user create", "usr creating")
-	want := fuzzymatch.MongeElkanScoreSymmetric("user create", "usr creating", fuzzymatch.AlgoJaroWinkler, fuzzymatch.DefaultNormalisationOptions())
+	want := fuzzymatch.MongeElkanScore("user create", "usr creating", fuzzymatch.AlgoJaroWinkler)
 	if got != want {
-		t.Errorf("dispatch[AlgoMongeElkan] does not bind the LOCKED defaults: got %v, want %v (= MongeElkanScoreSymmetric with default inner = AlgoJaroWinkler + DefaultNormalisationOptions per CONTEXT §4 LOCKED)", got, want)
+		t.Errorf("dispatch[AlgoMongeElkan] does not bind the LOCKED defaults: got %v, want %v (= MongeElkanScore (symmetric default) with default inner = AlgoJaroWinkler per CONTEXT §4 LOCKED + Phase 8.5 Q3 rename)", got, want)
 	}
 	// Also pin identity on the dispatch surface.
 	if got := fuzzymatch.DispatchInvokeForTest(int(fuzzymatch.AlgoMongeElkan), "hello", "hello"); got != 1.0 {
@@ -520,10 +531,10 @@ func TestMongeElkanScore_DispatchRegistration(t *testing.T) {
 	}
 }
 
-// TestMongeElkanScore_BinaryInner_DoubleMetaphone asserts the
-// binary-inner-composition behaviour of MongeElkanScore when AlgoDoubleMetaphone
-// is used as the inner metric (per CONTEXT.md §4 LOCKED). Three sub-cases lock
-// the contract:
+// TestMongeElkanScoreAsymmetric_BinaryInner_DoubleMetaphone asserts the
+// binary-inner-composition behaviour of MongeElkanScoreAsymmetric (the
+// directional surface) when AlgoDoubleMetaphone is used as the inner
+// metric (per CONTEXT.md §4 LOCKED). Three sub-cases lock the contract:
 //
 //   - one_matches: ME("alpha beta", "alpha gamma", DM) == 0.5
 //     (one of two tokens matches phonetically; the other does not).
@@ -534,38 +545,37 @@ func TestMongeElkanScore_DispatchRegistration(t *testing.T) {
 // This test locks the binary-inner-composition behaviour against silent
 // regression (e.g. a change to per-token-max accumulation logic that breaks
 // ME over discrete-valued inners).
-func TestMongeElkanScore_BinaryInner_DoubleMetaphone(t *testing.T) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
-
+func TestMongeElkanScoreAsymmetric_BinaryInner_DoubleMetaphone(t *testing.T) {
 	t.Run("one_matches", func(t *testing.T) {
 		// "alpha beta" vs "alpha gamma":
 		// max(DM("alpha","alpha"), DM("alpha","gamma")) = max(1.0, 0.0) = 1.0
 		// max(DM("beta","alpha"), DM("beta","gamma")) = max(0.0, 0.0) = 0.0
-		// MongeElkanScore = (1.0 + 0.0) / 2 = 0.5
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoDoubleMetaphone, opts)
+		// MongeElkanScoreAsymmetric = (1.0 + 0.0) / 2 = 0.5
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha gamma", fuzzymatch.AlgoDoubleMetaphone)
 		if got != 0.5 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoDoubleMetaphone, opts) = %g; want 0.5 (one token matches)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha gamma\", AlgoDoubleMetaphone) = %g; want 0.5 (one token matches)", got)
 		}
 	})
 
 	t.Run("both_match", func(t *testing.T) {
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoDoubleMetaphone, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha beta", fuzzymatch.AlgoDoubleMetaphone)
 		if got != 1.0 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoDoubleMetaphone, opts) = %g; want 1.0 (both tokens match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha beta\", AlgoDoubleMetaphone) = %g; want 1.0 (both tokens match)", got)
 		}
 	})
 
 	t.Run("neither", func(t *testing.T) {
 		// "alpha" vs "gamma": DM codes differ → 0.0.
-		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoDoubleMetaphone, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha", "gamma", fuzzymatch.AlgoDoubleMetaphone)
 		if got != 0.0 {
-			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoDoubleMetaphone, opts) = %g; want 0.0 (no token match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha\", \"gamma\", AlgoDoubleMetaphone) = %g; want 0.0 (no token match)", got)
 		}
 	})
 }
 
-// TestMongeElkanScore_BinaryInner_NYSIIS asserts the binary-inner-composition
-// behaviour of MongeElkanScore when AlgoNYSIIS is used as the inner metric
+// TestMongeElkanScoreAsymmetric_BinaryInner_NYSIIS asserts the
+// binary-inner-composition behaviour of MongeElkanScoreAsymmetric (the
+// directional surface) when AlgoNYSIIS is used as the inner metric
 // (per CONTEXT.md §4 LOCKED). Three sub-cases lock the contract:
 //
 //   - one_matches: ME("alpha beta", "alpha gamma", NYSIIS) == 0.5
@@ -577,45 +587,42 @@ func TestMongeElkanScore_BinaryInner_DoubleMetaphone(t *testing.T) {
 // This test locks the binary-inner-composition behaviour against silent
 // regression (e.g. a change to per-token-max accumulation logic that breaks
 // ME over discrete-valued inners).
-func TestMongeElkanScore_BinaryInner_NYSIIS(t *testing.T) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
-
+func TestMongeElkanScoreAsymmetric_BinaryInner_NYSIIS(t *testing.T) {
 	t.Run("one_matches", func(t *testing.T) {
 		// "alpha beta" vs "alpha gamma":
 		// max(NYSIIS("alpha","alpha"), NYSIIS("alpha","gamma")) = max(1.0, 0.0) = 1.0
 		// max(NYSIIS("beta","alpha"), NYSIIS("beta","gamma")) = max(0.0, 0.0) = 0.0
-		// MongeElkanScore = (1.0 + 0.0) / 2 = 0.5
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoNYSIIS, opts)
+		// MongeElkanScoreAsymmetric = (1.0 + 0.0) / 2 = 0.5
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha gamma", fuzzymatch.AlgoNYSIIS)
 		if got != 0.5 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoNYSIIS, opts) = %g; want 0.5 (one token matches)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha gamma\", AlgoNYSIIS) = %g; want 0.5 (one token matches)", got)
 		}
 	})
 
 	t.Run("both_match", func(t *testing.T) {
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoNYSIIS, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha beta", fuzzymatch.AlgoNYSIIS)
 		if got != 1.0 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoNYSIIS, opts) = %g; want 1.0 (both tokens match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha beta\", AlgoNYSIIS) = %g; want 1.0 (both tokens match)", got)
 		}
 	})
 
 	t.Run("neither", func(t *testing.T) {
 		// "alpha" vs "gamma": NYSIIS codes differ → 0.0.
-		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoNYSIIS, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha", "gamma", fuzzymatch.AlgoNYSIIS)
 		if got != 0.0 {
-			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoNYSIIS, opts) = %g; want 0.0 (no token match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha\", \"gamma\", AlgoNYSIIS) = %g; want 0.0 (no token match)", got)
 		}
 	})
 }
 
-// TestMongeElkanScore_BinaryInner_MRA verifies binary-inner composition of
-// MongeElkanScore using AlgoMRA as the inner metric per CONTEXT.md §4 LOCKED.
-// Three sub-cases lock the binary-inner-composition behaviour against silent
+// TestMongeElkanScoreAsymmetric_BinaryInner_MRA verifies binary-inner
+// composition of MongeElkanScoreAsymmetric (the directional surface)
+// using AlgoMRA as the inner metric per CONTEXT.md §4 LOCKED. Three
+// sub-cases lock the binary-inner-composition behaviour against silent
 // regression in the per-token-max accumulation logic.
 //
 // MRA binary inner: MRAScore(a, b) ∈ {0.0, 1.0} for any (a, b).
-func TestMongeElkanScore_BinaryInner_MRA(t *testing.T) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
-
+func TestMongeElkanScoreAsymmetric_BinaryInner_MRA(t *testing.T) {
 	t.Run("one_token_matches_half_score", func(t *testing.T) {
 		// Tokens of a: ["alpha", "beta"]. Tokens of b: ["alpha", "gamma"].
 		// For token "alpha" in a: best match in b is "alpha" → MRAScore("alpha","alpha")=1.0
@@ -623,9 +630,9 @@ func TestMongeElkanScore_BinaryInner_MRA(t *testing.T) {
 		// BATA vs ALPHA (LPHA): |3-4|=1 < 3 → compare. BT vs LPH... likely 0.0.
 		// vs GAMMA (GM): |2-2|=0 → compare. sum=4, threshold=5; BT vs GM: no matches → sim=4. 4 < 5 → 0.0
 		// So ME = (1.0 + 0.0)/2 = 0.5
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha gamma", fuzzymatch.AlgoMRA, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha gamma", fuzzymatch.AlgoMRA)
 		if got != 0.5 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha gamma\", AlgoMRA, opts) = %g; want 0.5 (one-match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha gamma\", AlgoMRA) = %g; want 0.5 (one-match)", got)
 		}
 	})
 
@@ -633,9 +640,9 @@ func TestMongeElkanScore_BinaryInner_MRA(t *testing.T) {
 		// Tokens of a: ["alpha", "beta"]. Tokens of b: ["alpha", "beta"].
 		// Each token in a finds its identical match in b → MRAScore=1.0 for each.
 		// ME = (1.0 + 1.0)/2 = 1.0
-		got := fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoMRA, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta", "alpha beta", fuzzymatch.AlgoMRA)
 		if got != 1.0 {
-			t.Errorf("MongeElkanScore(\"alpha beta\", \"alpha beta\", AlgoMRA, opts) = %g; want 1.0 (both match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha beta\", \"alpha beta\", AlgoMRA) = %g; want 1.0 (both match)", got)
 		}
 	})
 
@@ -645,9 +652,9 @@ func TestMongeElkanScore_BinaryInner_MRA(t *testing.T) {
 		// sum_len=6, threshold=4. L→R: no matches. R→L: no matches.
 		// unmatched_A=4, unmatched_B=2. max=4. similarity=6-4=2. 2 < 4 → no match.
 		// ME = 0.0/1 = 0.0
-		got := fuzzymatch.MongeElkanScore("alpha", "gamma", fuzzymatch.AlgoMRA, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric("alpha", "gamma", fuzzymatch.AlgoMRA)
 		if got != 0.0 {
-			t.Errorf("MongeElkanScore(\"alpha\", \"gamma\", AlgoMRA, opts) = %g; want 0.0 (no token match)", got)
+			t.Errorf("MongeElkanScoreAsymmetric(\"alpha\", \"gamma\", AlgoMRA) = %g; want 0.0 (no token match)", got)
 		}
 	})
 }

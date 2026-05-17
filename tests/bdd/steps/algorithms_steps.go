@@ -805,14 +805,19 @@ func (ctx *AlgorithmContext) bothTokenJaccardScoresShouldBeEqual() error {
 }
 
 // ---------------------------------------------------------------------------
-// Monge-Elkan step methods (plan 06-05)
+// Monge-Elkan step methods (plan 06-05; Phase 8.5 Q3 rename applied)
 //
 // Monge-Elkan is the only Phase 6 algorithm that takes a pluggable
 // INNER metric (specified as an AlgoID string). The step grammar adds
 // a `with inner Algo<Name>` suffix; the step body resolves the inner
-// AlgoID by switching on the matched name. Two surfaces ship:
-//   - MongeElkanScore           — asymmetric direct
-//   - MongeElkanScoreSymmetric  — symmetric (mean of two directions)
+// AlgoID by switching on the matched name. Two surfaces ship (post
+// Phase 8.5 Q3 rename — symmetric-by-default):
+//   - MongeElkanScore            — symmetric default (mean of two directions)
+//   - MongeElkanScoreAsymmetric  — directional (v0.x MongeElkanScore)
+//
+// The Gherkin step language is preserved:
+//   - "MongeElkan score"           → MongeElkanScoreAsymmetric (directional)
+//   - "MongeElkanSymmetric score"  → MongeElkanScore (symmetric default)
 //
 // The asymmetry direction-sensitivity scenario uses a dedicated "two
 // scores should differ by more than X" step (mirrors Tversky's
@@ -887,41 +892,44 @@ func algoIDByName(name string) fuzzymatch.AlgoID { //nolint:gocyclo // one switc
 }
 
 // iComputeTheMongeElkanScoreBetweenWithInner computes
-// MongeElkanScore(a, b, inner, opts) (asymmetric direct surface) and
-// stores the result in lastScore.
+// MongeElkanScoreAsymmetric(a, b, inner) (directional surface) and
+// stores the result in lastScore. Phase 8.5 Q3: the Gherkin step name
+// "MongeElkan score" maps to the directional surface.
 func (ctx *AlgorithmContext) iComputeTheMongeElkanScoreBetweenWithInner(a, b, innerName string) error {
 	inner := algoIDByName(innerName)
-	ctx.lastScore = fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	ctx.lastScore = fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
 	return nil
 }
 
 // iComputeTheSecondMongeElkanScoreBetweenWithInner computes
-// MongeElkanScore(a, b, inner, opts) and stores the result in
+// MongeElkanScoreAsymmetric(a, b, inner) and stores the result in
 // lastScore2. Used by the asymmetry direction-sensitivity scenario
 // (RV-ME4 vs RV-ME6 input swap with same inner) AND by the symmetric-
-// variant order-independence scenario.
+// default order-independence scenario.
 func (ctx *AlgorithmContext) iComputeTheSecondMongeElkanScoreBetweenWithInner(a, b, innerName string) error {
 	inner := algoIDByName(innerName)
-	ctx.lastScore2 = fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	ctx.lastScore2 = fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
 	return nil
 }
 
 // iComputeTheMongeElkanSymmetricScoreBetweenWithInner computes
-// MongeElkanScoreSymmetric(a, b, inner, opts) and stores the result
-// in lastScore. The arithmetic-mean variant; order-independent.
+// MongeElkanScore(a, b, inner) (the symmetric default) and stores the
+// result in lastScore. The arithmetic-mean variant; order-independent.
+// Phase 8.5 Q3: the Gherkin step name "MongeElkanSymmetric score" maps
+// to the symmetric default (the unsuffixed canonical surface).
 func (ctx *AlgorithmContext) iComputeTheMongeElkanSymmetricScoreBetweenWithInner(a, b, innerName string) error {
 	inner := algoIDByName(innerName)
-	ctx.lastScore = fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	ctx.lastScore = fuzzymatch.MongeElkanScore(a, b, inner)
 	return nil
 }
 
 // iComputeTheSecondMongeElkanSymmetricScoreBetweenWithInner computes
-// MongeElkanScoreSymmetric(a, b, inner, opts) and stores the result
-// in lastScore2. Used by the symmetric-variant order-independence
-// scenario.
+// MongeElkanScore(a, b, inner) (the symmetric default) and stores the
+// result in lastScore2. Used by the symmetric-default order-
+// independence scenario.
 func (ctx *AlgorithmContext) iComputeTheSecondMongeElkanSymmetricScoreBetweenWithInner(a, b, innerName string) error {
 	inner := algoIDByName(innerName)
-	ctx.lastScore2 = fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	ctx.lastScore2 = fuzzymatch.MongeElkanScore(a, b, inner)
 	return nil
 }
 
@@ -952,10 +960,11 @@ func (ctx *AlgorithmContext) bothMongeElkanScoresShouldBeEqual() error {
 }
 
 // iAttemptToComputeTheMongeElkanScoreBetweenWithInner attempts to
-// compute MongeElkanScore(a, b, inner, opts) and captures any panic
-// into ctx.lastPanicMsg for assertion by
-// theCallShouldPanicWith. Returns nil if the panic was captured;
-// the panic-with-phrase assertion fires after the When step.
+// compute MongeElkanScoreAsymmetric(a, b, inner) and captures any panic
+// into ctx.lastPanicMsg for assertion by theCallShouldPanicWith.
+// Returns nil if the panic was captured; the panic-with-phrase
+// assertion fires after the When step. Phase 8.5 Q3: the Gherkin
+// "MongeElkan score" step maps to the directional surface.
 func (ctx *AlgorithmContext) iAttemptToComputeTheMongeElkanScoreBetweenWithInner(a, b, innerName string) error {
 	inner := algoIDByName(innerName)
 	ctx.lastPanicMsg = ""
@@ -968,7 +977,7 @@ func (ctx *AlgorithmContext) iAttemptToComputeTheMongeElkanScoreBetweenWithInner
 			}
 		}
 	}()
-	_ = fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+	_ = fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
 	return nil
 }
 
@@ -1481,14 +1490,15 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		a.bothTokenJaccardScoresShouldBeEqual,
 	)
 
-	// Monge-Elkan step definitions (plan 06-05). Parameter-rich pattern
-	// with `with inner Algo<Name>` suffix capturing the inner-metric
-	// AlgoID name (mirrors Tversky's `with n <n> alpha <α> beta <β>`
-	// parameter-rich grammar). Two surfaces ship:
-	//   - MongeElkan           → asymmetric direct (MongeElkanScore)
-	//   - MongeElkanSymmetric  → symmetric (MongeElkanScoreSymmetric)
+	// Monge-Elkan step definitions (plan 06-05; Phase 8.5 Q3 rename).
+	// Parameter-rich pattern with `with inner Algo<Name>` suffix
+	// capturing the inner-metric AlgoID name (mirrors Tversky's
+	// `with n <n> alpha <α> beta <β>` parameter-rich grammar). Two
+	// surfaces ship (post Phase 8.5 Q3 — symmetric-by-default):
+	//   - MongeElkan           → directional (MongeElkanScoreAsymmetric)
+	//   - MongeElkanSymmetric  → symmetric default (MongeElkanScore)
 	// The asymmetry direction-sensitivity scenario uses the dedicated
-	// "differ by more than X" step; the symmetric-variant order-
+	// "differ by more than X" step; the symmetric-default order-
 	// independence scenario uses "both equal". The panic-on-non-
 	// permitted-inner scenarios use the "attempt to compute" + "should
 	// panic with" pair.

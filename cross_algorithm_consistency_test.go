@@ -47,8 +47,9 @@
 //   - TokenSetRatioScore("","") = 0.0 DEVIATION (plan 06-02 / RapidFuzz
 //     issue #110) pinned against TokenJaccardScore("","") = 1.0 STANDARD
 //     (plan 06-04) — the catalogue contains BOTH conventions deliberately.
-//   - MongeElkanScoreSymmetric(a, b) = mean(MongeElkanScore(a, b),
-//     MongeElkanScore(b, a)) (plan 06-05 KEYSTONE / CONTEXT §4 LOCKED).
+//   - MongeElkanScore(a, b) = mean(MongeElkanScoreAsymmetric(a, b),
+//     MongeElkanScoreAsymmetric(b, a)) (plan 06-05 KEYSTONE / CONTEXT
+//     §4 LOCKED + Phase 8.5 Q3 symmetric-by-default rename).
 //   - PartialRatio (Indel formula) ≠ RatcliffObershelp (difflib formula)
 //     on substring-containment inputs — proves the surfaces are NOT
 //     aliased.
@@ -703,67 +704,67 @@ func TestCrossAlgorithm_TokenSetRatio_EmptyDeviation_PinnedAgainstTokenJaccard(t
 
 // TestCrossAlgorithm_MongeElkanSymmetric_VsAsymmetric_Identity pins the
 // LOCKED relationship between the two Monge-Elkan surfaces introduced in
-// plan 06-05:
+// plan 06-05 (post Phase 8.5 Q3 symmetric-by-default rename):
 //
-//   - MongeElkanScore is ASYMMETRIC — direction-sensitive (a → b averages
-//     max-inner-similarities over A's tokens; b → a averages over B's tokens).
-//   - MongeElkanScoreSymmetric is the arithmetic mean of the two directions,
-//     so it is direction-INSENSITIVE.
+//   - MongeElkanScoreAsymmetric is DIRECTIONAL — direction-sensitive
+//     (a → b averages max-inner-similarities over A's tokens; b → a
+//     averages over B's tokens).
+//   - MongeElkanScore is the arithmetic mean of the two directional
+//     surfaces, so it is direction-INSENSITIVE (symmetric default).
 //
 // For non-empty identical inputs, BOTH surfaces return 1.0 (the symmetric
-// variant doesn't degrade identity — both directions yield 1.0 and the mean
-// of two 1.0s is 1.0). For asymmetric pairs (e.g. RV-ME4: "alpha" vs
-// "alpha beta gamma"), the symmetric variant returns the arithmetic mean of
-// the two asymmetric directions per CONTEXT §4 LOCKED.
+// default doesn't degrade identity — both directions yield 1.0 and the
+// mean of two 1.0s is 1.0). For directional pairs (e.g. RV-ME4: "alpha"
+// vs "alpha beta gamma"), the symmetric default returns the arithmetic
+// mean of the two directional surfaces per CONTEXT §4 LOCKED.
 //
 // Plan 06-05 SUMMARY "Asymmetric reference vector LOCKED 2026-05-15":
 //
-//	RV-ME4 / RV-ME-asym KEYSTONE pinned: MongeElkanScore("alpha",
-//	"alpha beta gamma", AlgoJaroWinkler) ≠ MongeElkanScore("alpha beta gamma",
-//	"alpha", AlgoJaroWinkler); MongeElkanScoreSymmetric returns the mean of
-//	both directions.
+//	RV-ME4 / RV-ME-asym KEYSTONE pinned: MongeElkanScoreAsymmetric("alpha",
+//	"alpha beta gamma", AlgoJaroWinkler) ≠ MongeElkanScoreAsymmetric(
+//	"alpha beta gamma", "alpha", AlgoJaroWinkler); MongeElkanScore returns
+//	the mean of both directions.
 //
-// Algebra for the symmetric-vs-asymmetric mean relationship:
+// Algebra for the symmetric-vs-directional mean relationship:
 //
-//	MongeElkanScoreSymmetric(a, b, inner, opts)
-//	  = (MongeElkanScore(a, b, inner, opts) + MongeElkanScore(b, a, inner, opts)) / 2
+//	MongeElkanScore(a, b, inner)
+//	  = (MongeElkanScoreAsymmetric(a, b, inner) +
+//	     MongeElkanScoreAsymmetric(b, a, inner)) / 2
 //
-// Plan 06-05 CONTEXT §4 LOCKED.
+// Plan 06-05 CONTEXT §4 LOCKED + Phase 8.5 Q3 rename.
 func TestCrossAlgorithm_MongeElkanSymmetric_VsAsymmetric_Identity(t *testing.T) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
-
 	// 1. Identity: both surfaces return BIT-EXACT 1.0 on identical non-empty inputs.
 	const idA = "alpha beta gamma"
-	asymID := fuzzymatch.MongeElkanScore(idA, idA, fuzzymatch.AlgoJaroWinkler, opts)
-	symID := fuzzymatch.MongeElkanScoreSymmetric(idA, idA, fuzzymatch.AlgoJaroWinkler, opts)
+	asymID := fuzzymatch.MongeElkanScoreAsymmetric(idA, idA, fuzzymatch.AlgoJaroWinkler)
+	symID := fuzzymatch.MongeElkanScore(idA, idA, fuzzymatch.AlgoJaroWinkler)
 	if math.Float64bits(asymID) != math.Float64bits(1.0) {
-		t.Errorf("MongeElkanScore(%q, %q, AlgoJaroWinkler, ...) identity = %.17g (bits=0x%016x); want 1.0 bit-exact",
+		t.Errorf("MongeElkanScoreAsymmetric(%q, %q, AlgoJaroWinkler) identity = %.17g (bits=0x%016x); want 1.0 bit-exact",
 			idA, idA, asymID, math.Float64bits(asymID))
 	}
 	if math.Float64bits(symID) != math.Float64bits(1.0) {
-		t.Errorf("MongeElkanScoreSymmetric(%q, %q, AlgoJaroWinkler, ...) identity = %.17g (bits=0x%016x); want 1.0 bit-exact (symmetric variant must not degrade identity)",
+		t.Errorf("MongeElkanScore(%q, %q, AlgoJaroWinkler) identity = %.17g (bits=0x%016x); want 1.0 bit-exact (symmetric default must not degrade identity)",
 			idA, idA, symID, math.Float64bits(symID))
 	}
 
-	// 2. Asymmetric pair: symmetric variant must equal the arithmetic mean of
-	//    the two asymmetric directions (RV-ME4 / RV-ME-asym KEYSTONE — plan 06-05 LOCKED).
+	// 2. Directional pair: the symmetric default must equal the arithmetic mean
+	//    of the two directional surfaces (RV-ME4 / RV-ME-asym KEYSTONE — plan 06-05 LOCKED).
 	const asymInputA = "alpha"
 	const asymInputB = "alpha beta gamma"
-	fwd := fuzzymatch.MongeElkanScore(asymInputA, asymInputB, fuzzymatch.AlgoJaroWinkler, opts)
-	rev := fuzzymatch.MongeElkanScore(asymInputB, asymInputA, fuzzymatch.AlgoJaroWinkler, opts)
-	sym := fuzzymatch.MongeElkanScoreSymmetric(asymInputA, asymInputB, fuzzymatch.AlgoJaroWinkler, opts)
+	fwd := fuzzymatch.MongeElkanScoreAsymmetric(asymInputA, asymInputB, fuzzymatch.AlgoJaroWinkler)
+	rev := fuzzymatch.MongeElkanScoreAsymmetric(asymInputB, asymInputA, fuzzymatch.AlgoJaroWinkler)
+	sym := fuzzymatch.MongeElkanScore(asymInputA, asymInputB, fuzzymatch.AlgoJaroWinkler)
 	expectedMean := (fwd + rev) / 2.0
 	const tol = 1e-12
 	if math.Abs(sym-expectedMean) > tol {
-		t.Errorf("MongeElkanScoreSymmetric vs (fwd+rev)/2 disagree for (%q, %q):\n  symmetric = %.17g\n  (fwd+rev)/2 = %.17g (fwd=%.17g, rev=%.17g)\n  delta = %g; want within %g (plan 06-05 KEYSTONE)",
+		t.Errorf("MongeElkanScore vs (fwd+rev)/2 disagree for (%q, %q):\n  symmetric = %.17g\n  (fwd+rev)/2 = %.17g (fwd=%.17g, rev=%.17g)\n  delta = %g; want within %g (plan 06-05 KEYSTONE)",
 			asymInputA, asymInputB, sym, expectedMean, fwd, rev, math.Abs(sym-expectedMean), tol)
 	}
 
-	// 3. Direction divergence: the asymmetric surface MUST be direction-sensitive
-	//    on this pair (proves the symmetric variant's mean is informative, not
+	// 3. Direction divergence: the directional surface MUST be direction-sensitive
+	//    on this pair (proves the symmetric default's mean is informative, not
 	//    a degenerate single-direction collapse).
 	if fwd == rev {
-		t.Errorf("MongeElkanScore is INTENTIONALLY asymmetric for (%q, %q) — got fwd=%g == rev=%g (regression to symmetric behaviour; symmetric variant's mean becomes degenerate)",
+		t.Errorf("MongeElkanScoreAsymmetric is INTENTIONALLY direction-sensitive for (%q, %q) — got fwd=%g == rev=%g (regression to symmetric behaviour; symmetric default's mean becomes degenerate)",
 			asymInputA, asymInputB, fwd, rev)
 	}
 }

@@ -13,10 +13,13 @@
 // limitations under the License.
 
 // monge_elkan_cross_validation_test.go asserts agreement between the
-// project's MongeElkanScore (asymmetric) and MongeElkanScoreSymmetric
-// (symmetric) surfaces — both with JaroWinkler-inner and
+// project's MongeElkanScoreAsymmetric (directional) and MongeElkanScore
+// (symmetric default) surfaces — both with JaroWinkler-inner and
 // Levenshtein-inner — against the py_stringmatching==0.4.7 reference
 // corpus committed at testdata/cross-validation/monge-elkan/vectors.json.
+// Phase 8.5 Q3 rename: the v0.x MongeElkanScore is now
+// MongeElkanScoreAsymmetric; the symmetric variant took the unsuffixed
+// canonical name; the NormalisationOptions parameter was removed.
 // The corpus carries four scores per entry — monge_elkan_asymmetric_jw,
 // monge_elkan_asymmetric_lev, monge_elkan_symmetric_jw,
 // monge_elkan_symmetric_lev — emitted by
@@ -128,19 +131,20 @@ type mongeElkanCorpus struct {
 }
 
 // TestMongeElkan_CrossValidation asserts agreement between the project's
-// MongeElkanScore (asymmetric) and MongeElkanScoreSymmetric surfaces with
-// JaroWinkler-inner and Levenshtein-inner, against py_stringmatching's
-// MongeElkan(JaroWinkler().get_sim_score) and MongeElkan(Levenshtein().
-// get_sim_score) reference outputs.
+// MongeElkanScoreAsymmetric (directional) and MongeElkanScore (symmetric
+// default) surfaces with JaroWinkler-inner and Levenshtein-inner,
+// against py_stringmatching's MongeElkan(JaroWinkler().get_sim_score)
+// and MongeElkan(Levenshtein().get_sim_score) reference outputs.
 //
 // Surface mapping (corpus → fuzzymatch):
 //
-//	monge_elkan_asymmetric_jw  → MongeElkanScore(a, b, AlgoJaroWinkler, opts)
-//	monge_elkan_asymmetric_lev → MongeElkanScore(a, b, AlgoLevenshtein, opts)
-//	monge_elkan_symmetric_jw   → MongeElkanScoreSymmetric(a, b, AlgoJaroWinkler, opts)
-//	monge_elkan_symmetric_lev  → MongeElkanScoreSymmetric(a, b, AlgoLevenshtein, opts)
+//	monge_elkan_asymmetric_jw  → MongeElkanScoreAsymmetric(a, b, AlgoJaroWinkler)
+//	monge_elkan_asymmetric_lev → MongeElkanScoreAsymmetric(a, b, AlgoLevenshtein)
+//	monge_elkan_symmetric_jw   → MongeElkanScore(a, b, AlgoJaroWinkler)
+//	monge_elkan_symmetric_lev  → MongeElkanScore(a, b, AlgoLevenshtein)
 //
-// opts is DefaultNormalisationOptions() (the dispatch-slot default).
+// Phase 8.5 Q3 rename: the NormalisationOptions parameter was removed
+// from both surfaces (it was inert).
 func TestMongeElkan_CrossValidation(t *testing.T) {
 	path := filepath.Join("testdata", "cross-validation", "monge-elkan", "vectors.json")
 	raw, err := os.ReadFile(path)
@@ -178,50 +182,48 @@ func TestMongeElkan_CrossValidation(t *testing.T) {
 		t.Fatalf("TestMongeElkan_CrossValidation: corpus generated with Python %s; script minimum is 3.7", c.Metadata.PythonVersion)
 	}
 
-	opts := fuzzymatch.DefaultNormalisationOptions()
-
 	for _, e := range c.Entries {
 		e := e // local copy for the closure
 
-		// Asymmetric JaroWinkler-inner.
+		// Directional (asymmetric) JaroWinkler-inner.
 		t.Run(e.Name+"/asymmetric/jaro_winkler", func(t *testing.T) {
-			got := fuzzymatch.MongeElkanScore(e.A, e.B, fuzzymatch.AlgoJaroWinkler, opts)
+			got := fuzzymatch.MongeElkanScoreAsymmetric(e.A, e.B, fuzzymatch.AlgoJaroWinkler)
 			delta := math.Abs(got - e.MongeElkanAsymmetricJW)
 			if delta > mongeElkanCrossValidationEpsilonJaroWinkler {
-				t.Errorf("MongeElkanScore(%q, %q, AlgoJaroWinkler) = %.17g; py_stringmatching MongeElkan(JaroWinkler) = %.17g (delta %.2e, tol %g [jw-inner: py32-vs-go64], pysm %s, python %s)",
+				t.Errorf("MongeElkanScoreAsymmetric(%q, %q, AlgoJaroWinkler) = %.17g; py_stringmatching MongeElkan(JaroWinkler) = %.17g (delta %.2e, tol %g [jw-inner: py32-vs-go64], pysm %s, python %s)",
 					e.A, e.B, got, e.MongeElkanAsymmetricJW, delta, mongeElkanCrossValidationEpsilonJaroWinkler,
 					c.Metadata.PyStringMatchingVersion, c.Metadata.PythonVersion)
 			}
 		})
 
-		// Asymmetric Levenshtein-inner.
+		// Directional (asymmetric) Levenshtein-inner.
 		t.Run(e.Name+"/asymmetric/levenshtein", func(t *testing.T) {
-			got := fuzzymatch.MongeElkanScore(e.A, e.B, fuzzymatch.AlgoLevenshtein, opts)
+			got := fuzzymatch.MongeElkanScoreAsymmetric(e.A, e.B, fuzzymatch.AlgoLevenshtein)
 			delta := math.Abs(got - e.MongeElkanAsymmetricLev)
 			if delta > mongeElkanCrossValidationEpsilonLevenshtein {
-				t.Errorf("MongeElkanScore(%q, %q, AlgoLevenshtein) = %.17g; py_stringmatching MongeElkan(Levenshtein) = %.17g (delta %.2e, tol %g, pysm %s, python %s)",
+				t.Errorf("MongeElkanScoreAsymmetric(%q, %q, AlgoLevenshtein) = %.17g; py_stringmatching MongeElkan(Levenshtein) = %.17g (delta %.2e, tol %g, pysm %s, python %s)",
 					e.A, e.B, got, e.MongeElkanAsymmetricLev, delta, mongeElkanCrossValidationEpsilonLevenshtein,
 					c.Metadata.PyStringMatchingVersion, c.Metadata.PythonVersion)
 			}
 		})
 
-		// Symmetric JaroWinkler-inner.
+		// Symmetric default JaroWinkler-inner.
 		t.Run(e.Name+"/symmetric/jaro_winkler", func(t *testing.T) {
-			got := fuzzymatch.MongeElkanScoreSymmetric(e.A, e.B, fuzzymatch.AlgoJaroWinkler, opts)
+			got := fuzzymatch.MongeElkanScore(e.A, e.B, fuzzymatch.AlgoJaroWinkler)
 			delta := math.Abs(got - e.MongeElkanSymmetricJW)
 			if delta > mongeElkanCrossValidationEpsilonJaroWinkler {
-				t.Errorf("MongeElkanScoreSymmetric(%q, %q, AlgoJaroWinkler) = %.17g; reference symmetric MongeElkan(JaroWinkler) = %.17g (delta %.2e, tol %g [jw-inner: py32-vs-go64], pysm %s, python %s)",
+				t.Errorf("MongeElkanScore(%q, %q, AlgoJaroWinkler) = %.17g; reference symmetric MongeElkan(JaroWinkler) = %.17g (delta %.2e, tol %g [jw-inner: py32-vs-go64], pysm %s, python %s)",
 					e.A, e.B, got, e.MongeElkanSymmetricJW, delta, mongeElkanCrossValidationEpsilonJaroWinkler,
 					c.Metadata.PyStringMatchingVersion, c.Metadata.PythonVersion)
 			}
 		})
 
-		// Symmetric Levenshtein-inner.
+		// Symmetric default Levenshtein-inner.
 		t.Run(e.Name+"/symmetric/levenshtein", func(t *testing.T) {
-			got := fuzzymatch.MongeElkanScoreSymmetric(e.A, e.B, fuzzymatch.AlgoLevenshtein, opts)
+			got := fuzzymatch.MongeElkanScore(e.A, e.B, fuzzymatch.AlgoLevenshtein)
 			delta := math.Abs(got - e.MongeElkanSymmetricLev)
 			if delta > mongeElkanCrossValidationEpsilonLevenshtein {
-				t.Errorf("MongeElkanScoreSymmetric(%q, %q, AlgoLevenshtein) = %.17g; reference symmetric MongeElkan(Levenshtein) = %.17g (delta %.2e, tol %g, pysm %s, python %s)",
+				t.Errorf("MongeElkanScore(%q, %q, AlgoLevenshtein) = %.17g; reference symmetric MongeElkan(Levenshtein) = %.17g (delta %.2e, tol %g, pysm %s, python %s)",
 					e.A, e.B, got, e.MongeElkanSymmetricLev, delta, mongeElkanCrossValidationEpsilonLevenshtein,
 					c.Metadata.PyStringMatchingVersion, c.Metadata.PythonVersion)
 			}

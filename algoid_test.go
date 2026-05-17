@@ -441,8 +441,8 @@ func TestDispatch_TverskyRegistered(t *testing.T) {
 // AlgoCosine (slot 11 — registered by Phase 5 plan 05-03),
 // AlgoTversky (slot 12 — registered by Phase 5 plan 05-04),
 // AlgoMongeElkan (slot 13 — registered by Phase 6 plan 06-05; binds
-// MongeElkanScoreSymmetric with AlgoJaroWinkler default inner +
-// DefaultNormalisationOptions per CONTEXT §4 LOCKED),
+// MongeElkanScore (the post-Phase-8.5-Q3 symmetric default) with
+// AlgoJaroWinkler default inner per CONTEXT §4 LOCKED),
 // AlgoTokenSortRatio (slot 14 — registered by Phase 6 plan 06-01),
 // AlgoTokenSetRatio (slot 15 — registered by Phase 6 plan 06-02),
 // AlgoPartialRatio (slot 16 — registered by Phase 6 plan 06-03; only

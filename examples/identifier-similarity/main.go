@@ -106,10 +106,10 @@ var pairs = []struct{ a, b string }{
 //   - Partial (PartialRatioScore) uses the BYTE-PATH surface for column
 //     consistency; the rune-path PartialRatioScoreRunes is not surfaced here.
 //   - TokenJac (TokenJaccardScore) uses the dispatch-default signature.
-//   - MongeElk (MongeElkanScoreSymmetric) wraps the parameter-rich symmetric
-//     surface with the LOCKED dispatch defaults: AlgoJaroWinkler inner +
-//     DefaultNormalisationOptions per Phase 6 CONTEXT §4 LOCKED. This
-//     mirrors the algoid.go dispatch slot 13 wiring exactly.
+//   - MongeElk (MongeElkanScore — symmetric default post Phase 8.5 Q3) wraps
+//     the parameter-rich symmetric surface with the LOCKED dispatch defaults:
+//     AlgoJaroWinkler inner per Phase 6 CONTEXT §4 LOCKED. This mirrors the
+//     algoid.go dispatch slot 13 wiring exactly.
 //
 // Caveat: TokenSetRatio carries the LOCKED RapidFuzz issue #110 deviation —
 // TokenSetRatioScore("", "") returns 0.0 (NOT 1.0). The "" inputs are not in
@@ -137,8 +137,8 @@ var algorithms = []struct {
 	{"TokenSet", fuzzymatch.TokenSetRatioScore},
 	{"Partial", fuzzymatch.PartialRatioScore}, // byte path; rune surface not exposed in example for column consistency
 	{"TokenJac", fuzzymatch.TokenJaccardScore},
-	{"MongeElk", func(a, b string) float64 { // Phase 6 CONTEXT §4 LOCKED dispatch defaults
-		return fuzzymatch.MongeElkanScoreSymmetric(a, b, fuzzymatch.AlgoJaroWinkler, fuzzymatch.DefaultNormalisationOptions())
+	{"MongeElk", func(a, b string) float64 { // Phase 6 CONTEXT §4 LOCKED dispatch defaults + Phase 8.5 Q3 rename
+		return fuzzymatch.MongeElkanScore(a, b, fuzzymatch.AlgoJaroWinkler)
 	}},
 	// Phase 7 phonetic tier (binary 0/1 scores):
 	{"Soundex", fuzzymatch.SoundexScore},

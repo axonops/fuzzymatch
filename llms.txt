@@ -148,8 +148,8 @@ scan / Extract (Phases 9–10).
 
 ### Monge-Elkan (Monge & Elkan 1996) per-token-max with pluggable inner metric
 
-- func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64
-- func MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64
+- func MongeElkanScore(a, b string, inner AlgoID) float64
+- func MongeElkanScoreAsymmetric(a, b string, inner AlgoID) float64
 
 ### Soundex (Russell 1918 / Knuth TAOCP §6.4) — Knuth/Census variant
 

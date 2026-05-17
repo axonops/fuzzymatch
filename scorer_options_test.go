@@ -467,9 +467,9 @@ func TestWithMongeElkanAlgorithm_CapturesInner(t *testing.T) {
 				t.Fatalf("inner=%v option err = %v", c.inner, err)
 			}
 			got := probeScoreFnInvoke(cfg, 0, a, b)
-			want := MongeElkanScoreSymmetric(a, b, c.inner, DefaultNormalisationOptions())
+			want := MongeElkanScore(a, b, c.inner)
 			if got != want {
-				t.Errorf("inner=%v: closure score = %g; want MongeElkanScoreSymmetric = %g", c.inner, got, want)
+				t.Errorf("inner=%v: closure score = %g; want MongeElkanScore (symmetric default) = %g", c.inner, got, want)
 			}
 		})
 	}

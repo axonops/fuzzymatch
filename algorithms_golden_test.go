@@ -1559,87 +1559,88 @@ func TestGolden_DoubleMetaphone_Staging(t *testing.T) {
 }
 
 // buildMongeElkanStagingEntries returns ten Monge-Elkan entries scored via
-// MongeElkanScoreSymmetric — the variant bound to dispatch[AlgoMongeElkan]
-// per CONTEXT.md §4 LOCKED with AlgoJaroWinkler as the default inner and
-// DefaultNormalisationOptions(). The symmetric variant participates in the
-// standard PropAlgorithmScore_Symmetric property test set, so the staging
-// entries match the dispatched output (not the asymmetric direct surface).
+// MongeElkanScore — the symmetric default bound to dispatch[AlgoMongeElkan]
+// per CONTEXT.md §4 LOCKED with AlgoJaroWinkler as the default inner.
+// Phase 8.5 Q3 rename: the unsuffixed MongeElkanScore is the symmetric
+// default; the previously-inert NormalisationOptions parameter was removed.
+// The symmetric default participates in the standard
+// PropAlgorithmScore_Symmetric property test set, so the staging entries
+// match the dispatched output (not the directional surface).
 //
 // Reference vectors are drawn from monge_elkan_test.go (RV-ME1 through
 // RV-ME6) plus the standard catalogue edge cases.
 func buildMongeElkanStagingEntries(t *testing.T) []goldenAlgorithmEntry {
 	t.Helper()
-	opts := fuzzymatch.DefaultNormalisationOptions()
 	return []goldenAlgorithmEntry{
 		{
 			Name:          "MongeElkan_RV-ME1_user_create_vs_usr_creating_symmetric",
 			Algorithm:     "MongeElkan",
 			A:             "user create",
 			B:             "usr creating",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("user create", "usr creating", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("user create", "usr creating", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_RV-ME2_identity",
 			Algorithm:     "MongeElkan",
 			A:             "alpha beta",
 			B:             "alpha beta",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta", "alpha beta", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("alpha beta", "alpha beta", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_RV-ME3_disjoint_greek_symmetric",
 			Algorithm:     "MongeElkan",
 			A:             "alpha beta",
 			B:             "gamma delta",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta", "gamma delta", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("alpha beta", "gamma delta", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_RV-ME4_RV-ME6_asymmetric_symmetric_average",
 			Algorithm:     "MongeElkan",
 			A:             "alpha",
 			B:             "alpha beta gamma",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha", "alpha beta gamma", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("alpha", "alpha beta gamma", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_RV-ME6_RV-ME4_swapped_symmetric_same_average",
 			Algorithm:     "MongeElkan",
 			A:             "alpha beta gamma",
 			B:             "alpha",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta gamma", "alpha", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("alpha beta gamma", "alpha", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_both_empty_standard",
 			Algorithm:     "MongeElkan",
 			A:             "",
 			B:             "",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("", "", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("", "", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_one_empty_a",
 			Algorithm:     "MongeElkan",
 			A:             "",
 			B:             "hello world",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("", "hello world", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("", "hello world", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_one_empty_b",
 			Algorithm:     "MongeElkan",
 			A:             "hello world",
 			B:             "",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("hello world", "", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("hello world", "", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_pure_separators_both_empty_tokens",
 			Algorithm:     "MongeElkan",
 			A:             "___",
 			B:             "...",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("___", "...", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("___", "...", fuzzymatch.AlgoJaroWinkler),
 		},
 		{
 			Name:          "MongeElkan_token_reorder_symmetric",
 			Algorithm:     "MongeElkan",
 			A:             "alpha beta gamma",
 			B:             "gamma alpha beta",
-			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta gamma", "gamma alpha beta", fuzzymatch.AlgoJaroWinkler, opts),
+			ExpectedScore: fuzzymatch.MongeElkanScore("alpha beta gamma", "gamma alpha beta", fuzzymatch.AlgoJaroWinkler),
 		},
 	}
 }
@@ -1652,8 +1653,9 @@ func buildMongeElkanStagingEntries(t *testing.T) []goldenAlgorithmEntry {
 // catalogue edge cases (both-empty, identity via RV-ME2, two one-empty
 // variants, pure-separator inputs, token reorder).
 //
-// All entries score via MongeElkanScoreSymmetric with the LOCKED default
-// inner AlgoJaroWinkler per dispatch_monge_elkan.go.
+// All entries score via MongeElkanScore (the symmetric default —
+// post Phase 8.5 Q3 rename) with the LOCKED default inner
+// AlgoJaroWinkler per dispatch_monge_elkan.go.
 //
 // Run with `-update` to create or refresh the staging file.
 // Re-running without `-update` must exit 0 (file is byte-stable).

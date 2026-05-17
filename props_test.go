@@ -3100,17 +3100,18 @@ func TestProp_TokenJaccardScore_NoNegativeZero(t *testing.T) {
 	}
 }
 
-// --- Monge-Elkan property tests (plan 06-05)
+// --- Monge-Elkan property tests (plan 06-05; Phase 8.5 Q3 rename applied)
 //
-// Two surfaces share the same property suite, with the asymmetric
-// direct call (MongeElkanScore) carrying its own asymmetry-conditional
-// property test mirroring Tversky α≠β. The symmetric variant
-// (MongeElkanScoreSymmetric) participates in the standard symmetric
-// set without exemption — the dispatch wrapper binds the symmetric
-// variant per CONTEXT.md §4 LOCKED so AlgoMongeElkan also passes the
-// dispatch-level symmetric property test (the standard
-// PropAlgorithmScore_Symmetric set is per-AlgoID; AlgoMongeElkan is
-// listed alongside all other symmetric algorithms).
+// Two surfaces share the same property suite (post Phase 8.5 Q3 —
+// symmetric-by-default rename): the directional surface
+// (MongeElkanScoreAsymmetric) carries its own direction-sensitivity
+// property test mirroring Tversky α≠β; the symmetric default
+// (MongeElkanScore) participates in the standard symmetric set without
+// exemption — the dispatch wrapper binds the symmetric default per
+// CONTEXT.md §4 LOCKED so AlgoMongeElkan also passes the dispatch-level
+// symmetric property test (the standard PropAlgorithmScore_Symmetric
+// set is per-AlgoID; AlgoMongeElkan is listed alongside all other
+// symmetric algorithms).
 //
 // Inner-metric coercion via fuzzCoerceMongeElkanInner (defined in
 // monge_elkan_fuzz_test.go) maps arbitrary int generators into the
@@ -3118,69 +3119,70 @@ func TestProp_TokenJaccardScore_NoNegativeZero(t *testing.T) {
 // never exercised by the property harness (the panic contract is
 // unit-tested separately by TestMongeElkan_PanicsOnNonPermittedInner).
 
-// TestProp_MongeElkanScore_RangeBounds asserts the asymmetric
-// direct-call score stays in [0, 1] for any (a, b, inner).
-func TestProp_MongeElkanScore_RangeBounds(t *testing.T) {
+// TestProp_MongeElkanScoreAsymmetric_RangeBounds asserts the directional
+// surface's score stays in [0, 1] for any (a, b, inner).
+func TestProp_MongeElkanScoreAsymmetric_RangeBounds(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		s := fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+		s := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
 		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScore out of [0, 1] or non-finite: %v", err)
+		t.Errorf("MongeElkanScoreAsymmetric out of [0, 1] or non-finite: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScore_NoNaN asserts the asymmetric score never
-// returns NaN. The all-empty / one-empty / identity short-circuits
-// gate away the only potential 0/0 paths.
-func TestProp_MongeElkanScore_NoNaN(t *testing.T) {
+// TestProp_MongeElkanScoreAsymmetric_NoNaN asserts the directional
+// score never returns NaN. The all-empty / one-empty / identity
+// short-circuits gate away the only potential 0/0 paths.
+func TestProp_MongeElkanScoreAsymmetric_NoNaN(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		return !math.IsNaN(fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions()))
+		return !math.IsNaN(fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner))
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScore produced NaN: %v", err)
+		t.Errorf("MongeElkanScoreAsymmetric produced NaN: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScore_NoInf asserts the asymmetric score never
-// returns ±Inf. The inner metric returns [0, 1]; |tA| ≥ 1 in the
-// non-short-circuit path; the single division never overflows.
-func TestProp_MongeElkanScore_NoInf(t *testing.T) {
+// TestProp_MongeElkanScoreAsymmetric_NoInf asserts the directional
+// score never returns ±Inf. The inner metric returns [0, 1]; |tA| ≥ 1
+// in the non-short-circuit path; the single division never overflows.
+func TestProp_MongeElkanScoreAsymmetric_NoInf(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		return !math.IsInf(fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions()), 0)
+		return !math.IsInf(fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner), 0)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScore produced Inf: %v", err)
+		t.Errorf("MongeElkanScoreAsymmetric produced Inf: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScore_NoNegativeZero asserts that when the
-// asymmetric score is 0.0 it is positive zero, not negative zero. The
-// numerator is a non-negative accumulator; the denominator is a
+// TestProp_MongeElkanScoreAsymmetric_NoNegativeZero asserts that when
+// the directional score is 0.0 it is positive zero, not negative zero.
+// The numerator is a non-negative accumulator; the denominator is a
 // strictly-positive int; float64(0) / float64(positive) is +0.0 in
 // IEEE-754.
-func TestProp_MongeElkanScore_NoNegativeZero(t *testing.T) {
+func TestProp_MongeElkanScoreAsymmetric_NoNegativeZero(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		s := fuzzymatch.MongeElkanScore(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+		s := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
 		return s != 0.0 || !math.Signbit(s)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScore produced -0.0: %v", err)
+		t.Errorf("MongeElkanScoreAsymmetric produced -0.0: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScore_AsymmetricWhenTokenCountAsymmetric is the
-// asymmetry-conditional property test (mirrors
+// TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveWhenTokenCountAsymmetric
+// is the asymmetry-conditional property test (mirrors
 // TestProp_TverskyScore_AsymmetricWhenAlphaNeqBeta). With fixed
 // inner = AlgoLevenshtein (which produces non-zero scores on
 // partially-overlapping tokens), the implication is:
 //
 //	IF |tokens(a)| ≠ |tokens(b)| AND fwd > 0 AND fwd != 1.0
-//	THEN MongeElkanScore(a, b, inner) ≠ MongeElkanScore(b, a, inner).
+//	THEN MongeElkanScoreAsymmetric(a, b, inner) ≠
+//	     MongeElkanScoreAsymmetric(b, a, inner).
 //
 // The fwd != 1.0 guard excludes the corner case where the per-token
 // max-mean happens to collapse to 1.0 in both directions (which can
@@ -3200,15 +3202,14 @@ func TestProp_MongeElkanScore_NoNegativeZero(t *testing.T) {
 // Spot-check on the canonical RV-ME6 / RV-ME4 pair confirms the
 // property body actively detects asymmetric inputs (a degenerate
 // `return true` would otherwise slip past quick.Check).
-func TestProp_MongeElkanScore_AsymmetricWhenTokenCountAsymmetric(t *testing.T) {
+func TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveWhenTokenCountAsymmetric(t *testing.T) {
 	inner := fuzzymatch.AlgoLevenshtein
-	opts := fuzzymatch.DefaultNormalisationOptions()
 	f := func(a, b string) bool {
 		if a == b || a == "" || b == "" {
 			return true // short-circuit branches
 		}
-		fwd := fuzzymatch.MongeElkanScore(a, b, inner, opts)
-		rev := fuzzymatch.MongeElkanScore(b, a, inner, opts)
+		fwd := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
+		rev := fuzzymatch.MongeElkanScoreAsymmetric(b, a, inner)
 		// Token-count premise — approximate via strings.Fields (a
 		// whitespace split). The project Tokenise can split FURTHER on
 		// identifier boundaries, so this under-estimates the token-count
@@ -3227,96 +3228,96 @@ func TestProp_MongeElkanScore_AsymmetricWhenTokenCountAsymmetric(t *testing.T) {
 		return fwd != rev
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScore asymmetry-conditional property violated: %v", err)
+		t.Errorf("MongeElkanScoreAsymmetric direction-sensitivity-conditional property violated: %v", err)
 	}
 	// Spot-check on the RV-ME4 / RV-ME6 canonical pair.
-	rvME4 := fuzzymatch.MongeElkanScore("alpha", "alpha beta gamma", inner, opts)
-	rvME6 := fuzzymatch.MongeElkanScore("alpha beta gamma", "alpha", inner, opts)
+	rvME4 := fuzzymatch.MongeElkanScoreAsymmetric("alpha", "alpha beta gamma", inner)
+	rvME6 := fuzzymatch.MongeElkanScoreAsymmetric("alpha beta gamma", "alpha", inner)
 	if rvME4 == rvME6 {
-		t.Errorf("asymmetry spot-check failed: ME(alpha, alpha beta gamma, Lev)=%g equals ME(alpha beta gamma, alpha, Lev)=%g — RV-ME4/RV-ME6 should differ (the load-bearing direction-sensitivity gate)",
+		t.Errorf("direction-sensitivity spot-check failed: ME(alpha, alpha beta gamma, Lev)=%g equals ME(alpha beta gamma, alpha, Lev)=%g — RV-ME4/RV-ME6 should differ (the load-bearing direction-sensitivity gate)",
 			rvME4, rvME6)
 	}
 }
 
-// TestProp_MongeElkanScoreSymmetric_RangeBounds asserts the symmetric
-// variant's score stays in [0, 1] for any (a, b, inner).
-func TestProp_MongeElkanScoreSymmetric_RangeBounds(t *testing.T) {
+// TestProp_MongeElkanScore_RangeBounds asserts the symmetric default's
+// score stays in [0, 1] for any (a, b, inner).
+func TestProp_MongeElkanScore_RangeBounds(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		s := fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+		s := fuzzymatch.MongeElkanScore(a, b, inner)
 		return s >= 0.0 && s <= 1.0 && !math.IsNaN(s) && !math.IsInf(s, 0)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreSymmetric out of [0, 1] or non-finite: %v", err)
+		t.Errorf("MongeElkanScore out of [0, 1] or non-finite: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScoreSymmetric_Identity asserts that for any
-// non-empty x and any permitted inner, the symmetric variant returns
-// 1.0 EXACTLY (the identity short-circuit inside MongeElkanScore
-// fires before any inner-metric work; the symmetric variant averages
+// TestProp_MongeElkanScore_Identity asserts that for any non-empty x
+// and any permitted inner, the symmetric default returns 1.0 EXACTLY
+// (the identity short-circuit inside MongeElkanScoreAsymmetric fires
+// before any inner-metric work; the symmetric default averages
 // 1.0 + 1.0 / 2 = 1.0).
-func TestProp_MongeElkanScoreSymmetric_Identity(t *testing.T) {
+func TestProp_MongeElkanScore_Identity(t *testing.T) {
 	f := func(x string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		return fuzzymatch.MongeElkanScoreSymmetric(x, x, inner, fuzzymatch.DefaultNormalisationOptions()) == 1.0
+		return fuzzymatch.MongeElkanScore(x, x, inner) == 1.0
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreSymmetric identity violated: %v", err)
+		t.Errorf("MongeElkanScore identity violated: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScoreSymmetric_Symmetric is the load-bearing
-// symmetric-variant property: MongeElkanScoreSymmetric(a, b, inner)
-// must equal MongeElkanScoreSymmetric(b, a, inner) for all inputs,
-// EXACTLY (bit-for-bit). The construction (ME(A,B) + ME(B,A))/2 is
-// invariant under argument swap (the sum of two terms swapped is the
-// same sum), and the divide-by-2 on a sum is exact in IEEE-754.
-func TestProp_MongeElkanScoreSymmetric_Symmetric(t *testing.T) {
+// TestProp_MongeElkanScore_Symmetric is the load-bearing
+// symmetric-default property: MongeElkanScore(a, b, inner) must equal
+// MongeElkanScore(b, a, inner) for all inputs, EXACTLY (bit-for-bit).
+// The construction (ME(A,B) + ME(B,A))/2 is invariant under argument
+// swap (the sum of two terms swapped is the same sum), and the
+// divide-by-2 on a sum is exact in IEEE-754.
+func TestProp_MongeElkanScore_Symmetric(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		opts := fuzzymatch.DefaultNormalisationOptions()
-		return fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, opts) == fuzzymatch.MongeElkanScoreSymmetric(b, a, inner, opts)
+		return fuzzymatch.MongeElkanScore(a, b, inner) == fuzzymatch.MongeElkanScore(b, a, inner)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreSymmetric not symmetric: %v", err)
+		t.Errorf("MongeElkanScore not symmetric: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScoreSymmetric_NoNaN asserts the symmetric
-// variant never returns NaN.
-func TestProp_MongeElkanScoreSymmetric_NoNaN(t *testing.T) {
+// TestProp_MongeElkanScore_NoNaN asserts the symmetric default never
+// returns NaN.
+func TestProp_MongeElkanScore_NoNaN(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		return !math.IsNaN(fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions()))
+		return !math.IsNaN(fuzzymatch.MongeElkanScore(a, b, inner))
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreSymmetric produced NaN: %v", err)
+		t.Errorf("MongeElkanScore produced NaN: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScoreSymmetric_NoInf asserts the symmetric variant
-// never returns ±Inf.
-func TestProp_MongeElkanScoreSymmetric_NoInf(t *testing.T) {
+// TestProp_MongeElkanScore_NoInf asserts the symmetric default never
+// returns ±Inf.
+func TestProp_MongeElkanScore_NoInf(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		return !math.IsInf(fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions()), 0)
+		return !math.IsInf(fuzzymatch.MongeElkanScore(a, b, inner), 0)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreSymmetric produced Inf: %v", err)
+		t.Errorf("MongeElkanScore produced Inf: %v", err)
 	}
 }
 
-// TestProp_MongeElkanScoreSymmetric_NoNegativeZero asserts that when
-// the symmetric score is 0.0 it is positive zero, not negative zero.
-func TestProp_MongeElkanScoreSymmetric_NoNegativeZero(t *testing.T) {
+// TestProp_MongeElkanScore_NoNegativeZero asserts that when the
+// symmetric default's score is 0.0 it is positive zero, not negative
+// zero.
+func TestProp_MongeElkanScore_NoNegativeZero(t *testing.T) {
 	f := func(a, b string, innRaw int) bool {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		s := fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, fuzzymatch.DefaultNormalisationOptions())
+		s := fuzzymatch.MongeElkanScore(a, b, inner)
 		return s != 0.0 || !math.Signbit(s)
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreSymmetric produced -0.0: %v", err)
+		t.Errorf("MongeElkanScore produced -0.0: %v", err)
 	}
 }
 

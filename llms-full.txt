@@ -599,24 +599,30 @@ Plan 06-05 lands Monge-Elkan, the most complex Phase 6 algorithm — the
 only one that takes a PLUGGABLE inner-metric AlgoID parameter. For each
 token in A, take the maximum inner-metric similarity over every token
 in B, then average the per-token maxima (Monge & Elkan 1996 KDD'96 §3).
-With a fixed inner metric the function is DIRECTION-SENSITIVE — the
-same inputs in swapped order generally produce different scores.
+With a fixed inner metric the directional variant is DIRECTION-SENSITIVE
+— the same inputs in swapped order generally produce different scores.
 
-Two surfaces ship:
+Two surfaces ship (Phase 8.5 Q3 — symmetric-by-default rename):
 
-- `MongeElkanScore`           — the ASYMMETRIC direct surface
-- `MongeElkanScoreSymmetric`  — the arithmetic mean of the two
-                                directional scores (symmetric in
-                                (a, b) by construction)
+- `MongeElkanScore`            — the SYMMETRIC default (arithmetic
+                                 mean of the two directional scores;
+                                 invariant under argument swap)
+- `MongeElkanScoreAsymmetric`  — the directional variant (per-token-
+                                 max-mean reduction over A's tokens)
 
-The dispatch slot `AlgoMongeElkan` binds `MongeElkanScoreSymmetric`
-with `AlgoJaroWinkler` as the default inner and `DefaultNormalisationOptions()`
-per 06-CONTEXT.md §4 LOCKED — so `AlgoMongeElkan` participates in the
+The dispatch slot `AlgoMongeElkan` binds `MongeElkanScore` (the
+symmetric default) with `AlgoJaroWinkler` as the default inner per
+06-CONTEXT.md §4 LOCKED — so `AlgoMongeElkan` participates in the
 standard `PropAlgorithmScore_Symmetric` property test set without
-exemption. Consumers needing genuine asymmetric scoring call
-`MongeElkanScore` directly or use the Phase 8 Scorer option
+exemption. Consumers needing directional scoring call
+`MongeElkanScoreAsymmetric` directly or use the Phase 8 Scorer option
 `WithMongeElkanAlgorithm(weight, inner)` which forwards the
 user-supplied inner AlgoID.
+
+Phase 8.5 Q3 also REMOVED the inert `NormalisationOptions` parameter
+from both surfaces — `Tokenise(DefaultTokeniseOptions())` is used
+internally regardless; pre-Normalise inputs explicitly if you want NFC
+/ diacritic stripping before tokenisation.
 
 **Permitted inner allow-list (LOCKED 2026-05-15 — 14 entries per
 OQ-4 RESOLUTION):** the inner AlgoID must be one of 9 character-tier
@@ -655,12 +661,13 @@ loudly.
 
 **Asymmetry KEYSTONE (RV-ME6 / RV-ME-asym):** the RV-ME4 vs RV-ME6
 input-swap pair with `inner = AlgoLevenshtein` is the load-bearing
-direction-sensitivity regression detector. RV-ME4:
-`MongeElkanScore("alpha", "alpha beta gamma", Lev) = 1.0`; RV-ME6:
-`MongeElkanScore("alpha beta gamma", "alpha", Lev) ≈ 0.4667`. The
-difference (≈ 0.5333) is pinned by `TestMongeElkanScore_AsymmetryDirectionSensitive`,
-`TestProp_MongeElkanScore_AsymmetricWhenTokenCountAsymmetric`, AND
-the BDD scenario "MongeElkanScore is direction-sensitive". A silent
+direction-sensitivity regression detector on the directional surface.
+RV-ME4: `MongeElkanScoreAsymmetric("alpha", "alpha beta gamma", Lev) =
+1.0`; RV-ME6: `MongeElkanScoreAsymmetric("alpha beta gamma", "alpha",
+Lev) ≈ 0.4667`. The difference (≈ 0.5333) is pinned by
+`TestMongeElkanScoreAsymmetric_DirectionSensitive`,
+`TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveWhenTokenCountAsymmetric`,
+AND the BDD scenario "MongeElkanScore is direction-sensitive". A silent
 direction-swap regression surfaces as 3 separate test failures.
 
 **DoS notice (06-CONTEXT.md §5 LOCKED):** on inputs with > 1,000
@@ -683,30 +690,32 @@ keystone — RV-ME4 swapped → ≈ 0.4667). Each derivation is reproduced
 in the unit-test comment per algorithm-correctness-standards.
 
 ```go
-// MongeElkanScore returns the asymmetric Monge-Elkan similarity
-// between a and b under the given inner metric: tokenise both sides,
-// then for each token in A take the max inner-metric similarity over
-// every token in B; average the per-token maxima. Returns [0.0, 1.0].
+// MongeElkanScoreAsymmetric returns the directional Monge-Elkan
+// similarity between a and b under the given inner metric: tokenise
+// both sides, then for each token in A take the max inner-metric
+// similarity over every token in B; average the per-token maxima.
+// Returns [0.0, 1.0].
 //
-// Direction-sensitive: MongeElkanScore(a, b, inner, opts) generally
-// ≠ MongeElkanScore(b, a, inner, opts). For a symmetric variant call
-// MongeElkanScoreSymmetric.
+// Direction-sensitive: MongeElkanScoreAsymmetric(a, b, inner)
+// generally ≠ MongeElkanScoreAsymmetric(b, a, inner). For the
+// symmetric default (invariant under argument swap) call MongeElkanScore.
 //
-// The inner AlgoID MUST be one of the 14 permitted inner metrics
-// (9 character + 4 q-gram + AlgoRatcliffObershelp). Passing
-// AlgoMongeElkan (self-reference), any token-tier AlgoID, or any
-// phonetic AlgoID panics with the documented message.
+// The inner AlgoID MUST be one of the 18 permitted inner metrics
+// (9 character + 4 q-gram + AlgoRatcliffObershelp + 4 phonetic).
+// Passing AlgoMongeElkan (self-reference) or any token-tier AlgoID
+// panics with the documented message.
 //
 // Reference vector (RV-ME1):
-//   MongeElkanScore("user create", "usr creating",
-//                   AlgoJaroWinkler, DefaultNormalisationOptions()) ≈ 0.9125
-func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64
+//   MongeElkanScoreAsymmetric("user create", "usr creating",
+//                             AlgoJaroWinkler) ≈ 0.9125
+func MongeElkanScoreAsymmetric(a, b string, inner AlgoID) float64
 
-// MongeElkanScoreSymmetric returns the symmetric (arithmetic mean)
-// variant: (MongeElkanScore(a, b, ...) + MongeElkanScore(b, a, ...)) / 2.
-// Order-independent by construction; the variant bound to
-// dispatch[AlgoMongeElkan] per CONTEXT §4 LOCKED.
-func MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64
+// MongeElkanScore returns the symmetric default Monge-Elkan similarity
+// (Phase 8.5 Q3 rename — the unsuffixed canonical surface): the
+// arithmetic mean of MongeElkanScoreAsymmetric in the two directions
+// (ME(a, b) + ME(b, a)) / 2. Order-independent by construction; the
+// surface bound to dispatch[AlgoMongeElkan] per CONTEXT §4 LOCKED.
+func MongeElkanScore(a, b string, inner AlgoID) float64
 ```
 
 ### Phase 7 algorithm surface (phonetic tier — Soundex)

@@ -13,14 +13,17 @@
 // limitations under the License.
 
 // monge_elkan_fuzz_test.go runs native Go fuzzing against the two
-// public Monge-Elkan surfaces. Properties checked per input:
+// public Monge-Elkan surfaces (Phase 8.5 Q3 — the symmetric default is
+// MongeElkanScore; the directional variant is MongeElkanScoreAsymmetric;
+// the NormalisationOptions parameter has been removed from both).
+// Properties checked per input:
 //
 //   1. Never panics (implicit — any panic propagates as a fuzz crash).
 //   2. Score never returns NaN.
 //   3. Score never returns ±Inf.
 //   4. Score returns a value in [0.0, 1.0].
-//   5. Identity short-circuit holds — MongeElkanScore(x, x, inner) ==
-//      1.0 for all x and all permitted inner.
+//   5. Identity short-circuit holds — score(x, x, inner) == 1.0 for all
+//      x and all permitted inner.
 //
 // The inner AlgoID is COERCED via fuzzCoerceMongeElkanInner so the fuzz
 // harness never exercises the documented panic path — that contract is
@@ -74,12 +77,12 @@ func fuzzCoerceMongeElkanInner(n int) fuzzymatch.AlgoID {
 	return permitted[n%len(permitted)]
 }
 
-// FuzzMongeElkanScore exercises the ASYMMETRIC direct surface with
-// programmatic seeds covering the six reference vectors and a broad
-// set of edge cases. The fuzz body asserts the four invariants (no
-// panic, no NaN, no ±Inf, score in [0, 1]) plus the identity
-// short-circuit.
-func FuzzMongeElkanScore(f *testing.F) {
+// FuzzMongeElkanScoreAsymmetric exercises the DIRECTIONAL surface
+// (Phase 8.5 Q3 — the v0.x MongeElkanScore) with programmatic seeds
+// covering the six reference vectors and a broad set of edge cases.
+// The fuzz body asserts the four invariants (no panic, no NaN, no
+// ±Inf, score in [0, 1]) plus the identity short-circuit.
+func FuzzMongeElkanScoreAsymmetric(f *testing.F) {
 	for _, seed := range []struct {
 		a, b string
 		inn  int
@@ -105,28 +108,28 @@ func FuzzMongeElkanScore(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, a, b string, innRaw int) {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		opts := fuzzymatch.DefaultNormalisationOptions()
-		got := fuzzymatch.MongeElkanScore(a, b, inner, opts)
+		got := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
 		if math.IsNaN(got) {
-			t.Fatalf("MongeElkanScore(%q, %q, %s) = NaN", a, b, inner)
+			t.Fatalf("MongeElkanScoreAsymmetric(%q, %q, %s) = NaN", a, b, inner)
 		}
 		if math.IsInf(got, 0) {
-			t.Fatalf("MongeElkanScore(%q, %q, %s) = Inf", a, b, inner)
+			t.Fatalf("MongeElkanScoreAsymmetric(%q, %q, %s) = Inf", a, b, inner)
 		}
 		if got < 0.0 || got > 1.0 {
-			t.Fatalf("MongeElkanScore(%q, %q, %s) = %g; want in [0, 1]", a, b, inner, got)
+			t.Fatalf("MongeElkanScoreAsymmetric(%q, %q, %s) = %g; want in [0, 1]", a, b, inner, got)
 		}
 		// Identity short-circuit regression check.
-		if idScore := fuzzymatch.MongeElkanScore(a, a, inner, opts); idScore != 1.0 {
-			t.Fatalf("MongeElkanScore(%q, %q, %s) = %g; identity must be exactly 1.0", a, a, inner, idScore)
+		if idScore := fuzzymatch.MongeElkanScoreAsymmetric(a, a, inner); idScore != 1.0 {
+			t.Fatalf("MongeElkanScoreAsymmetric(%q, %q, %s) = %g; identity must be exactly 1.0", a, a, inner, idScore)
 		}
 	})
 }
 
-// FuzzMongeElkanScoreSymmetric exercises the SYMMETRIC variant with
-// the same seeds and invariants as the asymmetric fuzz target, plus
-// the symmetry property: score(a, b) == score(b, a) for all inputs.
-func FuzzMongeElkanScoreSymmetric(f *testing.F) {
+// FuzzMongeElkanScore exercises the SYMMETRIC default (Phase 8.5 Q3 —
+// the unsuffixed canonical surface) with the same seeds and invariants
+// as the directional fuzz target, plus the symmetry property:
+// score(a, b) == score(b, a) for all inputs.
+func FuzzMongeElkanScore(f *testing.F) {
 	for _, seed := range []struct {
 		a, b string
 		inn  int
@@ -150,22 +153,21 @@ func FuzzMongeElkanScoreSymmetric(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, a, b string, innRaw int) {
 		inner := fuzzCoerceMongeElkanInner(innRaw)
-		opts := fuzzymatch.DefaultNormalisationOptions()
-		fwd := fuzzymatch.MongeElkanScoreSymmetric(a, b, inner, opts)
+		fwd := fuzzymatch.MongeElkanScore(a, b, inner)
 		if math.IsNaN(fwd) {
-			t.Fatalf("MongeElkanScoreSymmetric(%q, %q, %s) = NaN", a, b, inner)
+			t.Fatalf("MongeElkanScore(%q, %q, %s) = NaN", a, b, inner)
 		}
 		if math.IsInf(fwd, 0) {
-			t.Fatalf("MongeElkanScoreSymmetric(%q, %q, %s) = Inf", a, b, inner)
+			t.Fatalf("MongeElkanScore(%q, %q, %s) = Inf", a, b, inner)
 		}
 		if fwd < 0.0 || fwd > 1.0 {
-			t.Fatalf("MongeElkanScoreSymmetric(%q, %q, %s) = %g; want in [0, 1]", a, b, inner, fwd)
+			t.Fatalf("MongeElkanScore(%q, %q, %s) = %g; want in [0, 1]", a, b, inner, fwd)
 		}
 		// Symmetry property (load-bearing — this is what distinguishes
-		// the symmetric variant from the asymmetric direct surface).
-		rev := fuzzymatch.MongeElkanScoreSymmetric(b, a, inner, opts)
+		// the symmetric default from the directional surface).
+		rev := fuzzymatch.MongeElkanScore(b, a, inner)
 		if fwd != rev {
-			t.Fatalf("MongeElkanScoreSymmetric(%q, %q, %s) = %g but (%q, %q) = %g — symmetric variant must be order-independent", a, b, inner, fwd, b, a, rev)
+			t.Fatalf("MongeElkanScore(%q, %q, %s) = %g but (%q, %q) = %g — symmetric default must be order-independent", a, b, inner, fwd, b, a, rev)
 		}
 	})
 }

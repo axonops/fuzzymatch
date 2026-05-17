@@ -13,9 +13,12 @@
 // limitations under the License.
 
 // monge_elkan_bench_test.go runs allocation-aware benchmarks for both
-// MongeElkanScore (asymmetric) and MongeElkanScoreSymmetric (mean of
-// the two directions — 2x baseline cost). b.ReportAllocs() on every
-// benchmark gates allocation regressions in bench.txt via benchstat.
+// MongeElkanScoreAsymmetric (directional) and MongeElkanScore (symmetric
+// default — mean of the two directions, 2x baseline cost).
+// b.ReportAllocs() on every benchmark gates allocation regressions in
+// bench.txt via benchstat. Phase 8.5 Q3 rename: the symmetric default
+// took the unsuffixed name; the directional variant is now
+// MongeElkanScoreAsymmetric. NormalisationOptions parameter removed.
 //
 // Performance budget per .claude/skills/performance-standards
 // ("Monge-Elkan: < 10 µs (dominated by inner-metric × token-count²)").
@@ -46,43 +49,41 @@ const (
 	mongeElkanB50 = "beta gamma delta epsilon zeta eta theta iota"
 )
 
-// BenchmarkMongeElkanScore_ASCII_Short exercises the canonical
-// asymmetric RV-ME1 pair with JaroWinkler inner. The 2x2 inner-metric
+// BenchmarkMongeElkanScoreAsymmetric_ASCII_Short exercises the canonical
+// directional RV-ME1 pair with JaroWinkler inner. The 2x2 inner-metric
 // matrix is the smallest non-trivial Monge-Elkan workload.
-func BenchmarkMongeElkanScore_ASCII_Short(b *testing.B) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
+func BenchmarkMongeElkanScoreAsymmetric_ASCII_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	var sink float64
 	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.MongeElkanScore("user create", "usr creating", fuzzymatch.AlgoJaroWinkler, opts)
+		sink = fuzzymatch.MongeElkanScoreAsymmetric("user create", "usr creating", fuzzymatch.AlgoJaroWinkler)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
 	}
 }
 
-// BenchmarkMongeElkanScore_ASCII_Medium exercises ~50-char inputs
-// (8 tokens per side) with JaroWinkler inner. 8×8 = 64 inner-metric
-// comparisons per call; the dominant cost is the JaroWinkler O(min(m,n))
-// per comparison.
-func BenchmarkMongeElkanScore_ASCII_Medium(b *testing.B) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
+// BenchmarkMongeElkanScoreAsymmetric_ASCII_Medium exercises ~50-char
+// inputs (8 tokens per side) with JaroWinkler inner. 8×8 = 64
+// inner-metric comparisons per call; the dominant cost is the
+// JaroWinkler O(min(m,n)) per comparison.
+func BenchmarkMongeElkanScoreAsymmetric_ASCII_Medium(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	var sink float64
 	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.MongeElkanScore(mongeElkanA50, mongeElkanB50, fuzzymatch.AlgoJaroWinkler, opts)
+		sink = fuzzymatch.MongeElkanScoreAsymmetric(mongeElkanA50, mongeElkanB50, fuzzymatch.AlgoJaroWinkler)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
 	}
 }
 
-// BenchmarkMongeElkanScore_ASCII_Long exercises ~200-char inputs (40
-// tokens per side) with JaroWinkler inner. 40×40 = 1600 inner-metric
-// comparisons per call — the typical mid-tier workload.
-func BenchmarkMongeElkanScore_ASCII_Long(b *testing.B) {
+// BenchmarkMongeElkanScoreAsymmetric_ASCII_Long exercises ~200-char
+// inputs (40 tokens per side) with JaroWinkler inner. 40×40 = 1600
+// inner-metric comparisons per call — the typical mid-tier workload.
+func BenchmarkMongeElkanScoreAsymmetric_ASCII_Long(b *testing.B) {
 	stems := []string{
 		"ab", "bc", "cd", "de", "ef", "fg", "gh", "hi", "ij", "jk",
 		"kl", "lm", "mn", "no", "op", "pq", "qr", "rs", "st", "tu",
@@ -91,47 +92,44 @@ func BenchmarkMongeElkanScore_ASCII_Long(b *testing.B) {
 	}
 	aLong := strings.Join(stems, " ")
 	bLong := strings.Join(stems[1:], " ") + " xy"
-	opts := fuzzymatch.DefaultNormalisationOptions()
 	b.ReportAllocs()
 	b.ResetTimer()
 	var sink float64
 	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.MongeElkanScore(aLong, bLong, fuzzymatch.AlgoJaroWinkler, opts)
+		sink = fuzzymatch.MongeElkanScoreAsymmetric(aLong, bLong, fuzzymatch.AlgoJaroWinkler)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
 	}
 }
 
-// BenchmarkMongeElkanScore_Unicode_Short exercises a multi-byte UTF-8
-// token pair with the byte-path JaroWinkler inner. Tokenise is
+// BenchmarkMongeElkanScoreAsymmetric_Unicode_Short exercises a multi-byte
+// UTF-8 token pair with the byte-path JaroWinkler inner. Tokenise is
 // UTF-8-aware; the rune semantic is preserved at the tokenisation
 // layer.
-func BenchmarkMongeElkanScore_Unicode_Short(b *testing.B) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
+func BenchmarkMongeElkanScoreAsymmetric_Unicode_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	var sink float64
 	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.MongeElkanScore("café münchen", "münchen wien", fuzzymatch.AlgoJaroWinkler, opts)
+		sink = fuzzymatch.MongeElkanScoreAsymmetric("café münchen", "münchen wien", fuzzymatch.AlgoJaroWinkler)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
 	}
 }
 
-// BenchmarkMongeElkanScoreSymmetric_ASCII_Short exercises the SYMMETRIC
-// variant on the canonical RV-ME1 pair. Expected ~2x the asymmetric
-// cost (the symmetric variant calls MongeElkanScore in both
-// directions). benchstat (over BenchmarkMongeElkanScore_ASCII_Short)
-// quantifies the overhead.
-func BenchmarkMongeElkanScoreSymmetric_ASCII_Short(b *testing.B) {
-	opts := fuzzymatch.DefaultNormalisationOptions()
+// BenchmarkMongeElkanScore_ASCII_Short exercises the SYMMETRIC default
+// (post-rename MongeElkanScore — Phase 8.5 Q3) on the canonical RV-ME1
+// pair. Expected ~2x the directional cost (the symmetric default calls
+// MongeElkanScoreAsymmetric in both directions). benchstat over
+// BenchmarkMongeElkanScoreAsymmetric_ASCII_Short quantifies the overhead.
+func BenchmarkMongeElkanScore_ASCII_Short(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	var sink float64
 	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.MongeElkanScoreSymmetric("user create", "usr creating", fuzzymatch.AlgoJaroWinkler, opts)
+		sink = fuzzymatch.MongeElkanScore("user create", "usr creating", fuzzymatch.AlgoJaroWinkler)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
@@ -156,12 +154,11 @@ func BenchmarkMongeElkan_Pathological_1000Tokens(b *testing.B) {
 	// (strings.Repeat ends with a separator).
 	manyA := strings.TrimSpace(strings.Repeat("alpha beta gamma delta ", 250))
 	manyB := strings.TrimSpace(strings.Repeat("epsilon zeta eta theta ", 250))
-	opts := fuzzymatch.DefaultNormalisationOptions()
 	b.ReportAllocs()
 	b.ResetTimer()
 	var sink float64
 	for i := 0; i < b.N; i++ {
-		sink = fuzzymatch.MongeElkanScoreSymmetric(manyA, manyB, fuzzymatch.AlgoJaroWinkler, opts)
+		sink = fuzzymatch.MongeElkanScore(manyA, manyB, fuzzymatch.AlgoJaroWinkler)
 	}
 	if sink < 0 {
 		b.Fatal("sink unexpectedly negative — compiler folded the benchmark away")
