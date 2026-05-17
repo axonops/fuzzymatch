@@ -207,7 +207,7 @@ The Scorer is constructed via functional options. Options:
 
 After construction, the Scorer is immutable. `Score`, `ScoreAll`, and `Match` are safe for concurrent use by any number of goroutines.
 
-The Scorer applies normalisation (if configured) to both inputs once per `Score` call, then invokes each enabled algorithm on the normalised inputs, multiplies each algorithm's score by its (normalised) weight, sums, and returns the composite. `ScoreAll` returns the per-algorithm breakdown using the algorithm's snake_case name as the map key (`"levenshtein"`, `"jaro_winkler"`, `"q_gram_jaccard"`, etc.).
+The Scorer applies normalisation (if configured) to both inputs once per `Score` call, then invokes each enabled algorithm on the normalised inputs, multiplies each algorithm's score by its (normalised) weight, sums, and returns the composite. `ScoreAll` returns the per-algorithm breakdown using the typed `AlgoID` enum as the map key (the original `map[string]float64` spec is SPEC-OVERRIDDEN to `map[AlgoID]float64`; see §8.3 + 08-CONTEXT.md §1). Consumers needing the snake_case display form call `AlgoID.String()`.
 
 ### Sentinel errors
 
@@ -782,11 +782,18 @@ If the same algorithm is added multiple times via different option calls, the la
 // Score returns the weighted composite similarity score in [0.0, 1.0].
 func (s *Scorer) Score(a, b string) float64
 
-// ScoreAll returns the per-algorithm scores keyed by algorithm name
-// (snake_case form of AlgoID.String()). Map iteration order is NOT
-// stable; consumers requiring stable ordering should sort the keys.
-// The returned map is a fresh allocation per call (safe to modify).
-func (s *Scorer) ScoreAll(a, b string) map[string]float64
+// ScoreAll returns the per-algorithm scores keyed by AlgoID (typed
+// enum, NOT string). Map iteration order is NOT stable; consumers
+// requiring stable ordering should sort the keys. The returned map
+// is a fresh allocation per call (safe to modify).
+//
+// SPEC OVERRIDE (Phase 8): originally specified as map[string]float64
+// in this section; the implementation uses map[AlgoID]float64 for
+// compile-time type safety. See .planning/phases/08-composite-scorer/
+// 08-CONTEXT.md §1 for the rationale and the api-ergonomics-reviewer
+// sign-off (recorded in plan 08-03's PR). REQUIREMENTS.md SCORER-05
+// already specifies map[AlgoID]float64 — this is the canonical form.
+func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64
 
 // Match returns true if Score(a, b) >= threshold.
 func (s *Scorer) Match(a, b string) bool
@@ -837,7 +844,7 @@ These defaults are calibrated for the originating audit-field-similarity use cas
 
 ### 8.6 ScoreAll behaviour
 
-`ScoreAll` returns a freshly-allocated `map[string]float64` per call. Keys are the snake_case algorithm names (`"damerau_levenshtein_osa"`, `"jaro_winkler"`, etc.). Map iteration order in Go is non-deterministic — this is INTENTIONAL: consumers reading the map for human display can sort keys themselves; consumers using the map programmatically don't care about order. The Scorer's internal computation does NOT depend on map iteration order (algorithms are iterated in AlgoID-sorted order internally).
+`ScoreAll` returns a freshly-allocated `map[AlgoID]float64` per call (SPEC OVERRIDE — originally `map[string]float64`, see §8.3 above and 08-CONTEXT.md §1 for the typed-enum-keys rationale). Keys are the typed `AlgoID` enum values; consumers needing the snake_case display form call `AlgoID.String()`. Map iteration order in Go is non-deterministic — this is INTENTIONAL: consumers reading the map for human display can sort keys themselves; consumers using the map programmatically don't care about order. The Scorer's internal computation does NOT depend on map iteration order (algorithms are iterated in AlgoID-sorted order internally).
 
 ---
 
@@ -1182,7 +1189,7 @@ This is achievable because: (a) all float operations are simple enough (addition
 
 Map iteration order in Go is non-deterministic by design. The library uses `map` internally (e.g. for q-gram counting, token-set intersection) but NEVER exposes map iteration order to public output. Internal algorithms that need to iterate a map in a stable order extract keys, sort them, and iterate the sorted slice.
 
-`Scorer.ScoreAll` returns a `map[string]float64` — the map itself is returned, and iteration order is non-deterministic. This is documented; consumers requiring stable order should sort the keys.
+`Scorer.ScoreAll` returns a `map[AlgoID]float64` (typed enum keys per §8.3 + §8.6 SPEC OVERRIDE) — the map itself is returned, and iteration order is non-deterministic. This is documented; consumers requiring stable order should sort the keys.
 
 ### 13.5 No init() side effects
 
