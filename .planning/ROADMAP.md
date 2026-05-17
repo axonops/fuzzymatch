@@ -18,6 +18,7 @@
 - [ ] **Phase 6: Token-based Algorithms** - Monge-Elkan, Token Sort Ratio, Token Set Ratio, Partial Ratio, Token Jaccard
 - [ ] **Phase 7: Phonetic Algorithms** - Soundex, Double Metaphone, NYSIIS, MRA
 - [x] **Phase 8: Composite Scorer** - Functional-options weighted Scorer, ScoreAll, Match, normalisation control (completed 2026-05-17)
+- [ ] **Phase 8.5: Review Remediation Gate** - Resolve all 465 findings (74 Critical + 195 Important + 196 Improvement) from the Phase 8 comprehensive review; apply 14 locked discuss-phase decisions across spec, code, tests, docs, and CI
 - [ ] **Phase 9: Collection Scan Sub-package** - Within-group + cross-group passes, token-bucket optimisation, suppression composition
 - [ ] **Phase 10: Extract API** - One-to-many `Extract` / `ExtractOne` search, RapidFuzz `process.extract`-equivalent
 - [ ] **Phase 11: Integration Shakedown & v1.0.0** - `axonops/audit` consumption, API freeze, v1.0.0 signed release
@@ -147,6 +148,37 @@
   - [x] 08-03-PLAN.md — ScoreAll (SPEC OVERRIDE: map[AlgoID]float64) + Threshold + Algorithms + ScorerAlgorithm + DefaultScorer + DefaultScorerOptions + property + concurrent tests
   - [x] 08-04-PLAN.md — Finalisation: scorer-default.json golden + scorer.feature BDD + scorer_bench_test + examples (scorer-composition + identifier-similarity extension) + docs/scorer.md + docs/tuning.md + spec amendments
 
+### Phase 8.5: Review Remediation Gate
+**Goal**: Resolve all 465 findings from the Phase 8 comprehensive review (74 Critical + 195 Important + 196 Improvement) before Phase 9 begins. Apply the locked discuss-phase decisions from 2026-05-17 across spec, code, tests, docs, and CI. Phase 8.5 is a remediation phase, not a feature phase — it exists because the Phase 8 review surfaced systemic gaps (data-vs-parameter validation, allocation budget mismatch with implementation reality, missing cross-validation corpora on the character and q-gram tiers, undocumented sentinel godoc, README staleness, BDD coverage gaps for documented sentinels, etc.) that must be closed before scan work begins.
+**Depends on**: Phase 8
+**Requirements**: VALIDATE-01 through VALIDATE-06 (new — added to `.planning/REQUIREMENTS.md` 2026-05-17 for the `fuzzymatch.Validate` / `Warning` / `WarnKind` public surface introduced by Q4); plus resolutions of existing requirements per the 9 scope clusters below
+**Discuss-phase decisions (LOCKED 2026-05-17):** Q1 Hamming silent-max policy; Q2 data-vs-parameter framework + `WithThreshold` NaN guard + `WithTverskyAlgorithm` α+β>0 guard; Q3 MongeElkan symmetric-by-default rename + inert opts removal; Q4 Validate function + 3 unused sentinels removed + 4-section godoc template; Q5 ASCII-only algorithms have no Runes variants + `PartialRatioScoreRunes` removed; Q6a Ratcliff-Obershelp asymmetric-by-design + Q6b CamelCase AlgoID.String / WarnKind.String; Q7 DoubleMetaphone `[4]byte` optimisation + 5 performance-budget amendments + Long-input heap-fallback scope notes + Q-gram capacity hint; Q8 DL-Full Short ≤ 1 alloc + Tokenise ASCII fast path + Scorer §14.2 budget revision + Ratcliff-Obershelp Short ≤ 4 allocs; Q9 DoubleMetaphone `dupBranchBody` redundancy removal; Q10 cross-validation corpora expansion (character, q-gram, Monge-Elkan); Q11 test correctness + determinism cluster (bench.txt.new cleanup, FMA double-cast, paper-anchored DM test, variable rename, DL-Full ZeroAllocs un-skip); Q12 Coverage Floor 3 tightening + property-test distribution + panic-surface doc; Q13 devops cluster (release gate, nightly.yml, action SHA pinning, llms-sync target, bench baseline check, anchor casing, coverage-floors AST, HashiCorp licence audit, 9 missing TestGolden Staging); Q14 cross-algorithm alloc-budget cache deferred to v1.x (GitHub issue #2) + 196 Improvement-tier fixes in Path A.
+**Success Criteria** (what must be TRUE):
+  1. Spec source-of-truth (`docs/requirements.md`, `ROADMAP.md`, `CHANGELOG.md`) reflects all 14 Q-decisions — done in this alignment session
+  2. All 4 breaking-change items land cleanly with passing tests: MongeElkan rename + inert opts removal, `PartialRatioScoreRunes` removal, 3 unused sentinels removed, Hamming placeholder sentinel removed
+  3. `fuzzymatch.Validate` ships with `Warning` / `WarnKind` types and all six required documentation surfaces (README Quick Start / Common Patterns, `docs/algorithms.md` (or `docs/best-practices.md`), per-algorithm godoc cross-references, `llms.txt` + `llms-full.txt`, user-guide section, runnable `examples/` program) per `.claude/skills/documentation-standards/SKILL.md` § Consumer-facing validation and diagnostics features
+  4. Every remaining exported error sentinel carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation
+  5. Cross-validation corpora exist for character tier (`jellyfish`), q-gram tier (`py_stringmatching`), and Monge-Elkan (`py_stringmatching`) with new generators, committed `vectors.json`, Go loader tests, and Makefile regen targets
+  6. `bench.txt` includes all `BenchmarkDefaultScorer_*` baselines plus the post-Q7a DoubleMetaphone-optimised numbers across the catalogue; benchstat regression CI gate is unblocked
+  7. Cosine and Scorer reductions carry the FMA-defeating double-cast at `cosine.go:343` and `scorer.go:380` with the inline rationale comment
+  8. CI workflow split per CLAUDE.md (build / test / coverage / fuzz-short), `release.yml` has `needs: [ci]`, `nightly.yml` implemented per spec, all GitHub Actions pinned to commit SHA, `make verify-llms-sync` plus CI check, bench-diff CI check on algorithm changes
+  9. The 9 missing `TestGolden_*_Staging` functions for Phase 6 and 7 algorithms exist and pass
+  10. **Verification gate**: re-running the Phase 8 review prompt at end of Phase 8.5 returns zero Critical and zero Important findings. Improvement-tier residue is acceptable but must be acknowledged in the verification report
+**Scope clusters:**
+  1. **Spec amendments** — executed in this doc-alignment task (Q1–Q14 → `docs/requirements.md`, `ROADMAP.md`, `CHANGELOG.md`)
+  2. **API surface changes (breaking, pre-v1.0)** — Q1 Hamming placeholder sentinel removed; Q3 MongeElkan rename + inert opts removed; Q4 three unused sentinels removed + remaining sentinels richly documented + new `Validate` + `Warning` + `WarnKind`; Q5 `PartialRatioScoreRunes` removed; Q2 `WithThreshold` NaN guard + `WithTverskyAlgorithm` α+β>0 guard
+  3. **Algorithm correctness fixes** — Q9 DoubleMetaphone `dupBranchBody` redundancy removal with comment; Q11c paper-anchored Philips 2000 worked-examples test
+  4. **Determinism hardening** — Q11b FMA-defeating double-cast at `cosine.go:343` and `scorer.go:380`
+  5. **Performance optimisations** — Q7a DoubleMetaphone `strings.Builder` → `[4]byte`; Q7d Q-gram `extractQGrams` capacity hint; Q8b Tokenise ASCII fast path (dedicated plan with own BDD + benchmarks)
+  6. **Test infrastructure** — Q10 cross-validation corpora (character / q-gram / Monge-Elkan); Q11a `bench.txt.new` cleanup + property-test generator fix; Q11d partial_ratio variable rename; Q11e DL-Full ZeroAllocs un-skip; Q12a Coverage Floor 3 tightening; Q12b property-test generator distribution; Q13's 9 missing `TestGolden_*_Staging` tests
+  7. **Devops / CI / build hygiene** — Q13 `needs: [ci]` on `release.yml`, `nightly.yml` implementation, `ci.yml` job split, action SHA pinning, `make verify-llms-sync` target plus CI check, bench-diff CI check, `docs/algorithms.md` H2 hyphenated anchor standardisation + README link fix, `verify-coverage-floors.sh` AST-based detection, HashiCorp utility-library licence audit
+  8. **Documentation surface** — Q12c panic-surface section in `docs/algorithms.md` plus README cross-ref; Q14a 5 MB/call expected-behaviour note in `docs/algorithms.md#performance-characteristics`; all consumer-facing doc updates from `REVIEW-FINDINGS.md` (README, `docs/algorithms.md`, `docs/scorer.md`, `llms.txt`, `llms-full.txt`); `Validate` documented across all six required surfaces per the documentation-standards SKILL
+  9. **Improvement sweep (Path A)** — all 196 Improvement-tier findings; auto-fix items including `WriteGoldenFile` exported-but-test-only rename to lowercase; `var _ = func() bool {...}()` dispatch-init pattern refactor; 30+ Code-fix-tagged items from cross-cutting themes
+**Phase split decision**: If the planner determines the work is too large for a single phase, split into 8.5a (Critical + spec/API surface changes + breaking changes) and 8.5b (Important + Improvement + devops cluster + Improvement sweep). Otherwise execute as one phase. Decision is the planner's during `/gsd-plan-phase 8.5`.
+**Verification gate**: Re-run the Phase 8 comprehensive review prompt at end of Phase 8.5. Zero Critical and zero Important findings required before Phase 9 begins. Improvement-tier residue is acknowledged in the verification report but does not block Phase 9.
+**Deferred to v1.x**: Cross-algorithm allocation budget / tokenisation cache (Q14a, GitHub issue [#2](https://github.com/axonops/fuzzymatch/issues/2)).
+**Plans**: TBD (created by `/gsd-plan-phase 8.5`)
+
 ### Phase 9: Collection Scan Sub-package
 **Goal**: Ship the `scan/` sub-package (Layer 3 of the three-layer architecture) — turnkey collection-scan layer over the Scorer with within-group + cross-group passes (separate thresholds), token-bucket optimisation property-test-verified equivalent to naive O(N²), suppression composition (per-item `SilenceLint` flag + global `SuppressedPairs` list + cross-group identical-name default), deterministic output sort by `(Kind, NameA, NameB, GroupA, GroupB)` with in-line completeness assertion that no duplicate sort keys remain. Performance budget < 2s for 10,000 items committed to `bench.txt`. Sentinel error hierarchy for scan-specific failures. Cross-platform `scan-default.json` golden file pinned.
 **Depends on**: Phase 8
@@ -180,7 +212,7 @@
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → **8.5** → 9 → 10 → 11. Phase 8.5 is a gating remediation phase inserted between 8 and 9; the Phase 8.5 verification gate (zero Critical, zero Important findings) must pass before Phase 9 begins.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -192,6 +224,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
 | 8. Composite Scorer | 4/4 | Complete   | 2026-05-17 |
+| 8.5. Review Remediation Gate | 0/TBD | Not started | - |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |

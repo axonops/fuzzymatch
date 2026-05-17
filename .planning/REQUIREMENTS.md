@@ -67,6 +67,17 @@
 - [x] **SCORER-07**: `Algorithms()` accessor returning the configured AlgoID set (`docs/requirements.md` §8.7)
 - [x] **SCORER-08**: Normalisation control via `WithoutNormalisation()` / `WithNormalisation(opts)` (`docs/requirements.md` §8.8)
 
+### Input validation (VALIDATE) — NEW for v1.0 (Phase 8.5)
+
+Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing companion to the comparison-data leniency contract (§6.A). `Validate` surfaces problematic-but-non-fatal input shapes as warnings so consumers can audit input quality before scoring.
+
+- [ ] **VALIDATE-01**: Public `fuzzymatch.Validate(a, b string) []Warning` function — single-pass diagnostic returning nil if no warnings apply; safe for concurrent use; never panics; never returns an error (`docs/requirements.md` §11.5)
+- [ ] **VALIDATE-02**: Public `Warning` struct with `Algorithm AlgoID`, `Kind WarnKind`, `Detail string` fields (`docs/requirements.md` §11.5)
+- [ ] **VALIDATE-03**: Public `WarnKind` enum with CamelCase `String()` method matching the AlgoID.String naming convention (`docs/requirements.md` §11.5 and §6 Algorithm identifiers)
+- [ ] **VALIDATE-04**: Five `WarnKind` constants: `WarnEmptyInput`, `WarnUnequalLength`, `WarnNoTokensAfterNormalise`, `WarnAllNonASCIIDropped`, `WarnPathologicallyLargeInput` (`docs/requirements.md` §11.5)
+- [ ] **VALIDATE-05**: Per-algorithm validation rules — one rule set per algorithm specifying which `WarnKind` constants the algorithm's degraded input triggers (e.g. Hamming → `WarnUnequalLength`; ASCII-only phonetic → `WarnAllNonASCIIDropped`; token-tier → `WarnNoTokensAfterNormalise`) (`docs/requirements.md` §11.5 "Per-WarnKind semantics")
+- [ ] **VALIDATE-06**: Documentation across the six required surfaces per `.claude/skills/documentation-standards/SKILL.md` § Consumer-facing validation and diagnostics features — README Quick Start / Common Patterns, `docs/algorithms.md` (or `docs/best-practices.md`), per-algorithm godoc cross-references, `llms.txt` + `llms-full.txt`, user-guide section, and at least one runnable `examples/` program
+
 ### Collection scan (SCAN)
 
 - [ ] **SCAN-01**: `scan.Check(items, cfg) []Warning` — within-group + cross-group passes with separate thresholds (`docs/requirements.md` §12.1)
@@ -234,6 +245,12 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | SCORER-06 | Phase 8 | Complete |
 | SCORER-07 | Phase 8 | Complete |
 | SCORER-08 | Phase 8 | Complete |
+| VALIDATE-01 | Phase 8.5 | Pending |
+| VALIDATE-02 | Phase 8.5 | Pending |
+| VALIDATE-03 | Phase 8.5 | Pending |
+| VALIDATE-04 | Phase 8.5 | Pending |
+| VALIDATE-05 | Phase 8.5 | Pending |
+| VALIDATE-06 | Phase 8.5 | Pending |
 | SCAN-01 | Phase 9 | Pending |
 | SCAN-02 | Phase 9 | Pending |
 | SCAN-03 | Phase 9 | Pending |
@@ -303,13 +320,14 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | 6 | Token-based Algorithms | TOKEN-01..05 | 5 |
 | 7 | Phonetic Algorithms | PHON-01..04 | 4 |
 | 8 | Composite Scorer | SCORER-01..08 | 8 |
+| 8.5 | Review Remediation Gate | VALIDATE-01..06 (new); resolutions of existing requirements per the 9 scope clusters in ROADMAP | 6 (new) |
 | 9 | Collection Scan Sub-package | SCAN-01..06, PERF-05 | 7 |
 | 10 | Extract API | EXTRACT-01..05 | 5 |
 | 11 | Integration Shakedown & v1.0.0 | (validation phase — no unique requirements; ships the work of Phases 1-10) | 0 |
 
 **Coverage:**
-- v1 requirements: 93 total (note: earlier summary cited 86; actual count of v1 requirement IDs across all sections is 93)
-- Mapped to phases: 93 (100% coverage)
+- v1 requirements: 99 total (93 from the original 2026-05-13 inventory + 6 VALIDATE-* added 2026-05-17 during Phase 8.5 doc-alignment)
+- Mapped to phases: 99 (100% coverage)
 - Unmapped: 0
 - Orphans: none
 - Duplicates: none (each requirement maps to exactly one phase)
@@ -317,4 +335,4 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 ---
 
 *Requirements defined: 2026-05-13*
-*Last updated: 2026-05-13 after roadmap creation — 93 v1 requirements mapped across 11 phases*
+*Last updated: 2026-05-17 during Phase 8.5 doc-alignment — 99 v1 requirements mapped across 12 phases (added Phase 8.5 + 6 VALIDATE-* requirements)*

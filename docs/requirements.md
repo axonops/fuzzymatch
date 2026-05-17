@@ -20,6 +20,7 @@
 4. Out of Scope
 5. Design Principles
 6. Public API Overview
+   - 6.A Error handling policy (data-vs-parameter framework)
 7. Layer 1 — Algorithm Catalogue
    - 7.1 Character-based
    - 7.2 Q-gram / N-gram
@@ -30,6 +31,7 @@
 9. Normalisation Pipeline
 10. Tokenisation
 11. Phonetic Algorithm Integration
+    - 11.5 Input Validation and Diagnostics
 12. Layer 3 — Scan sub-package
 13. Determinism Guarantees
 14. Performance Budgets
@@ -207,7 +209,7 @@ The Scorer is constructed via functional options. Options:
 
 After construction, the Scorer is immutable. `Score`, `ScoreAll`, and `Match` are safe for concurrent use by any number of goroutines.
 
-The Scorer applies normalisation (if configured) to both inputs once per `Score` call, then invokes each enabled algorithm on the normalised inputs, multiplies each algorithm's score by its (normalised) weight, sums, and returns the composite. `ScoreAll` returns the per-algorithm breakdown using the typed `AlgoID` enum as the map key (the original `map[string]float64` spec is SPEC-OVERRIDDEN to `map[AlgoID]float64`; see §8.3 + 08-CONTEXT.md §1). Consumers needing the snake_case display form call `AlgoID.String()`.
+The Scorer applies normalisation (if configured) to both inputs once per `Score` call, then invokes each enabled algorithm on the normalised inputs, multiplies each algorithm's score by its (normalised) weight, sums, and returns the composite. `ScoreAll` returns the per-algorithm breakdown using the typed `AlgoID` enum as the map key (the original `map[string]float64` spec is SPEC-OVERRIDDEN to `map[AlgoID]float64`; see §8.3 + 08-CONTEXT.md §1). Consumers needing the CamelCase display form call `AlgoID.String()` (see Algorithm identifiers below for the locked naming convention).
 
 ### Sentinel errors
 
@@ -255,14 +257,43 @@ const (
     AlgoRatcliffObershelp
 )
 
-// String returns the snake_case identifier ("levenshtein", "jaro_winkler", etc.).
+// String returns the CamelCase identifier matching the constant suffix
+// ("Levenshtein", "JaroWinkler", "DamerauLevenshteinOSA", "NYSIIS", etc.).
 func (a AlgoID) String() string
 
 // AlgoIDs returns every defined algorithm identifier in stable order.
 func AlgoIDs() []AlgoID
 ```
 
-The `AlgoID.String()` mapping is exported and stable across patch versions. The `AlgoIDs()` function returns the full list in stable order for use in tests, documentation generation, and consumer discovery.
+**Naming convention (LOCKED, v1.0):** `AlgoID.String()` returns the CamelCase form of the constant suffix (drop the `Algo` prefix). This matches Go's idiomatic enum-name → string convention (compare `time.Sunday.String()` returning `"Sunday"`, not `"sunday"`). The canonical strings are:
+
+| AlgoID constant | `String()` return |
+|---|---|
+| `AlgoLevenshtein` | `"Levenshtein"` |
+| `AlgoDamerauLevenshteinOSA` | `"DamerauLevenshteinOSA"` |
+| `AlgoDamerauLevenshteinFull` | `"DamerauLevenshteinFull"` |
+| `AlgoHamming` | `"Hamming"` |
+| `AlgoJaro` | `"Jaro"` |
+| `AlgoJaroWinkler` | `"JaroWinkler"` |
+| `AlgoStrcmp95` | `"Strcmp95"` |
+| `AlgoSmithWatermanGotoh` | `"SmithWatermanGotoh"` |
+| `AlgoLCSStr` | `"LCSStr"` |
+| `AlgoQGramJaccard` | `"QGramJaccard"` |
+| `AlgoSorensenDice` | `"SorensenDice"` |
+| `AlgoCosine` | `"Cosine"` |
+| `AlgoTversky` | `"Tversky"` |
+| `AlgoMongeElkan` | `"MongeElkan"` |
+| `AlgoTokenSortRatio` | `"TokenSortRatio"` |
+| `AlgoTokenSetRatio` | `"TokenSetRatio"` |
+| `AlgoPartialRatio` | `"PartialRatio"` |
+| `AlgoTokenJaccard` | `"TokenJaccard"` |
+| `AlgoSoundex` | `"Soundex"` |
+| `AlgoDoubleMetaphone` | `"DoubleMetaphone"` |
+| `AlgoNYSIIS` | `"NYSIIS"` |
+| `AlgoMRA` | `"MRA"` |
+| `AlgoRatcliffObershelp` | `"RatcliffObershelp"` |
+
+The same CamelCase convention applies to `WarnKind.String()` (see §11.5 Input Validation and Diagnostics) and any future enum-to-string conversion added to the public API. The `AlgoID.String()` mapping is stable across patch versions. The `AlgoIDs()` function returns the full list in stable order for use in tests, documentation generation, and consumer discovery.
 
 ### Version
 
@@ -274,6 +305,95 @@ func Version() string
 ### Layer 3 — Scan sub-package (optional)
 
 `github.com/axonops/fuzzymatch/scan` provides a turnkey collection-scan layer for the common "iterate over a slice of names and emit a list of similar-name pairs" use case. It is a separate package and a separate import; consumers of just the algorithms or just the Scorer never depend on it. See section 12 for the full specification.
+
+### 6.A Error handling policy
+
+> The canonical Go declarations of these sentinels appear in the §6 code block above. The enumeration in this subsection documents semantic intent and error-handling guidance; if the two ever diverge, the §6 code block (the actual exported surface) wins.
+
+The library distinguishes two classes of "bad input" with different policies. Reviewers and contributors apply the correct policy based on which class an input belongs to. This framework was locked during the Phase 8.5 review-findings triage (Q2).
+
+#### Comparison-data inputs (the strings being compared)
+
+Policy: **lenient.** Every algorithm score / distance function accepts any string input — empty, unequal lengths, weird Unicode, garbage bytes — and returns a sensible value (`0.0`, `max(len)`, etc.). It never panics; it never returns an error.
+
+Rationale: the purpose of a similarity algorithm is to handle arbitrary strings. Callers should not have to pre-validate string shape before calling. The contract is "give me two strings; I return a number."
+
+Examples of the lenient contract:
+
+- `LevenshteinScore("", "hello")` returns a valid score
+- `HammingDistance("ab", "abc")` returns `max(len)` — does not panic, does not error (see §7.1.4)
+- `JaroWinklerScore(garbageBytes, garbageBytes)` returns a value, not a panic
+
+Comparison-data inputs that are problematic-but-non-fatal (empty after normalisation, all non-ASCII dropped, pathologically large, etc.) are surfaced via the `Validate(a, b string) []Warning` function (see §11.5 Input Validation and Diagnostics) — warnings, not errors.
+
+#### Parameter inputs (algorithm configuration)
+
+Policy: **strict.** Parameters like `n` for q-gram size, `α`/`β` for Tversky, `inner AlgoID` for Monge-Elkan, and `threshold` for the Scorer have only finite valid values. Invalid values are programming errors and must fail loudly.
+
+Validation surface depends on the entry point:
+
+**Construction-time validation** — Scorer option functions return typed sentinel errors via the `ScorerOption func(*scorerConfig) error` signature:
+
+| Option | Sentinel returned on invalid input |
+|---|---|
+| `WithQGramJaccardAlgorithm(weight, n)` (`n < 1`) | `ErrInvalidQGramSize` |
+| `WithSorensenDiceAlgorithm(weight, n)` (`n < 1`) | `ErrInvalidQGramSize` |
+| `WithCosineAlgorithm(weight, n)` (`n < 1`) | `ErrInvalidQGramSize` |
+| `WithTverskyAlgorithm(weight, α, β, n)` (`n < 1`) | `ErrInvalidQGramSize` |
+| `WithTverskyAlgorithm(weight, α, β, n)` (`α < 0`, `β < 0`, or `α + β = 0`) | `ErrInvalidTverskyParam` |
+| `WithMongeElkanAlgorithm(weight, inner)` (inner not in permitted set) | `ErrInvalidAlgoID` |
+| `WithThreshold(t)` — see explicit check below | `ErrInvalidThreshold` |
+| `WithAlgorithm(algo, weight)` (`weight ≤ 0`) | `ErrInvalidWeight` |
+| `NewScorer(...)` with no algorithms | `ErrEmptyScorer` |
+
+After successful construction the Scorer is immutable. `Score`, `ScoreAll`, and `Match` are lenient at runtime — all parameter validation has already happened.
+
+**`WithThreshold` explicit check.** The threshold check is written as a single guard with `math.IsNaN` first so NaN does not slip past the range comparison (a NaN comparison against any finite value returns false, so a pre-Q2 `if t < 0.0 || t > 1.0` guard accepted NaN):
+
+```go
+if math.IsNaN(t) || t < 0.0 || t > 1.0 {
+    return ErrInvalidThreshold
+}
+```
+
+`±Inf` is rejected by the range check itself (`math.Inf(1) > 1.0` is true; `math.Inf(-1) < 0.0` is true) — no separate `±Inf` clause is needed. Phase 8.5 Q2 added only the `math.IsNaN(t)` clause; `±Inf` was already rejected before.
+
+**Direct algorithm function calls** — direct calls to parameterised algorithm functions panic with the sentinel error as the panic value, so consumers can recover via:
+
+```go
+defer func() {
+    if r := recover(); r != nil {
+        if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInvalidQGramSize) {
+            // handle programming error
+        }
+    }
+}()
+score := fuzzymatch.QGramJaccardScore("a", "b", 0)  // panics with ErrInvalidQGramSize
+```
+
+The following direct calls panic on invalid parameter inputs:
+
+- `QGramJaccardScore`, `QGramJaccardScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`
+- `SorensenDiceScore`, `SorensenDiceScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`
+- `CosineScore`, `CosineScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`
+- `TverskyScore`, `TverskyScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`, or `ErrInvalidTverskyParam` if `α < 0`, `β < 0`, or `α + β ≤ 0`
+
+Rationale: direct algorithm functions return just `float64` (no error tuple). Forcing `(float64, error)` returns on every direct call would be massive API churn for an error case that is "programming bug, not runtime data." Parameter errors are programmer errors (`n=0` for q-gram is never legitimate code). Silent-return-0 would hide the bug forever — wrong results would propagate downstream with no diagnostic. Panic-with-recoverable-sentinel catches the bug at first call AND gives advanced consumers a recovery path.
+
+The Scorer construction path is the recommended entry point for any code that may receive parameters from untrusted configuration (e.g. CLI flags, environment variables, YAML). Direct algorithm calls are appropriate when parameters are hard-coded at the call site.
+
+#### Currently-defined sentinel errors
+
+The complete v1.0 sentinel set (declared in `errors.go`, all exported, all `fuzzymatch:`-prefixed):
+
+- `ErrEmptyScorer` — `NewScorer` called with no algorithms configured
+- `ErrInvalidWeight` — option function passed `weight ≤ 0` (or sum of weights `≤ 0`)
+- `ErrInvalidThreshold` — `WithThreshold` passed value outside `[0.0, 1.0]` or `NaN`
+- `ErrInvalidAlgoID` — option function passed an out-of-range `AlgoID` or a Monge-Elkan inner that is not in the permitted set
+- `ErrInvalidQGramSize` — q-gram option or direct call passed `n < 1`
+- `ErrInvalidTverskyParam` — Tversky option or direct call passed `α < 0`, `β < 0`, or `α + β ≤ 0`
+
+Every sentinel carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation.
 
 ---
 
@@ -359,17 +479,18 @@ Every algorithm implementation file (e.g. `levenshtein.go`) MUST begin (after th
 - **Primary source:** Hamming, R. W. (1950). "Error detecting and error correcting codes." *Bell System Technical Journal*, 29(2):147–160.
 - **AlgoID:** `AlgoHamming`
 - **Public functions:**
-  - `HammingDistance(a, b string) (int, error)` — returns `ErrHammingLengthMismatch` if `len(a) != len(b)` (byte-level)
-  - `HammingDistanceRunes(a, b string) (int, error)`
-  - `HammingScore(a, b string) float64` — returns 0.0 (rather than an error) when lengths differ; documented behaviour
+  - `HammingDistance(a, b string) int` — byte-level. Length-mismatch policy: returns `max(len(a), len(b))` (silent max) per the locked comparison-data leniency contract (§6.A).
+  - `HammingDistanceRunes(a, b string) int` — same policy on rune-counted lengths.
+  - `HammingScore(a, b string) float64` — returns `0.0` when lengths differ.
   - `HammingScoreRunes(a, b string) float64`
-- **Description:** number of positions at which corresponding characters differ. Defined only for equal-length strings.
+- **Description:** number of positions at which corresponding characters differ. Defined for equal-length strings; on unequal-length inputs the implementation returns the silent-max distance (and `0.0` for the Score variants) as comparison-data leniency.
 - **Complexity:** O(n) time, O(1) space.
-- **Score normalisation:** `score = 1.0 - distance / len(a)`. Length mismatch yields 0.0 for the Score variants; the Distance variants return an explicit error.
+- **Score normalisation:** `score = 1.0 - distance / len(a)` when lengths match; `0.0` when lengths differ.
 - **Mathematical invariants:** identity, symmetry, range bounds. Triangle inequality holds on equal-length inputs.
-- **Edge cases:** unequal lengths (handled differently by Score and Distance variants — documented), both empty (distance 0, score 1.0).
+- **Edge cases:** unequal lengths → silent-max distance / `0.0` score (no error, no panic, per §6.A comparison-data leniency); both empty (distance 0, score 1.0); consumers wanting to detect unequal-length inputs explicitly can call `fuzzymatch.Validate(a, b)` and check for `WarnUnequalLength` (see §11.5).
 - **Intended use:** fixed-width codes (8-character audit IDs, hex hashes, equal-length fingerprints). Not useful for general identifier comparison.
 - **Reference vectors:** "karolin"/"kathrin" → distance 3, score `1 - 3/7 ≈ 0.5714`. "1011101"/"1001001" → distance 2, score `1 - 2/7 ≈ 0.7143`.
+- **History:** an earlier draft of this spec specified `HammingDistance(a, b string) (int, error)` with an `ErrHammingLengthMismatch` sentinel. Phase 8.5 Q1 locked the silent-max policy to match the shipped code and the comparison-data leniency framework — code wins, spec catches up.
 
 #### 7.1.5 Jaro
 
@@ -415,7 +536,7 @@ Every algorithm implementation file (e.g. `levenshtein.go`) MUST begin (after th
 - **AlgoID:** `AlgoStrcmp95`
 - **Public functions:**
   - `Strcmp95Score(a, b string) float64`
-  - `Strcmp95ScoreRunes(a, b string) float64`
+- **No Runes variant.** Strcmp95 is ASCII-only by design (the similar-character table is built from ASCII letter confusions per Winkler 1994 / Census Bureau `strcmp95.c`). For Unicode inputs, normalise via `fuzzymatch.Normalise(s, opts)` first; the diacritic-stripping and case-folding steps fold most Unicode input down to comparable ASCII. Phase 8.5 Q5 explicitly locks this absence of a `*Runes` variant.
 - **Description:** Jaro-Winkler with two additional refinements: (a) similar-character matching (letters considered partially-matching when they are commonly confused, e.g. `A`/`E`, `O`/`0`), and (b) a long-string bonus that further boosts scores for long strings that share substantial common characters. Implemented per the U.S. Census Bureau's `strcmp95.c` reference (which is in the public domain) and the Winkler 1994 paper.
 - **Score normalisation:** [0.0, 1.0]; identical to Jaro-Winkler shape.
 - **Mathematical invariants:** identity (Score(x, x) = 1.0), symmetry, range bounds. No triangle inequality.
@@ -554,21 +675,24 @@ For all q-gram / n-gram algorithms, q-grams are extracted as overlapping substri
 
 Token-based algorithms operate on the result of `Tokenise(s, opts)` rather than on raw strings or character n-grams. Tokenisation rules are specified in section 10. Defaults: lowercase, split on the SeparatorChars set, split camelCase / PascalCase / acronym boundaries.
 
+**No Runes variants in the token tier.** Token-tier algorithms (Monge-Elkan, Token Sort Ratio, Token Set Ratio, Partial Ratio, Token Jaccard) operate on byte slices post-`Tokenise`. `Tokenise` is itself rune-aware (it splits on Unicode code-point boundaries for camelCase / PascalCase / acronym detection), so the byte-level Indel kernel produces correct results on Unicode inputs because each emitted token is already a complete code-point sequence. Consequently the token tier exposes only the byte-string entry points and does not ship `*ScoreRunes` variants. Locked Phase 8.5 Q5.
+
 #### 7.3.1 Monge-Elkan
 
 - **Category:** token-based, hybrid (uses an inner character-based metric)
 - **Primary source:** Monge, A. E., Elkan, C. P. (1996). "The field matching problem: algorithms and applications." *Proceedings of the Second International Conference on Knowledge Discovery and Data Mining*: 267–270.
 - **AlgoID:** `AlgoMongeElkan`
 - **Public functions:**
-  - `MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float64`
-  - `MongeElkanScoreSymmetric(a, b string, inner AlgoID, opts NormalisationOptions) float64` — returns the average of the two directional Monge-Elkan scores, ensuring symmetry
-- **Description:** for each token in `A`, find the maximum-similarity token in `B` using the inner metric, then average. Inherently asymmetric.
-- **Formula:** `ME(A, B) = (1/|A|) · Σ_{a ∈ A} max_{b ∈ B} sim_inner(a, b)`.
+  - `MongeElkanScore(a, b string, inner AlgoID) float64` — **symmetric variant** (default). Returns the average of the two directional Monge-Elkan scores: `(ME(A,B) + ME(B,A)) / 2`. This is the Scorer-facing surface.
+  - `MongeElkanScoreAsymmetric(a, b string, inner AlgoID) float64` — directional variant. For each token in `A`, find the maximum-similarity token in `B` using the inner metric, then average. Inherently asymmetric.
+- **Signature change (Phase 8.5 Q3):** the v0.x API had `MongeElkanScore` as the asymmetric variant and `MongeElkanScoreSymmetric` as the wrapper. In v1.0 the naming inverts: `MongeElkanScore` is the safe-default symmetric variant; consumers who explicitly want directional behaviour call `MongeElkanScoreAsymmetric`. The `NormalisationOptions` parameter has been removed from both functions — it had no effect inside Monge-Elkan (which composes tokenisation from the call site, not normalisation choices).
+- **Description:** symmetric Monge-Elkan: for each token in each string, find the maximum-similarity token in the other string using the inner metric, average within each direction, then average the two directions.
+- **Formula:** asymmetric `ME(A, B) = (1/|A|) · Σ_{a ∈ A} max_{b ∈ B} sim_inner(a, b)`; symmetric `(ME(A,B) + ME(B,A)) / 2`.
 - **Default inner metric:** Jaro-Winkler (per the original paper).
-- **Permitted inner metrics:** any AlgoID that produces a [0.0, 1.0] similarity score. Phonetic algorithms are permitted (yielding 0/1 inner scores). Q-gram algorithms are permitted (Monge-Elkan over Q-Gram-Jaccard is a known sensible composite).
-- **Complexity:** O(|A| · |B| · cost(inner)) where cost(inner) is the inner metric's per-comparison cost.
+- **Permitted inner metrics:** any AlgoID in the documented permittedMongeElkanInner allow-list (character + q-gram + phonetic tiers). Out-of-set inner values are validated at Scorer construction via `WithMongeElkanAlgorithm(weight, inner)` and return `ErrInvalidAlgoID`. (Monge-Elkan is intentionally **not** in §6.A's "direct calls panic" enumeration; the inner-AlgoID parameter exists in the direct-call signatures but per the Phase 8.5 Q4 doc-alignment resolution Monge-Elkan does not participate in the panic-on-direct-call contract. Direct callers passing an out-of-set `inner` value receive defined-but-meaningless output rather than a panic; if you need validation at the call boundary, route through the Scorer.)
+- **Complexity:** O(|A| · |B| · cost(inner)) where cost(inner) is the inner metric's per-comparison cost; the symmetric variant doubles the constant factor.
 - **Score normalisation:** the formula naturally produces a value in [0.0, 1.0] assuming the inner metric is bounded in [0.0, 1.0].
-- **Symmetry:** the asymmetric variant violates symmetry. `MongeElkanScoreSymmetric` returns `(ME(A,B) + ME(B,A)) / 2` and is used by the Scorer by default. The Scorer documents that `AlgoMongeElkan` uses the symmetric variant.
+- **Symmetry:** `MongeElkanScore` (symmetric) is symmetric by construction; `MongeElkanScoreAsymmetric` violates symmetry (this is property-tested).
 - **Edge cases:** empty token set on one or both sides handled per the inner metric's edge cases.
 - **Intended use:** identifier families where token-level matching matters more than character-level matching, with the inner metric handling intra-token similarity (e.g. `user_create_event` vs `usr_creating_evt` — tokens align but each pair has its own similarity).
 
@@ -607,7 +731,7 @@ Token-based algorithms operate on the result of `Tokenise(s, opts)` rather than 
 - **AlgoID:** `AlgoPartialRatio`
 - **Public functions:**
   - `PartialRatioScore(a, b string) float64`
-  - `PartialRatioScoreRunes(a, b string) float64`
+- **No Runes variant.** Token-tier algorithms operate on the output of `Tokenise(s, opts)`, which is itself rune-aware. Post-Tokenise the byte-level Indel kernel produces correct results on Unicode inputs because each token is a complete code-point sequence. Phase 8.5 Q5 explicitly removes `PartialRatioScoreRunes` for token-tier symmetry; the same rationale applies to Token Sort Ratio, Token Set Ratio, and Token Jaccard.
 - **Description:** slide the shorter string across the longer string, compute the Indel ratio at each window position, return the maximum.
 - **Complexity:** O(m·n) per window position, O(n·m·(n-m)) overall. Optimisation: use a sliding-window technique with the Indel DP to amortise. v1 implementation may use the straightforward O(n·m·(n-m)); v1.x optimisation as a separate issue.
 - **Score normalisation:** [0.0, 1.0].
@@ -634,6 +758,8 @@ Token-based algorithms operate on the result of `Tokenise(s, opts)` rather than 
 Phonetic algorithms encode input strings into pronunciation-equivalent keys. They are inherently boolean — two strings either share an encoded key or they don't. Within the Scorer, phonetic algorithms contribute 1.0 to their weighted slot if the keys match exactly and 0.0 otherwise. The underlying encoded keys are exposed via separate public functions for consumers that want richer behaviour (e.g. computing a Levenshtein score on the codes themselves).
 
 The phonetic encoding rules are language-specific. All implementations in this library are tuned for English-language pronunciation; cross-language usage may produce poor results. This is documented in each algorithm's godoc.
+
+**No Runes variants in the phonetic tier.** Soundex, Double Metaphone, NYSIIS, and MRA are ASCII-only by design — every published rule set operates on Latin-alphabet letters. For Unicode inputs, normalise via `fuzzymatch.Normalise(s, opts)` first; diacritic stripping plus case folding produces comparable ASCII for most input. Phase 8.5 Q5 locks the absence of `*Runes` variants on all four phonetic algorithms.
 
 #### 7.4.1 Soundex
 
@@ -710,9 +836,10 @@ The phonetic encoding rules are language-specific. All implementations in this l
 - **Formula:** `score = 2·M / (|a| + |b|)` where `M` is the sum of lengths of all matched substrings found by recursive longest-common-substring decomposition.
 - **Complexity:** average O(n·m); worst case O(n²·m) or O(n·m²). Documented as such; not used in tight loops without consideration.
 - **Score normalisation:** [0.0, 1.0]. Both-empty → 1.0; one-empty → 0.0.
-- **Mathematical invariants:** identity, symmetry, range bounds. No triangle inequality.
+- **Asymmetric by design — difflib parity (LOCKED OQ-1, 2026-05-14; re-confirmed Phase 8.5 Q6a):** `RatcliffObershelpScore(a, b)` is **not** guaranteed to equal `RatcliffObershelpScore(b, a)`. The leftmost-tie-break rule on the longest-common-substring split produces a directional decomposition that matches Python `difflib.SequenceMatcher.ratio()` byte-for-byte. This is intentional — the library ships true difflib equivalence, not a symmetrised approximation. The general property-test set excludes symmetry for `AlgoRatcliffObershelp`; cross-validation against Python `difflib(autojunk=False)` is the load-bearing acceptance test. The parallel exception note lives in `.claude/skills/algorithm-correctness-standards/SKILL.md` (referenced from `PropAlgorithmScore_Symmetric`'s allow-list).
+- **Mathematical invariants:** identity, range bounds. **NOT symmetric** (see above). No triangle inequality.
 - **Edge cases:** as above.
-- **Intended use:** general-purpose human-perceived-similarity scoring. Often considered the closest mechanical metric to human similarity judgement for arbitrary strings.
+- **Intended use:** general-purpose human-perceived-similarity scoring. Often considered the closest mechanical metric to human similarity judgement for arbitrary strings. Consumers who need a symmetric variant can call `(RatcliffObershelpScore(a, b) + RatcliffObershelpScore(b, a)) / 2` at the call site.
 
 ---
 
@@ -732,18 +859,18 @@ type Scorer struct {
 func NewScorer(opts ...ScorerOption) (*Scorer, error)
 ```
 
-Construction validates the configuration and returns an error for invalid configurations:
+Construction validates the configuration and returns an error for invalid configurations (per the parameter-input strict policy in §6.A):
 
 - No algorithms configured → `ErrEmptyScorer`
-- Any weight ≤ 0 → `ErrInvalidWeight`
-- Sum of weights ≤ 0 → `ErrInvalidWeight`
-- Threshold outside [0.0, 1.0] → `ErrInvalidThreshold`
+- Any weight `≤ 0` or `NaN` or `±Inf` → `ErrInvalidWeight`
+- Sum of weights `≤ 0` → `ErrInvalidWeight`
+- Threshold fails the guard `math.IsNaN(t) || t < 0.0 || t > 1.0` → `ErrInvalidThreshold` (Phase 8.5 Q2 added the `math.IsNaN(t)` clause; `±Inf` was already rejected by the range check, so no separate `±Inf` clause is required. See §6.A "`WithThreshold` explicit check" for the full guard.)
 - Invalid algorithm ID → `ErrInvalidAlgoID`
-- Q-gram size < 1 → `ErrInvalidQGramSize`
-- Tversky α or β < 0 → `ErrInvalidTverskyParam`
-- Monge-Elkan inner = `AlgoMongeElkan` (self-reference) → `ErrInvalidAlgoID`
+- Q-gram size `< 1` → `ErrInvalidQGramSize`
+- Tversky `α < 0`, `β < 0`, or `α + β ≤ 0` → `ErrInvalidTverskyParam` (the `α + β ≤ 0` guard was added in Phase 8.5 Q2 — `WithTverskyAlgorithm(_, 0, 0, _)` previously constructed successfully then panicked at first `Score` call)
+- Monge-Elkan inner = `AlgoMongeElkan` (self-reference) or not in the permitted set → `ErrInvalidAlgoID`
 
-After successful construction, the Scorer is immutable. All Scorer methods are safe for concurrent use.
+After successful construction, the Scorer is immutable. All Scorer methods (`Score`, `ScoreAll`, `Match`) are safe for concurrent use and follow the comparison-data lenient policy (§6.A) at runtime — they never panic on consumer-supplied strings and never return an error.
 
 ### 8.2 Options
 
@@ -844,7 +971,7 @@ These defaults are calibrated for the originating audit-field-similarity use cas
 
 ### 8.6 ScoreAll behaviour
 
-`ScoreAll` returns a freshly-allocated `map[AlgoID]float64` per call (SPEC OVERRIDE — originally `map[string]float64`, see §8.3 above and 08-CONTEXT.md §1 for the typed-enum-keys rationale). Keys are the typed `AlgoID` enum values; consumers needing the snake_case display form call `AlgoID.String()`. Map iteration order in Go is non-deterministic — this is INTENTIONAL: consumers reading the map for human display can sort keys themselves; consumers using the map programmatically don't care about order. The Scorer's internal computation does NOT depend on map iteration order (algorithms are iterated in AlgoID-sorted order internally).
+`ScoreAll` returns a freshly-allocated `map[AlgoID]float64` per call (SPEC OVERRIDE — originally `map[string]float64`, see §8.3 above and 08-CONTEXT.md §1 for the typed-enum-keys rationale). Keys are the typed `AlgoID` enum values; consumers needing the CamelCase display form call `AlgoID.String()` (see §6 Algorithm identifiers for the locked naming convention). Map iteration order in Go is non-deterministic — this is INTENTIONAL: consumers reading the map for human display can sort keys themselves; consumers using the map programmatically don't care about order. The Scorer's internal computation does NOT depend on map iteration order (algorithms are iterated in AlgoID-sorted order internally).
 
 ---
 
@@ -926,6 +1053,8 @@ Tokenisation examples:
 
 The returned slice is a fresh allocation per call.
 
+**ASCII fast path (Phase 8.5 Q8b).** When the input is verified ASCII-only (no byte ≥ 0x80) and `opts.Lowercase == false`, `Tokenise` returns substrings of the input via `s[lo:hi]` zero-copy slicing. The returned token strings share the input's backing storage; the consumer must not assume independent lifetimes. When `opts.Lowercase == true`, an ASCII-letter sub-pass writes lowercased bytes into a single contiguous scratch buffer, and tokens are returned as substrings of that buffer — one allocation total for the buffer, zero allocations per token. The rune-aware path (non-ASCII input) continues to allocate per-token strings as before. The token-tier algorithms (Token Sort Ratio, Token Set Ratio, Partial Ratio, Token Jaccard, Monge-Elkan) consume `Tokenise` output and inherit the fast-path savings on ASCII identifier input. The fast path is BDD-tested and benchmark-asserted; the contract guarantees output equivalence with the rune-aware path on ASCII inputs.
+
 ---
 
 ## 11. Phonetic Algorithm Integration
@@ -955,6 +1084,77 @@ distance := fuzzymatch.LevenshteinDistance(
 ```
 
 This is documented in `docs/algorithms.md` under "Composing phonetic algorithms with edit distance."
+
+---
+
+## 11.5 Input Validation and Diagnostics
+
+The library ships a consumer-facing diagnostic function `Validate(a, b string) []Warning` that reports problematic-but-non-fatal input shapes **before** scoring runs. This is the recommended companion to any Scorer or direct algorithm call in code paths where the inputs originate from untrusted sources (user submissions, scraped data, parsed configuration). Added in Phase 8.5 Q4.
+
+`Validate` returns warnings, not errors. The comparison-data leniency contract (§6.A) means algorithms always produce a value on any input; `Validate` is the diagnostic that tells consumers whether the value they got is meaningful. The function is fast (single pass over each input plus a `Normalise` + `Tokenise` dry run), allocation-light, and pure.
+
+### Public API
+
+```go
+// Validate inspects the two inputs and returns warnings describing
+// problematic-but-non-fatal input shapes. Returns nil if no warnings
+// apply. Safe for concurrent use; never panics; never returns an error.
+func Validate(a, b string) []Warning
+
+// Warning describes one input-quality concern.
+type Warning struct {
+    Algorithm AlgoID  // which algorithm the warning is relevant to (0 if not algorithm-specific)
+    Kind      WarnKind
+    Detail    string  // human-readable description with input-shape detail
+}
+
+// WarnKind classifies the kind of input-quality concern.
+type WarnKind int
+
+const (
+    WarnEmptyInput              WarnKind = iota + 1
+    WarnUnequalLength           // Hamming family — silent-max policy applies
+    WarnNoTokensAfterNormalise  // token-tier algorithms — would compare empty token sets
+    WarnAllNonASCIIDropped      // ASCII-only algorithms — input collapsed to empty after stripping
+    WarnPathologicallyLargeInput // O(m·n) DP risk; recommended to gate at the call site
+)
+
+// String returns the CamelCase form ("WarnEmptyInput", "WarnUnequalLength",
+// etc.), matching the AlgoID.String() naming convention (§6).
+func (k WarnKind) String() string
+```
+
+### Recommended usage pattern
+
+```go
+warnings := fuzzymatch.Validate(a, b)
+if len(warnings) > 0 {
+    // surface to logs, telemetry, audit trail, or reject input upstream
+    for _, w := range warnings {
+        log.Printf("input quality warning: %s (%s): %s",
+            w.Kind, w.Algorithm, w.Detail)
+    }
+}
+score := fuzzymatch.DefaultScorer().Score(a, b)
+```
+
+The validate-then-score pattern is the recommended idiom for code paths that audit input quality. Consumers who do not run `Validate` get the lenient algorithm contract (no panic, no error) but lose visibility into degraded-input scores (e.g. two empty strings scoring 1.0 because both encode to the empty Soundex code).
+
+### Per-WarnKind semantics
+
+- **`WarnEmptyInput`** — `a == ""` or `b == ""` (or both). Affects every algorithm: identity short-circuits, Hamming returns trivial values, phonetic algorithms produce empty keys that match each other.
+- **`WarnUnequalLength`** — `len(a) != len(b)` and at least one of the Hamming family is relevant (the warning carries `Algorithm = AlgoHamming`). Documents the silent-max policy explicitly to the caller.
+- **`WarnNoTokensAfterNormalise`** — after applying `DefaultNormalisationOptions` and `Tokenise`, one or both inputs produce an empty token list. Affects token-tier algorithms.
+- **`WarnAllNonASCIIDropped`** — input contains characters but is entirely non-ASCII (or becomes empty after ASCII-only normalisation steps). Affects ASCII-only algorithms (Strcmp95, Soundex, Double Metaphone, NYSIIS, MRA — see §7.4 and §7.1.7).
+- **`WarnPathologicallyLargeInput`** — input length exceeds an algorithm-specific threshold defined as a documented per-algorithm constant in the implementation. Typical thresholds range from 4 KB to 64 KB per side depending on algorithmic complexity (O(m·n) algorithms like Damerau-Levenshtein Full, Smith-Waterman-Gotoh, Ratcliff-Obershelp, Monge-Elkan, and Partial Ratio trip the warning at the lower end of the range; O(n+m) phonetic and Hamming-family algorithms at the higher end). The specific thresholds are tuned during Phase 8.5 implementation and pinned in `docs/algorithms.md` per-algorithm.
+
+### Cross-references
+
+`Validate` is documented prominently across all six required surfaces per `.claude/skills/documentation-standards/SKILL.md` § Consumer-facing validation and diagnostics features — README Quick Start / Common Patterns, `docs/algorithms.md` (and/or `docs/best-practices.md`), per-algorithm godoc cross-references, `llms.txt` + `llms-full.txt`, the user-guide section, and at least one runnable `examples/` program. Missing any surface is treated as a Critical documentation gap by `user-guide-reviewer` and `docs-writer`.
+
+### Forward compatibility
+
+The `WarnKind` enum may grow in v1.x with additional constants. Consumers must treat unrecognised values as ignorable (the `Detail` field carries human-readable context). The existing constants are stable across patch versions.
 
 ---
 
@@ -1011,7 +1211,9 @@ const (
     KindAcrossGroups
 )
 
-// String returns the snake_case name ("within_group", "across_groups").
+// String returns the CamelCase form ("WithinGroup", "AcrossGroups"),
+// matching the AlgoID.String() and WarnKind.String() naming convention
+// locked in §6 Algorithm identifiers and Phase 8.5 Q6b.
 func (k WarningKind) String() string
 
 // Warning is one detected similar-name pair. NameA is the
@@ -1185,6 +1387,8 @@ Verified by CI matrix: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, win
 
 This is achievable because: (a) all float operations are simple enough (addition, multiplication, division) that IEEE-754 reproducibility holds across the supported platforms; (b) no platform-specific intrinsics are used; (c) no goroutine scheduling affects output; (d) no map iteration affects output; (e) no time-dependent or environment-dependent values participate.
 
+**FMA-defeating double-cast (LOCKED Phase 8.5 Q11b).** Two reduction sites in the library — the Cosine numerator accumulator at `cosine.go:343` and the Scorer composite accumulator at `scorer.go:380` — apply a preemptive `float64(float64(x*y)) + acc` double-cast to defeat compiler-emitted fused multiply-add (FMA) instructions. FMA produces a single rounding step `fma(x, y, acc) = round(x·y + acc)`, whereas the explicit form produces two roundings `round(round(x·y) + acc)`. Go's compiler may emit FMA on arm64 (where the `fmadd` instruction is cheap) but typically does not on amd64 (where FMA was historically optional). The two forms diverge by 1 ULP on inputs that cross the rounding boundary. Pre-emptive remediation costs roughly 1 ns per reduction and guarantees byte-identical cross-platform output for all inputs, including future inputs that happen to cross the ULP threshold. The pattern is documented inline at both sites and is verified by the cross-platform CI matrix golden file.
+
 ### 13.4 Map iteration
 
 Map iteration order in Go is non-deterministic by design. The library uses `map` internally (e.g. for q-gram counting, token-set intersection) but NEVER exposes map iteration order to public output. Internal algorithms that need to iterate a map in a stable order extract keys, sort them, and iterate the sorted slice.
@@ -1218,31 +1422,39 @@ Targets (single-core, modern x86_64, Go 1.26+):
 
 For ASCII inputs ≤ 50 characters:
 
-- Levenshtein, Damerau-Levenshtein OSA, Hamming: < 1 µs per call, 0 allocations
-- Damerau-Levenshtein Full: < 3 µs per call, 0 allocations
-- Jaro, Jaro-Winkler, Strcmp95: < 1 µs per call, 0 allocations
-- Smith-Waterman-Gotoh: < 5 µs per call, 0 allocations (stack buffer for ≤ 50 char inputs)
-- LCSStr: < 2 µs per call, 0 allocations
-- Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky: < 5 µs per call, ≤ 4 allocations (q-gram map + count map; can be reduced via small-input fast path in v1.x)
+- Levenshtein, Damerau-Levenshtein OSA, Hamming: < 1 µs per call, 0 allocations on Short; on Long inputs Levenshtein and DL-OSA transition from stack to heap above the documented stack-buffer threshold (see Q7c scope note below). Damerau-Levenshtein OSA Unicode Short adds one allocation versus the byte path due to rune-decode buffering.
+- Damerau-Levenshtein Full: < 10 µs per call at Medium (50×50), ≤ 1 allocation on Short (Phase 8.5 Q8a — the stack-buffer optimisation that would achieve 0 allocs requires a 34 KB stack frame, judged too fragile). Medium latency was widened from < 3 µs to < 10 µs (Q7b) because the Lowrance-Wagner formulation needs the full O(m·n) DP table, not the two-row rolling form used by DL-OSA.
+- Jaro, Jaro-Winkler, Strcmp95: < 1 µs per call, 0 allocations on Short; transition to heap on Long inputs above the documented stack-buffer threshold (Q7c).
+- Smith-Waterman-Gotoh: < 10 µs per call at Medium (Phase 8.5 Q7b — widened from < 5 µs because the six-row affine-gap rolling DP at 50×50 has ~3000 float64 comparisons), 0 allocations on Short (stack buffer for ≤ 50-char inputs).
+- LCSStr: < 2 µs per call, 0 allocations on Short; heap fallback on Long inputs (Q7c).
+- Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky: < 5 µs per call, ≤ 4 allocations on Short (q-gram map + count map). The internal `extractQGrams` capacity hint is `(len(s)-n+1)*5/4` to reduce hash-map growth allocations (Q7d).
 - Monge-Elkan: < 10 µs per call (cost dominated by inner metric × token-count squared)
 - Token Sort Ratio, Token Set Ratio, Token Jaccard: < 5 µs per call, ≤ 4 allocations
 - Partial Ratio: < 10 µs per call for short inputs (cost grows with the length difference)
-- Soundex, NYSIIS, MRA: < 500 ns per call, 0 allocations (stack-allocated code buffer)
-- Double Metaphone: < 2 µs per call, ≤ 2 allocations
-- Ratcliff-Obershelp: < 5 µs per call for short inputs
+- Soundex Code: < 500 ns per call, ≤ 1 allocation on Short (Phase 8.5 Q7b — the `string(stackBuf[:n])` return is structurally unavoidable without `unsafe.String`, which is forbidden by go-coding-standards).
+- Soundex Score: < 1 µs per call, ≤ 2 allocations on Short (provisional pending Phase 8.5 benchmarks — two `SoundexCode` calls each contributing ≤ 1 alloc plus the boolean equality check).
+- NYSIIS Code: < 500 ns per call, ≤ 1 allocation on Short (Q7b — same rationale as Soundex).
+- NYSIIS Score: < 1 µs per call, ≤ 2 allocations on Short (provisional pending Phase 8.5 benchmarks — two `NYSIISCode` calls each contributing ≤ 1 alloc).
+- MRA Code: < 500 ns per call, ≤ 1 allocation on Short (Q7b — same rationale).
+- MRACompare: < 1 µs per call, ≤ 2 allocations on Short (Q7b — two MRACode calls produce two heap strings).
+- MRA Score: < 1 µs per call, ≤ 2 allocations on Short (provisional pending Phase 8.5 benchmarks — wraps `MRACompare`, inherits the same allocation profile).
+- Double Metaphone: < 2 µs per call, ≤ 2 allocations (post-Phase-8.5 Q7a `[4]byte` optimisation replacing `strings.Builder`; the residual 2 allocations are the primary + secondary return-string heap escapes).
+- Ratcliff-Obershelp: < 5 µs per call for short inputs, ≤ 4 allocations on Short (Phase 8.5 Q8d — the `roFindLongestMatch` recursive decomposition allocates per recursion level; the stack-buffer pool that would achieve a tighter budget was judged too complex for the marginal gain).
 
-For longer inputs (50–500 characters): each algorithm's cost scales per its complexity. Benchmarks at 50/200/500 chars.
+For longer inputs (50–500 characters): each algorithm's cost scales per its complexity. Benchmarks at 50/200/500 chars. The Long-input column documents the heap-allocation path for Levenshtein, Jaro, JaroWinkler, Strcmp95, LCSStr (and DL-OSA Unicode-Short) where the stack-buffer optimisation does not apply (Q7c scope note).
 
 ### 14.2 Scorer budgets
 
-- Default-configured Scorer (6 algorithms): `Score(a, b)` < 30 µs for ASCII inputs ≤ 50 chars, ≤ 8 allocations
+- Default-configured Scorer (6 algorithms): `Score(a, b)` < 30 µs for ASCII inputs ≤ 50 chars
+  - Short (ASCII ≤ 8 chars): ≤ 8 allocations (Phase 8.5 Q8c — the post-Q7a DoubleMetaphone optimisation brings the composite to exactly 8 allocs on Short)
+  - Medium (ASCII ≤ 50 chars): ≤ 20 allocations (Phase 8.5 Q8c — composite of the per-algorithm Medium budgets including q-gram map rehash and tokeniser scratch)
 - Default-configured Scorer: `ScoreAll(a, b)` adds one allocation (the result map)
 - `Match` matches `Score` cost
 
 ### 14.3 Normalisation budgets
 
-- `Normalise` ASCII input ≤ 50 chars: < 200 ns, 0 allocations (stack buffer)
-- `Tokenise` ASCII input ≤ 50 chars: < 500 ns, ≤ 2 allocations (token slice + storage)
+- `Normalise` ASCII input ≤ 50 chars: < 200 ns, ≤ 1 allocation (Phase 8.5 Q7b — the `string(buf)` return is structurally unavoidable; the scratch buffer remains stack-allocated and the prior "0 allocations" claim was incorrect)
+- `Tokenise` ASCII input ≤ 50 chars: < 500 ns, ≤ 2 allocations (token slice + storage; the ASCII fast path returns substrings of the input or of a single scratch buffer — see §10 Tokenisation, Phase 8.5 Q8b)
 
 ### 14.4 Benchmark suite
 
@@ -1286,6 +1498,16 @@ The Scorer has `scorer_test.go` covering:
 In `props_test.go`, using `testing/quick` (stdlib only):
 
 - See section 13.6 for the property list.
+
+**Generator distribution (LOCKED Phase 8.5 Q12b).** The `testing/quick` Generator implementations for input strings in `props_test.go` follow a mixed-shape distribution to exercise edge cases the default `rand.String` cannot reach:
+
+- 30% ASCII-short (`len ∈ [0, 8]`) — exercises identity, near-empty, and tight stack-buffer paths
+- 30% ASCII-medium (`len ∈ [9, 50]`) — exercises the canonical operating range
+- 20% Unicode-short (`len ∈ [0, 8]` measured in runes; non-ASCII code points mixed with ASCII) — exercises rune-decode paths
+- 10% Unicode-medium (`len ∈ [9, 50]` runes; non-ASCII mix) — exercises heap fallback for stack-buffer algorithms
+- 10% adversarial — invalid UTF-8 byte sequences, very long runs of a single character, mixed surrogate pairs, byte-order-mark prefixes
+
+Token-count generators (used by `Tokenise`-aware properties) compute counts via `fuzzymatch.Tokenise` rather than `strings.Fields` — the two diverge on camelCase / acronym boundaries and the test must match the library's actual tokenisation. `quick.MaxCount` defaults are raised to 1000 for cheap properties (allocations, range bounds) and held at the stdlib default (100) for expensive properties (triangle inequality, FMA-sensitive reductions).
 
 ### 15.4 Fuzz tests
 
@@ -1368,9 +1590,9 @@ Root-level test files verifying project-level invariants:
 
 ### 15.8 Coverage targets
 
-- Overall: ≥ 95% line coverage
-- Per file: ≥ 90% line coverage
-- Public API: 100% — every exported function exercised by at least one test
+- Overall (Floor 1): ≥ 95% line coverage
+- Per file (Floor 2): ≥ 90% line coverage
+- Per exported function (Floor 3): ≥ 90% statement coverage (Phase 8.5 Q12a — tightened from "exists-at-least-one-test" to a true statement-coverage floor, matching Floor 2's semantics. `scripts/verify-coverage-floors.sh` runs all three floors; Floor 3 uses AST-based detection of exported symbols rather than `go doc -short` parsing).
 - CI fails if any threshold is missed
 - Codecov upload for trend visibility
 
@@ -1397,6 +1619,35 @@ CI runs all tests with `go test -race -count=1 ./...`. Required to pass.
 Specifically: property tests use `testing/quick` (stdlib). Fuzz tests use native `go test -fuzz`. Unit tests use `testify` — and this introduces a non-stdlib test-only dependency in the root module. **Resolution:** unit tests use stdlib `testing` package without `testify`. `testify` is permitted ONLY in `tests/bdd/`. This is stricter than the original mask reference (which uses `testify` in root tests) and is the deliberate choice for `fuzzymatch` to keep the root `go.mod` clean even for `_test.go` files.
 
 Trade-off: tests are more verbose without `testify/assert`. Acceptable for the cleanliness benefit. To be revisited at v1.x if the verbosity becomes a maintenance problem.
+
+### 15.12 Cross-validation corpora
+
+Cross-validation against external reference implementations is the load-bearing acceptance test for algorithms where re-deriving correctness from the primary source alone is insufficient or fragile. Corpora are generated by a single-purpose Python script (one per tier), pinned by exact dependency version, committed to `testdata/cross-validation/<tier>/vectors.json`, and consumed by a Go loader test that diffs the implementation output against the corpus under a tolerance of `1e-9`.
+
+Phase 8.5 Q10 locked the corpus inventory:
+
+| Tier | Reference | Pin | Corpus file | Loader test |
+|---|---|---|---|---|
+| Smith-Waterman-Gotoh (§7.1.8) | `biopython` `Bio.Align.PairwiseAligner` mode=`"local"` | `biopython==1.84` | `testdata/cross-validation/swg/vectors.json` | `TestSWG_CrossValidation` |
+| Ratcliff-Obershelp (§7.5.1) | Python stdlib `difflib.SequenceMatcher(autojunk=False).ratio()` | stdlib (no pin) | `testdata/cross-validation/ratcliff-obershelp/vectors.json` | `TestRatcliffObershelp_CrossValidation` |
+| Token-tier ratios (§7.3.2–7.3.4) | `rapidfuzz` `fuzz.token_sort_ratio` / `fuzz.token_set_ratio` / `fuzz.partial_ratio` | `rapidfuzz==3.x` (exact pin in script) | `testdata/cross-validation/token-ratios/vectors.json` | `TestTokenRatios_CrossValidation` |
+| Phonetic tier (§7.4) | `jellyfish` and `Metaphone` dual pin | `jellyfish==1.2.1` + `Metaphone==0.6` | `testdata/cross-validation/phonetic/vectors.json` | `TestPhonetic_CrossValidation` |
+| Character tier (Levenshtein, DL-OSA, Hamming, Jaro, JaroWinkler) | `jellyfish` (reuse of phonetic pin) | `jellyfish==1.2.1` | `testdata/cross-validation/character/vectors.json` | `TestCharacter_CrossValidation` |
+| Q-gram tier (Q-Gram Jaccard, Sørensen-Dice, Cosine, Tversky) and Monge-Elkan | `py_stringmatching` | `py_stringmatching==0.4.x` (exact pin in script) | `testdata/cross-validation/qgram/vectors.json`; `testdata/cross-validation/monge-elkan/vectors.json` | `TestQGram_CrossValidation`; `TestMongeElkan_CrossValidation` |
+
+**Literature-only algorithms** — Strcmp95, Damerau-Levenshtein Full, and LCSStr have no documented external reference library that matches the library's exact formulation. Their test files carry an explicit block comment "No external cross-validation library; literature-anchored only" with a citation to the primary academic source. Reference vectors in their unit tests are derived directly from the published examples in the source paper.
+
+**Regeneration is developer-only.** Each tier has a `make regen-<tier>-cross-validation` Makefile target that invokes the script with the exact dependency pin. CI consumes the committed `vectors.json` without requiring Python. Adding a new vector requires the script + regeneration + a code-review checklist item confirming the new vector was inspected before commit.
+
+**Generators:**
+
+- `scripts/gen-swg-cross-validation.py` (Phase 3)
+- `scripts/gen-ratcliff-obershelp-cross-validation.py` (Phase 4)
+- `scripts/gen-token-ratio-cross-validation.py` (Phase 6)
+- `scripts/gen-phonetic-cross-validation.py` (Phase 7)
+- `scripts/gen-character-cross-validation.py` (Phase 8.5 — new)
+- `scripts/gen-qgram-cross-validation.py` (Phase 8.5 — new)
+- `scripts/gen-monge-elkan-cross-validation.py` (Phase 8.5 — new)
 
 ---
 
@@ -1687,7 +1938,7 @@ API frozen. Final CHANGELOG. Final benchmark numbers in `bench.txt`. Tag `v1.0.0
 - [ ] Public `*Distance` function where a distance is meaningful (Levenshtein, Damerau-Levenshtein, Hamming)
 - [ ] Phonetic algorithms expose both `*Code` (or `*Keys`) and `*Score` functions
 - [ ] Every algorithm has an entry in `AlgoID` and `AlgoIDs()` returns the full ordered list
-- [ ] `AlgoID.String()` returns the snake_case name; mapping stable across patch versions
+- [ ] `AlgoID.String()` returns the CamelCase name matching the constant suffix (`"Levenshtein"`, `"JaroWinkler"`, `"DamerauLevenshteinOSA"`, `"NYSIIS"`, etc., per §6 and Phase 8.5 Q6b); mapping stable across patch versions
 
 ### Scorer
 
