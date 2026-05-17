@@ -1591,4 +1591,18 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	// AlgorithmContext and ScorerContext). All Validate scenarios
 	// live under the @validate Gherkin tag in features/validate.feature.
 	InitValidateSteps(ctx)
+
+	// Phase 8.5 Plan 17b — Gap 3 Normalisation steps. Registered via a
+	// dedicated InitNormalisationSteps function in
+	// normalisation_steps.go so the NormalisationContext lives in its
+	// own type. All Normalise scenarios live under the @normalisation
+	// Gherkin tag in features/normalisation.feature.
+	InitNormalisationSteps(ctx)
+
+	// Phase 8.5 Plan 17b — Gap 3 Determinism steps. Registered via a
+	// dedicated InitDeterminismSteps function in determinism_steps.go
+	// so the DeterminismContext lives in its own type. All
+	// determinism scenarios live under the @determinism Gherkin tag
+	// in features/determinism.feature.
+	InitDeterminismSteps(ctx)
 }
