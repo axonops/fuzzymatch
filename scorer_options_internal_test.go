@@ -123,16 +123,19 @@ func probeNormaliseWeights(cfg scorerConfig) bool {
 	return cfg.normaliseWeights
 }
 
-// probeScoreFnInvoke runs the entry's scoreFn with the supplied
+// probeScoreFnInvoke runs the first entry's scoreFn with the supplied
 // inputs. Used by parameterised-option tests in Task 3 to confirm
 // each closure dispatches to the correct underlying score function
-// with the consumer-supplied parameters captured.
-func probeScoreFnInvoke(cfg scorerConfig, i int, a, b string) float64 {
-	if i < 0 || i >= len(cfg.entries) || cfg.entries[i].scoreFn == nil {
+// with the consumer-supplied parameters captured. Every caller passes
+// the same index (0) — these tests apply exactly one parameterised
+// option at a time, so the single entry is always at index 0.
+func probeScoreFnInvoke(cfg scorerConfig, a, b string) float64 {
+	if len(cfg.entries) == 0 || cfg.entries[0].scoreFn == nil {
 		return -1
 	}
-	return cfg.entries[i].scoreFn(a, b)
+	return cfg.entries[0].scoreFn(a, b)
 }
+
 // --- Non-parameterised options (Task 2) -----------------------------------
 
 func TestWithAlgorithm_HappyPath(t *testing.T) {
@@ -446,7 +449,7 @@ func TestWithQGramJaccardAlgorithm_CapturesN(t *testing.T) {
 		if err != nil {
 			t.Fatalf("n=%d: option err = %v", n, err)
 		}
-		got := probeScoreFnInvoke(cfg, 0, a, b)
+		got := probeScoreFnInvoke(cfg, a, b)
 		want := QGramJaccardScore(a, b, n)
 		if got != want {
 			t.Errorf("n=%d: closure score = %g; want QGramJaccardScore(_,_,%d) = %g", n, got, n, want)
@@ -485,7 +488,7 @@ func TestWithSorensenDiceAlgorithm_CapturesN(t *testing.T) {
 		if err != nil {
 			t.Fatalf("n=%d: option err = %v", n, err)
 		}
-		got := probeScoreFnInvoke(cfg, 0, a, b)
+		got := probeScoreFnInvoke(cfg, a, b)
 		want := SorensenDiceScore(a, b, n)
 		if got != want {
 			t.Errorf("n=%d: closure score = %g; want SorensenDiceScore(_,_,%d) = %g", n, got, n, want)
@@ -520,7 +523,7 @@ func TestWithCosineAlgorithm_CapturesN(t *testing.T) {
 		if err != nil {
 			t.Fatalf("n=%d: option err = %v", n, err)
 		}
-		got := probeScoreFnInvoke(cfg, 0, a, b)
+		got := probeScoreFnInvoke(cfg, a, b)
 		want := CosineScore(a, b, n)
 		if got != want {
 			t.Errorf("n=%d: closure score = %g; want CosineScore(_,_,%d) = %g", n, got, n, want)
@@ -565,7 +568,7 @@ func TestWithTverskyAlgorithm_CapturesParams(t *testing.T) {
 			if err != nil {
 				t.Fatalf("option err = %v", err)
 			}
-			got := probeScoreFnInvoke(cfg, 0, a, b)
+			got := probeScoreFnInvoke(cfg, a, b)
 			want := TverskyScore(a, b, c.n, c.alpha, c.beta)
 			if got != want {
 				t.Errorf("closure score = %g; want TverskyScore(a, b, %d, %g, %g) = %g", got, c.n, c.alpha, c.beta, want)
@@ -695,7 +698,7 @@ func TestWithMongeElkanAlgorithm_CapturesInner(t *testing.T) {
 			if err != nil {
 				t.Fatalf("inner=%v option err = %v", c.inner, err)
 			}
-			got := probeScoreFnInvoke(cfg, 0, a, b)
+			got := probeScoreFnInvoke(cfg, a, b)
 			want := MongeElkanScore(a, b, c.inner)
 			if got != want {
 				t.Errorf("inner=%v: closure score = %g; want MongeElkanScore (symmetric default) = %g", c.inner, got, want)
@@ -745,7 +748,7 @@ func TestWithSmithWatermanGotohAlgorithm_CapturesParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("option err = %v", err)
 	}
-	got := probeScoreFnInvoke(cfg, 0, a, b)
+	got := probeScoreFnInvoke(cfg, a, b)
 	want := SmithWatermanGotohScoreWithParams(a, b, params)
 	if got != want {
 		t.Errorf("closure score = %g; want SmithWatermanGotohScoreWithParams = %g", got, want)

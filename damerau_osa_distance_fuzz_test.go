@@ -35,8 +35,8 @@ import (
 // the OSA distance.
 func FuzzDamerauLevenshteinOSADistance(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"ca", "abc"},          // Boytsov 2011 §3.1 discriminating vector (returns 3)
-		{"abcd", "abdc"},       // single adjacent transposition
+		{"ca", "abc"},    // Boytsov 2011 §3.1 discriminating vector (returns 3)
+		{"abcd", "abdc"}, // single adjacent transposition
 		{"", ""},
 		{"", "abc"},
 		{"abc", "abc"},

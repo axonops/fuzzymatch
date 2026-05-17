@@ -48,7 +48,7 @@ func FuzzHammingScoreRunes(f *testing.F) {
 		{"", ""},                 // both-empty
 		{"abc", "ab"},            // unequal-length (silent-zero policy)
 		{"\xff\xfe", "\xff\xff"}, // invalid UTF-8, equal byte count
-		{"日本語", "日本語"},          // identity multi-byte
+		{"日本語", "日本語"},           // identity multi-byte
 	} {
 		f.Add(pair.a, pair.b)
 	}

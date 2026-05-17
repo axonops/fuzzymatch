@@ -36,15 +36,15 @@ import (
 // rune-variant LCSStr surface.
 func FuzzLCSStrScoreRunes(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"ABABC", "BABCA"},     // Wagner-Fischer canonical (substring "BABC")
-		{"hello", "world"},     // no shared substring of length > 1
+		{"ABABC", "BABCA"},        // Wagner-Fischer canonical (substring "BABC")
+		{"hello", "world"},        // no shared substring of length > 1
 		{"café", "macaroni café"}, // multi-byte substring containment
-		{"Привет", "привет"},   // Cyrillic, case-only
-		{"", ""},               // both-empty
-		{"", "abc"},            // one-empty
-		{"abc", "abc"},         // identity
-		{"\xff\xfe", "abc"},    // invalid UTF-8
-		{"日本語", "日本"},          // multi-byte substring
+		{"Привет", "привет"},      // Cyrillic, case-only
+		{"", ""},                  // both-empty
+		{"", "abc"},               // one-empty
+		{"abc", "abc"},            // identity
+		{"\xff\xfe", "abc"},       // invalid UTF-8
+		{"日本語", "日本"},             // multi-byte substring
 	} {
 		f.Add(pair.a, pair.b)
 	}

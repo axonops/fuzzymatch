@@ -345,12 +345,12 @@ func TestValidate_NeverPanics_PerAlgorithm(t *testing.T) {
 	}{
 		{"", ""},
 		{"\x00", "\x00"},
-		{"\xff\xfe", "\xff\xfe"},                                   // invalid UTF-8
-		{"\xc0\x80", "abc"},                                        // overlong NUL
+		{"\xff\xfe", "\xff\xfe"}, // invalid UTF-8
+		{"\xc0\x80", "abc"},      // overlong NUL
 		{strings.Repeat("\xff", 200), strings.Repeat("\xff", 100)}, // long invalid UTF-8
-		{"a\x00b", "a\x00b"},                                       // embedded NUL
-		{"𝕳𝖊𝖑𝖑𝖔", "𝕳𝖊𝖑𝖑𝖔"},                                       // 4-byte UTF-8 only
-		{"--", "--"},                                               // separator-only
+		{"a\x00b", "a\x00b"}, // embedded NUL
+		{"𝕳𝖊𝖑𝖑𝖔", "𝕳𝖊𝖑𝖑𝖔"},   // 4-byte UTF-8 only
+		{"--", "--"}, // separator-only
 	}
 	for _, in := range pathological {
 		t.Run(in.a+"|"+in.b, func(t *testing.T) {
@@ -378,17 +378,17 @@ func TestValidate_PerAlgorithm_RuleTable(t *testing.T) {
 	// rule table — AlgoID → set of WarnKind values it can emit
 	// (per-algorithm only; cross-cutting Kinds covered separately).
 	expected := map[fuzzymatch.AlgoID][]fuzzymatch.WarnKind{
-		fuzzymatch.AlgoHamming:           {fuzzymatch.WarnUnequalLength},
-		fuzzymatch.AlgoStrcmp95:          {fuzzymatch.WarnAllNonASCIIDropped},
-		fuzzymatch.AlgoSoundex:           {fuzzymatch.WarnAllNonASCIIDropped},
-		fuzzymatch.AlgoDoubleMetaphone:   {fuzzymatch.WarnAllNonASCIIDropped},
-		fuzzymatch.AlgoNYSIIS:            {fuzzymatch.WarnAllNonASCIIDropped},
-		fuzzymatch.AlgoMRA:               {fuzzymatch.WarnAllNonASCIIDropped},
-		fuzzymatch.AlgoMongeElkan:        {fuzzymatch.WarnNoTokensAfterNormalise},
-		fuzzymatch.AlgoTokenSortRatio:    {fuzzymatch.WarnNoTokensAfterNormalise},
-		fuzzymatch.AlgoTokenSetRatio:     {fuzzymatch.WarnNoTokensAfterNormalise},
-		fuzzymatch.AlgoPartialRatio:      {fuzzymatch.WarnNoTokensAfterNormalise},
-		fuzzymatch.AlgoTokenJaccard:      {fuzzymatch.WarnNoTokensAfterNormalise},
+		fuzzymatch.AlgoHamming:         {fuzzymatch.WarnUnequalLength},
+		fuzzymatch.AlgoStrcmp95:        {fuzzymatch.WarnAllNonASCIIDropped},
+		fuzzymatch.AlgoSoundex:         {fuzzymatch.WarnAllNonASCIIDropped},
+		fuzzymatch.AlgoDoubleMetaphone: {fuzzymatch.WarnAllNonASCIIDropped},
+		fuzzymatch.AlgoNYSIIS:          {fuzzymatch.WarnAllNonASCIIDropped},
+		fuzzymatch.AlgoMRA:             {fuzzymatch.WarnAllNonASCIIDropped},
+		fuzzymatch.AlgoMongeElkan:      {fuzzymatch.WarnNoTokensAfterNormalise},
+		fuzzymatch.AlgoTokenSortRatio:  {fuzzymatch.WarnNoTokensAfterNormalise},
+		fuzzymatch.AlgoTokenSetRatio:   {fuzzymatch.WarnNoTokensAfterNormalise},
+		fuzzymatch.AlgoPartialRatio:    {fuzzymatch.WarnNoTokensAfterNormalise},
+		fuzzymatch.AlgoTokenJaccard:    {fuzzymatch.WarnNoTokensAfterNormalise},
 	}
 	// Algorithms with no per-algorithm warnings (only cross-cutting
 	// Kinds via AlgoIDAny) — they must NOT appear as Warning.Algorithm

@@ -203,30 +203,30 @@ func (p SWGParams) Validate() {
 // ErrInternalInvariantViolated wrap) and Validate (with the
 // ErrInvalidSWGParam wrap) so the two surfaces share a single
 // invariant definition.
-func (p SWGParams) validate() error {
+func (p SWGParams) validate() error { //nolint:gocyclo // 4 per-field invariant blocks (Match/Mismatch/GapOpen/GapExtend) each splitting NaN-or-Inf vs sign — the linear structure is the readable form for "first violation wins"
 	if math.IsNaN(p.Match) || math.IsInf(p.Match, 0) {
-		return fmt.Errorf("Match must be finite (got %v)", p.Match)
+		return fmt.Errorf("field Match must be finite (got %v)", p.Match)
 	}
 	if p.Match < 0 {
-		return fmt.Errorf("Match must be >= 0 (got %v)", p.Match)
+		return fmt.Errorf("field Match must be >= 0 (got %v)", p.Match)
 	}
 	if math.IsNaN(p.Mismatch) || math.IsInf(p.Mismatch, 0) {
-		return fmt.Errorf("Mismatch must be finite (got %v)", p.Mismatch)
+		return fmt.Errorf("field Mismatch must be finite (got %v)", p.Mismatch)
 	}
 	if p.Mismatch > 0 {
-		return fmt.Errorf("Mismatch must be <= 0 (got %v)", p.Mismatch)
+		return fmt.Errorf("field Mismatch must be <= 0 (got %v)", p.Mismatch)
 	}
 	if math.IsNaN(p.GapOpen) || math.IsInf(p.GapOpen, 0) {
-		return fmt.Errorf("GapOpen must be finite (got %v)", p.GapOpen)
+		return fmt.Errorf("field GapOpen must be finite (got %v)", p.GapOpen)
 	}
 	if p.GapOpen > 0 {
-		return fmt.Errorf("GapOpen must be <= 0 (got %v)", p.GapOpen)
+		return fmt.Errorf("field GapOpen must be <= 0 (got %v)", p.GapOpen)
 	}
 	if math.IsNaN(p.GapExtend) || math.IsInf(p.GapExtend, 0) {
-		return fmt.Errorf("GapExtend must be finite (got %v)", p.GapExtend)
+		return fmt.Errorf("field GapExtend must be finite (got %v)", p.GapExtend)
 	}
 	if p.GapExtend > 0 {
-		return fmt.Errorf("GapExtend must be <= 0 (got %v)", p.GapExtend)
+		return fmt.Errorf("field GapExtend must be <= 0 (got %v)", p.GapExtend)
 	}
 	return nil
 }

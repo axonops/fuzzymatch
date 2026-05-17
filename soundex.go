@@ -147,12 +147,12 @@ func soundexGroup(c byte) byte {
 //
 // Performance scope (Q7b, docs/requirements.md §14.1):
 //
-//   The published budget is ≤ 1 alloc per call. The implementation uses a
-//   stack-allocated [4]byte result buffer; the lone heap allocation is the
-//   `string(result[:4])` conversion on return — structurally unavoidable
-//   without `unsafe.String`, which the project policy declines. The 0-alloc
-//   target documented in earlier drafts was unachievable for the same reason.
-func SoundexCode(s string) string {
+//	The published budget is ≤ 1 alloc per call. The implementation uses a
+//	stack-allocated [4]byte result buffer; the lone heap allocation is the
+//	`string(result[:4])` conversion on return — structurally unavoidable
+//	without `unsafe.String`, which the project policy declines. The 0-alloc
+//	target documented in earlier drafts was unachievable for the same reason.
+func SoundexCode(s string) string { //nolint:gocyclo // canonical Russell-Knuth 6-rule encoder; each rule contributes a distinct branch for letter-class dispatch + adjacency dedup + Y/H pass-through + leading-letter preservation
 	if len(s) == 0 {
 		return ""
 	}
@@ -180,7 +180,7 @@ func SoundexCode(s string) string {
 			i++
 		} else {
 			// Non-ASCII: skip the full UTF-8 sequence.
-			_, sz := runeAt(s, i)
+			sz := runeSizeAt(s, i)
 			i += sz
 		}
 		if found {
@@ -238,7 +238,7 @@ func SoundexCode(s string) string {
 			lastGroup = g
 		} else {
 			// Non-ASCII: skip the full UTF-8 sequence silently.
-			_, sz := runeAt(s, i)
+			sz := runeSizeAt(s, i)
 			i += sz
 		}
 	}
@@ -276,33 +276,34 @@ func SoundexScore(a, b string) float64 {
 	return 0.0
 }
 
-// runeAt decodes the rune at position i in s (UTF-8). Returns the rune and
-// its byte size. Used by SoundexCode for non-ASCII skip without importing
-// unicode/utf8 (avoids an extra import in a small file; the logic is
-// identical to utf8.DecodeRuneInString for the purpose of skip-counting).
-func runeAt(s string, i int) (rune, int) {
+// runeSizeAt returns the UTF-8 byte length of the rune starting at
+// position i in s. Used by SoundexCode and the other phonetic encoders
+// for non-ASCII skip without importing unicode/utf8 (the rune itself
+// is never inspected on these skip paths — only the byte size matters).
+// The byte-size dispatch matches utf8.DecodeRuneInString's rune-size
+// semantics: invalid lead bytes / truncated sequences return 1 so the
+// caller advances at least one byte.
+func runeSizeAt(s string, i int) int {
 	b0 := s[i]
-	if b0 < 0x80 {
-		return rune(b0), 1
-	}
-	if b0 < 0xC0 {
+	switch {
+	case b0 < 0x80:
+		return 1
+	case b0 < 0xC0:
 		// Continuation byte out of context — treat as 1-byte invalid.
-		return 0xFFFD, 1
-	}
-	if b0 < 0xE0 {
+		return 1
+	case b0 < 0xE0:
 		if i+1 >= len(s) {
-			return 0xFFFD, 1
+			return 1
 		}
-		return rune(b0&0x1F)<<6 | rune(s[i+1]&0x3F), 2
-	}
-	if b0 < 0xF0 {
+		return 2
+	case b0 < 0xF0:
 		if i+2 >= len(s) {
-			return 0xFFFD, 1
+			return 1
 		}
-		return rune(b0&0x0F)<<12 | rune(s[i+1]&0x3F)<<6 | rune(s[i+2]&0x3F), 3
+		return 3
 	}
 	if i+3 >= len(s) {
-		return 0xFFFD, 1
+		return 1
 	}
-	return rune(b0&0x07)<<18 | rune(s[i+1]&0x3F)<<12 | rune(s[i+2]&0x3F)<<6 | rune(s[i+3]&0x3F), 4
+	return 4
 }

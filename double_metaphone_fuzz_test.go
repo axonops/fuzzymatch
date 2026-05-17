@@ -102,7 +102,7 @@ func FuzzDoubleMetaphone(f *testing.F) {
 				}
 				for j := 0; j < len(key); j++ {
 					c := key[j]
-					if !((c >= 'A' && c <= 'Z') || c == '0') {
+					if (c < 'A' || c > 'Z') && c != '0' {
 						t.Fatalf("DoubleMetaphoneKeys(%q) key %q contains invalid char %q (must be [A-Z0])",
 							input, key, string(c))
 					}

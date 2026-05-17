@@ -87,7 +87,8 @@ var minusDMS = newMinusDMScorer()
 // programmer error, since the composition is statically valid) lives
 // in one named place that future readers can grep for.
 func newMinusDMScorer() *fuzzymatch.Scorer {
-	opts := append(fuzzymatch.DefaultScorerOptions(),
+	opts := append(
+		fuzzymatch.DefaultScorerOptions(),
 		fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
 		fuzzymatch.WithThreshold(0.80),
 	)

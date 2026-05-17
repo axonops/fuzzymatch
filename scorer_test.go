@@ -645,7 +645,8 @@ func TestDefaultScorer_NeverPanics_PropertyTest(t *testing.T) {
 					t.Errorf("removal of default %s panicked: %v", victim, r)
 				}
 			}()
-			opts := append(fuzzymatch.DefaultScorerOptions(),
+			opts := append(
+				fuzzymatch.DefaultScorerOptions(),
 				fuzzymatch.WithoutAlgorithm(victim),
 			)
 			s, err := fuzzymatch.NewScorer(opts...)
@@ -677,7 +678,8 @@ func TestDefaultScorer_NeverPanics_PropertyTest(t *testing.T) {
 					t.Errorf("removal of absent AlgoCosine panicked: %v", r)
 				}
 			}()
-			opts := append(fuzzymatch.DefaultScorerOptions(),
+			opts := append(
+				fuzzymatch.DefaultScorerOptions(),
 				fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoCosine),
 			)
 			s, err := fuzzymatch.NewScorer(opts...)
@@ -768,7 +770,8 @@ func TestDefaultScorerOptions_ProducesEquivalentScorer(t *testing.T) {
 // survives (no WithThreshold override in the example, so it stays).
 func TestDefaultScorer_WithoutAlgorithm_Composition(t *testing.T) {
 	t.Parallel()
-	opts := append(fuzzymatch.DefaultScorerOptions(),
+	opts := append(
+		fuzzymatch.DefaultScorerOptions(),
 		fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoDoubleMetaphone),
 	)
 	s, err := fuzzymatch.NewScorer(opts...)

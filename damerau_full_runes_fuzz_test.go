@@ -38,15 +38,15 @@ import (
 // [0,1] for the rune-variant DL-Full surface.
 func FuzzDamerauLevenshteinFullScoreRunes(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"ca", "abc"},          // Lowrance-Wagner discriminating vector
-		{"abcd", "abdc"},       // single adjacent transposition
-		{"café", "caéf"},       // multi-byte transposition
-		{"Привет", "Прывет"},   // Cyrillic substitution
-		{"", ""},               // both-empty
-		{"", "abc"},            // one-empty
-		{"aaa", "bbb"},         // orthogonal
-		{"\xff\xfe", "abc"},    // invalid UTF-8
-		{"日本語", "本日語"},        // multi-byte transposition
+		{"ca", "abc"},        // Lowrance-Wagner discriminating vector
+		{"abcd", "abdc"},     // single adjacent transposition
+		{"café", "caéf"},     // multi-byte transposition
+		{"Привет", "Прывет"}, // Cyrillic substitution
+		{"", ""},             // both-empty
+		{"", "abc"},          // one-empty
+		{"aaa", "bbb"},       // orthogonal
+		{"\xff\xfe", "abc"},  // invalid UTF-8
+		{"日本語", "本日語"},       // multi-byte transposition
 	} {
 		f.Add(pair.a, pair.b)
 	}

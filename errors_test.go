@@ -35,6 +35,7 @@ import (
 	"strings"
 	"testing"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/axonops/fuzzymatch"
 )
@@ -200,13 +201,11 @@ func TestSentinels_LowercaseAndNoTrailingPunctuation(t *testing.T) {
 			// awkward compositions ("scorer: Invalid weight"). Embedded
 			// identifier names later in the message are referencing
 			// public Go symbols and are permitted (and required for
-			// disambiguation of remediation hints).
-			for _, r := range body {
-				if unicode.IsUpper(r) {
-					t.Errorf("%s.Error() body %q starts with uppercase rune %q (only embedded identifier names may be capitalised)", c.name, body, string(r))
-				}
-				// Only inspect the first rune.
-				break
+			// disambiguation of remediation hints). Inspect only the
+			// first rune via utf8.DecodeRuneInString rather than a
+			// for-range loop with `break` (linter-friendly).
+			if r, _ := utf8.DecodeRuneInString(body); unicode.IsUpper(r) {
+				t.Errorf("%s.Error() body %q starts with uppercase rune %q (only embedded identifier names may be capitalised)", c.name, body, string(r))
 			}
 		})
 	}

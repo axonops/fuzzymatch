@@ -25,8 +25,10 @@ import (
 )
 
 // sink prevents dead-code elimination of benchmark results.
-var nysiisSink string
-var nysiisScoreSink float64
+var (
+	nysiisSink      string
+	nysiisScoreSink float64
+)
 
 // BenchmarkNYSIISCode_ASCII_Short benchmarks NYSIISCode on a short name (Brown,
 // 5 chars). Budget: < 500 ns, 0 allocs/op.

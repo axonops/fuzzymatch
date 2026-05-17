@@ -42,13 +42,13 @@ import (
 func FuzzRatcliffObershelpScoreRunes(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
 		{"Pennsylvania", "Pencilvaneya"}, // Ratcliff 1988 canonical
-		{"WIKIMEDIA", "WIKIMANIA"},        // difflib-aligned canonical
-		{"café", "cafe"},                  // Latin-supplement
-		{"Привет", "привет"},              // Cyrillic, case-only
-		{"", ""},                          // both-empty
-		{"", "abc"},                       // one-empty
-		{"aaa", "bbb"},                    // no overlap
-		{"\xff\xfe", "abc"},               // invalid UTF-8
+		{"WIKIMEDIA", "WIKIMANIA"},       // difflib-aligned canonical
+		{"café", "cafe"},                 // Latin-supplement
+		{"Привет", "привет"},             // Cyrillic, case-only
+		{"", ""},                         // both-empty
+		{"", "abc"},                      // one-empty
+		{"aaa", "bbb"},                   // no overlap
+		{"\xff\xfe", "abc"},              // invalid UTF-8
 		{"日本語", "日本語"},                   // identity multi-byte
 	} {
 		f.Add(pair.a, pair.b)

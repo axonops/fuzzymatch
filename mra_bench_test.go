@@ -27,10 +27,12 @@ import (
 )
 
 // Sink variables prevent dead-code elimination of benchmark results.
-var mraCodeSink string
-var mraMatchedSink bool
-var mraSimSink int
-var mraScoreSink float64
+var (
+	mraCodeSink    string
+	mraMatchedSink bool
+	mraSimSink     int
+	mraScoreSink   float64
+)
 
 // BenchmarkMRACode_ASCII_Short benchmarks MRACode on a short name (Byrne, 5 chars).
 // Budget: < 500 ns, 0 allocs/op (all stack-allocated buffers).

@@ -37,15 +37,15 @@ import (
 // the rune-variant Jaro-Winkler surface.
 func FuzzJaroWinklerScoreRunes(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"MARTHA", "MARHTA"},   // Winkler 1990 canonical
-		{"DIXON", "DICKSONX"},  // Winkler 1990 canonical
-		{"DWAYNE", "DUANE"},    // Winkler 1990 canonical
-		{"café", "café"},       // identity multi-byte
-		{"Привет", "привет"},   // Cyrillic, case-only
-		{"", ""},               // both-empty
-		{"", "abc"},            // one-empty
-		{"aaa", "bbb"},         // no common characters
-		{"\xff\xfe", "abc"},    // invalid UTF-8
+		{"MARTHA", "MARHTA"},  // Winkler 1990 canonical
+		{"DIXON", "DICKSONX"}, // Winkler 1990 canonical
+		{"DWAYNE", "DUANE"},   // Winkler 1990 canonical
+		{"café", "café"},      // identity multi-byte
+		{"Привет", "привет"},  // Cyrillic, case-only
+		{"", ""},              // both-empty
+		{"", "abc"},           // one-empty
+		{"aaa", "bbb"},        // no common characters
+		{"\xff\xfe", "abc"},   // invalid UTF-8
 	} {
 		f.Add(pair.a, pair.b)
 	}

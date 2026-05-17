@@ -149,7 +149,7 @@ type Warning struct {
 //
 // See docs/requirements.md §11.5 and VALIDATE-01 + VALIDATE-02 +
 // VALIDATE-05.
-func Validate(a, b string) []Warning {
+func Validate(a, b string) []Warning { //nolint:gocyclo // 5 cross-cutting WarnKind classifications dispatched in series; each branch is a distinct documented warning category with its own fanout policy
 	// Pre-allocate with capacity 8: covers the common cases without
 	// growing the backing array. Most calls emit zero or one warning;
 	// a non-ASCII-only input emits up to 5 (one per ASCII-only algo);

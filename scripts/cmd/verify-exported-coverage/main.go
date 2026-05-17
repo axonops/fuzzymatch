@@ -59,6 +59,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -112,11 +113,13 @@ func main() {
 	}
 
 	if err := run(profile, os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, err) //nolint:errcheck // best-effort stderr emission; exit code is the canonical signal
 		// Exit 2 for invocation errors (missing files, malformed
 		// profile); exit 1 for floor violations (run returns a
-		// floorViolationErr in that case).
-		if _, ok := err.(*floorViolationErr); ok {
+		// floorViolationErr in that case). Use errors.As (not type
+		// assertion) so wrapped sentinels still classify correctly.
+		var fve *floorViolationErr
+		if errors.As(err, &fve) {
 			os.Exit(1)
 		}
 		os.Exit(2)
@@ -137,7 +140,7 @@ func (e *floorViolationErr) Error() string { return e.msg }
 // out and detailed offender enumeration to errOut, returning a
 // floorViolationErr on Floor-3 violations or a plain error on
 // invocation problems (missing files, parse failures).
-func run(profile string, out, errOut io.Writer) error {
+func run(profile string, out, errOut io.Writer) error { //nolint:gocyclo // canonical pipeline: stat profile → walk AST → load coverage → enumerate test refs → check Floor 3a + 3b → emit report; each stage is one branch
 	if _, err := os.Stat(profile); err != nil {
 		return fmt.Errorf("verify-exported-coverage: coverage profile not found: %s", profile)
 	}
@@ -147,7 +150,7 @@ func run(profile string, out, errOut io.Writer) error {
 		return fmt.Errorf("verify-exported-coverage: AST walk failed: %w", err)
 	}
 	if len(exportedFuncs) == 0 && len(exportedNonFuncs) == 0 {
-		fmt.Fprintln(out,
+		fmt.Fprintln(out, //nolint:errcheck // best-effort write to writer; caller already controls the writer choice
 			"OK: verify-exported-coverage — no exported symbols in the root package (bootstrap state).")
 		return nil
 	}
@@ -186,7 +189,7 @@ func run(profile string, out, errOut io.Writer) error {
 
 	if len(offenders) > 0 {
 		sort.Strings(offenders)
-		fmt.Fprintf(errOut,
+		fmt.Fprintf(errOut, //nolint:errcheck // best-effort write to writer; failure is non-actionable in CI context
 			"verify-exported-coverage: FAIL — %d exported symbol(s) below Floor 3:\n%s\n\n"+
 				"Floor 3 (Phase 8.5 Q12a): every exported function in the root package\n"+
 				"must have >= %.1f%% statement coverage; every exported type/var/const\n"+
@@ -198,7 +201,7 @@ func run(profile string, out, errOut io.Writer) error {
 		}
 	}
 
-	fmt.Fprintf(out,
+	fmt.Fprintf(out, //nolint:errcheck // best-effort write to writer; failure is non-actionable in CI context
 		"OK: verify-exported-coverage — %d exported func(s) >= %.1f%%; %d exported type/var/const all referenced in *_test.go.\n",
 		len(exportedFuncs), floorPercent, len(exportedNonFuncs))
 	return nil
@@ -215,15 +218,17 @@ func run(profile string, out, errOut io.Writer) error {
 func collectExported(dir string) (funcs, nonFuncs []string, err error) {
 	fset := token.NewFileSet()
 	filter := func(info os.FileInfo) bool {
-		name := info.Name()
-		if strings.HasSuffix(name, "_test.go") {
-			return false
-		}
-		return true
+		return !strings.HasSuffix(info.Name(), "_test.go")
 	}
 	// parser.SkipObjectResolution speeds the parse for AST-only walks
-	// (we never resolve cross-file identifier links).
-	pkgs, err := parser.ParseDir(fset, dir, filter, parser.SkipObjectResolution)
+	// (we never resolve cross-file identifier links). parser.ParseDir
+	// is deprecated as of Go 1.25 in favour of golang.org/x/tools/go/
+	// packages — we keep it deliberately here because (a) the script is
+	// internal tooling not consumed by downstream code, (b) we do not
+	// inspect build tags so the deprecation rationale does not apply,
+	// and (c) golang.org/x/tools is not part of the root module's zero-
+	// runtime-dep allowlist.
+	pkgs, err := parser.ParseDir(fset, dir, filter, parser.SkipObjectResolution) //nolint:staticcheck // SA1019: ParseDir suits internal AST tooling; see comment above
 	if err != nil {
 		return nil, nil, fmt.Errorf("parser.ParseDir(%s): %w", dir, err)
 	}
@@ -313,7 +318,12 @@ func collectExportedFromSpec(spec ast.Spec, nonFuncs map[string]struct{}) {
 // are reduced to the MINIMUM percent — Floor 3a is the worst-case
 // guarantee.
 func loadFuncCoverage(profile string) (map[string]float64, error) {
-	cmd := exec.Command("go", "tool", "cover", "-func="+profile)
+	// gosec G204: command path is literal ("go"); profile is operator-
+	// supplied via the -profile flag and is treated as a relative path
+	// to a file the operator owns. The exec.Command invocation is the
+	// canonical way to call `go tool cover -func=<profile>` and the
+	// flag is whitelisted in CI scripts only — no untrusted input.
+	cmd := exec.Command("go", "tool", "cover", "-func="+profile) //nolint:gosec // G204: profile is operator-supplied path; literal cmd "go"
 	stdout, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("go tool cover -func=%s: %w", profile, err)
@@ -375,7 +385,7 @@ func loadFuncCoverage(profile string) (map[string]float64, error) {
 // because test files in both the `fuzzymatch` and `fuzzymatch_test`
 // packages must be inspected and ParseDir's package boundary is not
 // the right primitive here.
-func collectTestRefs(dir string) (map[string]struct{}, error) {
+func collectTestRefs(dir string) (map[string]struct{}, error) { //nolint:gocyclo // AST walk over *_test.go files with per-decl-type and per-identifier inspection; the branch count mirrors the AST node-type cases
 	refs := make(map[string]struct{})
 
 	entries, err := os.ReadDir(dir)

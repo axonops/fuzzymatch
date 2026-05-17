@@ -37,15 +37,15 @@ import (
 // [0,1] for the rune-variant SWG surface.
 func FuzzSmithWatermanGotohScoreRunes(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"GCATGCU", "GATTACA"},  // Smith-Waterman 1981 canonical (biological)
-		{"ABCDEFG", "XBCDEFY"},  // gap-affine path
+		{"GCATGCU", "GATTACA"},    // Smith-Waterman 1981 canonical (biological)
+		{"ABCDEFG", "XBCDEFY"},    // gap-affine path
 		{"café", "macaroni café"}, // substring-containment in long string
-		{"Привет", "привет"},   // Cyrillic, case-only
-		{"", ""},               // both-empty
-		{"", "abc"},            // one-empty
-		{"aaa", "bbb"},         // no shared subsequence
-		{"\xff\xfe", "abc"},    // invalid UTF-8
-		{"日本語", "日本語"},        // identity multi-byte
+		{"Привет", "привет"},      // Cyrillic, case-only
+		{"", ""},                  // both-empty
+		{"", "abc"},               // one-empty
+		{"aaa", "bbb"},            // no shared subsequence
+		{"\xff\xfe", "abc"},       // invalid UTF-8
+		{"日本語", "日本語"},            // identity multi-byte
 	} {
 		f.Add(pair.a, pair.b)
 	}

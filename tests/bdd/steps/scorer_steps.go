@@ -383,7 +383,8 @@ func (sc *ScorerContext) iAddWithoutAlgorithmForAnUnknownAlgoIDToTheOptionChain(
 	// Snapshot the default algorithm count for the later "unchanged"
 	// assertion. defaultScorer is reused as the comparison Scorer.
 	sc.defaultScorer = fuzzymatch.DefaultScorer()
-	opts := append(fuzzymatch.DefaultScorerOptions(),
+	opts := append(
+		fuzzymatch.DefaultScorerOptions(),
 		fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoCosine),
 	)
 	s, err := fuzzymatch.NewScorer(opts...)

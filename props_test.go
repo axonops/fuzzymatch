@@ -196,7 +196,7 @@ func mixedShapeAllSameRun(r *rand.Rand) string {
 // logic on inputs that contain multi-byte sequences, AND the Normalise
 // NFC/NFD round-trip with combining marks.
 func mixedShapeUnicodeRich(r *rand.Rand) string {
-	n := 4 + r.Intn(29) // 4..32
+	n := 4 + r.Intn(29)           // 4..32
 	runes := make([]rune, 0, n*2) // combining marks may add bytes
 	for i := 0; i < n; i++ {
 		switch r.Intn(4) {
@@ -3579,7 +3579,7 @@ func TestProp_DoubleMetaphone_KeyCharset(t *testing.T) {
 			}
 			for i := 0; i < len(key); i++ {
 				c := key[i]
-				if !((c >= 'A' && c <= 'Z') || c == '0') {
+				if (c < 'A' || c > 'Z') && c != '0' {
 					return false
 				}
 			}

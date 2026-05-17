@@ -120,7 +120,7 @@ func dmIsVowel(c byte) bool {
 
 // dmSlgCheck reports whether the uppercased ASCII input contains any of the
 // patterns that indicate a SlavoGermanic origin: W, K, CZ, or WITZ.
-func dmSlgCheck(s string) bool {
+func dmSlgCheck(s string) bool { //nolint:gocyclo // SlavoGermanic detection over 4 alternative patterns; gocyclo counts each || as a branch, but the function is a flat scan with early returns and the structure is canonical
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c == 'W' || c == 'K' {
@@ -188,7 +188,7 @@ func dmAdd(pBuf, sBuf *[dmMaxLen]byte, pLen, sLen *int, p, alt string) {
 // Uses a stack-allocated [64]byte buffer for inputs ≤ 64 ASCII letters
 // to avoid a heap allocation on common English names. Falls back to
 // strings.Builder for longer or non-ASCII-heavy inputs.
-func dmPrep(s string) string {
+func dmPrep(s string) string { //nolint:gocyclo // input-canonicalisation pre-scan (ASCII uppercase + non-letter filter + leading-cluster fix-ups); the per-character branches are inherent to the Philips 2000 pre-prep rules
 	if s == "" {
 		return ""
 	}
@@ -215,7 +215,7 @@ func dmPrep(s string) string {
 			}
 			i++
 		} else {
-			_, sz := runeAt(s, i)
+			sz := runeSizeAt(s, i)
 			i += sz
 		}
 	}
@@ -237,7 +237,7 @@ heapPath:
 			}
 			i++
 		} else {
-			_, sz := runeAt(s, i)
+			sz := runeSizeAt(s, i)
 			i += sz
 		}
 	}
@@ -255,7 +255,7 @@ heapPath:
 // Unicode-aware similarity on non-ASCII input, compose with
 // Normalise + diacritic stripping before calling this function, or
 // use a character-based algorithm (e.g. Levenshtein, Jaro-Winkler).
-func DoubleMetaphoneKeys(s string) (primary, secondary string) {
+func DoubleMetaphoneKeys(s string) (primary, secondary string) { //nolint:gocyclo // canonical Philips 2000 state machine — a single switch on the current uppercased character expanding to ~200 lookahead/lookbehind branches; gocyclo's 275 reflects the algorithm's documented complexity, not avoidable nesting
 	v := dmPrep(s)
 	if len(v) == 0 {
 		return "", ""
@@ -417,7 +417,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 				continue
 			}
 			// "CC" (but not "MCC")
-			if dmContains(v, i, "CC") && !(i == 1 && v[0] == 'M') {
+			if dmContains(v, i, "CC") && (i != 1 || v[0] != 'M') {
 				// "CCH", "CCHI"
 				if at(i+2) == 'I' || at(i+2) == 'E' || at(i+2) == 'H' {
 					// ACCIDENT, ACCEDE, SUCCEED
@@ -735,14 +735,15 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			}
 			// "SCH"
 			if dmContains(v, i, "SCH") {
-				// Preceding vowel Germanic: "SCHER", "SCHEN" → X, SK
-				if dmContains(v, i+3, "ER") || dmContains(v, i+3, "EN") {
+				switch {
+				case dmContains(v, i+3, "ER") || dmContains(v, i+3, "EN"):
+					// Preceding vowel Germanic: "SCHER", "SCHEN" → X, SK
 					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "SK")
-				} else if i == 0 && !dmIsVowel(at(3)) && at(3) != 'W' {
+				case i == 0 && !dmIsVowel(at(3)) && at(3) != 'W':
 					// Initial SCH + consonant (not W) — Germanic names like Schmidt.
 					// Primary is X (sh-sound); secondary is S (Germanic hard SCH).
 					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "S")
-				} else {
+				default:
 					dmAdd(&pBuf, &sBuf, &pLen, &sLen, "X", "")
 				}
 				i += 3
@@ -848,8 +849,11 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 			i++
 
 		case 'X':
-			if !(i == n-1 && (dmContains(v, i-3, "IAU") || dmContains(v, i-3, "EAU") ||
-				dmContains(v, i-2, "AU") || dmContains(v, i-2, "OU"))) {
+			// De Morgan: skip "KS" emission only when X is final AND
+			// preceded by IAU/EAU/AU/OU (French-style silent suffix).
+			isFinalSilent := i == n-1 && (dmContains(v, i-3, "IAU") || dmContains(v, i-3, "EAU") ||
+				dmContains(v, i-2, "AU") || dmContains(v, i-2, "OU"))
+			if !isFinalSilent {
 				dmAdd(&pBuf, &sBuf, &pLen, &sLen, "KS", "")
 			}
 			if at(i+1) == 'C' || at(i+1) == 'X' {
@@ -909,7 +913,7 @@ func DoubleMetaphoneKeys(s string) (primary, secondary string) {
 // Unicode-aware similarity on non-ASCII input, compose with
 // Normalise + diacritic stripping before calling this function, or
 // use a character-based algorithm (e.g. Levenshtein, Jaro-Winkler).
-func DoubleMetaphoneScore(a, b string) float64 {
+func DoubleMetaphoneScore(a, b string) float64 { //nolint:gocyclo // exhaustive primary-vs-secondary key-pair comparison; each branch maps to a distinct Philips 2000 similarity tier
 	// Identity short-circuit: covers both-empty (1.0) and same-string (1.0).
 	if a == b {
 		return 1.0

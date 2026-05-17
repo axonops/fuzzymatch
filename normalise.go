@@ -144,15 +144,15 @@ func DefaultNormalisationOptions() NormalisationOptions {
 //
 // Performance scope (Q7b, docs/requirements.md §14.1):
 //
-//   The published budget is ≤ 1 alloc per call on ASCII Short. The ASCII
-//   fast path uses a make([]byte, 0, len(s)*2+1) scratch buffer (1 heap
-//   allocation) followed by string(buf) on return. The 0-alloc target
-//   listed in earlier drafts was unachievable: the buffer cannot live on
-//   the stack because escape analysis cannot prove its size at compile
-//   time, and `unsafe.String` is excluded by project policy. For long
-//   ASCII inputs (≥ 500 chars) the buffer allocation still amortises to
-//   1 alloc — only the byte-count scales with input. The Unicode path
-//   incurs ≤ 3 allocs (transform.Chain + output buffer + fold pass).
+//	The published budget is ≤ 1 alloc per call on ASCII Short. The ASCII
+//	fast path uses a make([]byte, 0, len(s)*2+1) scratch buffer (1 heap
+//	allocation) followed by string(buf) on return. The 0-alloc target
+//	listed in earlier drafts was unachievable: the buffer cannot live on
+//	the stack because escape analysis cannot prove its size at compile
+//	time, and `unsafe.String` is excluded by project policy. For long
+//	ASCII inputs (≥ 500 chars) the buffer allocation still amortises to
+//	1 alloc — only the byte-count scales with input. The Unicode path
+//	incurs ≤ 3 allocs (transform.Chain + output buffer + fold pass).
 func Normalise(s string, opts NormalisationOptions) string {
 	if s == "" {
 		return ""

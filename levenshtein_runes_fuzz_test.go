@@ -46,7 +46,7 @@ func FuzzLevenshteinScoreRunes(f *testing.F) {
 		{"", "abc"},           // one-empty
 		{"aaa", "bbb"},        // orthogonal
 		{"\xff\xfe", "abc"},   // invalid UTF-8 (FFFD-replaced under []rune)
-		{"日本語", "日本語"},       // identity, multi-byte
+		{"日本語", "日本語"},        // identity, multi-byte
 	} {
 		f.Add(pair.a, pair.b)
 	}

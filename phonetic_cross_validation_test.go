@@ -219,7 +219,8 @@ func TestPhonetic_CrossValidation(t *testing.T) {
 					if e.VariantDivergence {
 						t.Errorf(
 							"NYSIISCode(%q) = %q; want %q (Taft-1970 truncated value; jellyfish divergent value = %q, variant_divergence=true)",
-							e.Input, got, e.Code, e.DivergentJellyfishVal)
+							e.Input, got, e.Code, e.DivergentJellyfishVal,
+						)
 					} else {
 						t.Errorf("NYSIISCode(%q) = %q; want %q (jellyfish %s cross-validation)",
 							e.Input, got, e.Code, c.Metadata.JellyfishVersion)
@@ -259,7 +260,8 @@ func TestPhonetic_CrossValidation(t *testing.T) {
 					if e.VariantDivergence {
 						t.Errorf(
 							"MRACode(%q) = %q; want %q (NBS-943 expected; jellyfish divergent value = %q, variant_divergence=true)",
-							e.Input, got, e.Code, e.DivergentJellyfishVal)
+							e.Input, got, e.Code, e.DivergentJellyfishVal,
+						)
 					} else {
 						t.Errorf("MRACode(%q) = %q; want %q (jellyfish %s cross-validation)",
 							e.Input, got, e.Code, c.Metadata.JellyfishVersion)

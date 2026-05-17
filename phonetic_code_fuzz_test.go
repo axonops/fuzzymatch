@@ -59,22 +59,22 @@ import (
 // surfaced as a fuzz crash with the exact panic value.
 func FuzzPhoneticCodes(f *testing.F) {
 	for _, s := range []string{
-		"Schmidt",                                      // DM canonical (German -> SHMT/XMT)
-		"Schmit",                                       // shortened variant
-		"Knight",                                       // silent K
-		"Pfister",                                      // PF cluster
-		"Caesar",                                       // C-E rule
-		"O'Brien",                                      // apostrophe
-		"García",                                       // diacritic
-		"",                                             // empty
-		"a",                                            // single char
-		"\x00",                                         // NUL
-		"café",                                         // Latin-supplement
-		"Привет",                                       // Cyrillic (encoders typically strip non-ASCII)
-		"\xff\xfe",                                     // invalid UTF-8
-		"123",                                          // digits (no letters)
-		"!@#",                                          // punctuation only
-		"AbCdEfGhIjKlMnOpQrStUvWxYz",                   // every ASCII letter
+		"Schmidt",                    // DM canonical (German -> SHMT/XMT)
+		"Schmit",                     // shortened variant
+		"Knight",                     // silent K
+		"Pfister",                    // PF cluster
+		"Caesar",                     // C-E rule
+		"O'Brien",                    // apostrophe
+		"García",                     // diacritic
+		"",                           // empty
+		"a",                          // single char
+		"\x00",                       // NUL
+		"café",                       // Latin-supplement
+		"Привет",                     // Cyrillic (encoders typically strip non-ASCII)
+		"\xff\xfe",                   // invalid UTF-8
+		"123",                        // digits (no letters)
+		"!@#",                        // punctuation only
+		"AbCdEfGhIjKlMnOpQrStUvWxYz", // every ASCII letter
 		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // long run of same letter
 	} {
 		f.Add(s)

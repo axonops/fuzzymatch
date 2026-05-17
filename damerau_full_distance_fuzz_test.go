@@ -30,8 +30,8 @@ import (
 // the Lowrance-Wagner unrestricted-transposition distance.
 func FuzzDamerauLevenshteinFullDistance(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"ca", "abc"},          // Lowrance-Wagner discriminating vector (returns 2)
-		{"abcd", "abdc"},       // single adjacent transposition
+		{"ca", "abc"},    // Lowrance-Wagner discriminating vector (returns 2)
+		{"abcd", "abdc"}, // single adjacent transposition
 		{"", ""},
 		{"", "abc"},
 		{"abc", "abc"},

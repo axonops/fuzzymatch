@@ -284,7 +284,7 @@ func buildScorerGoldenEntries(t *testing.T) []scorerGoldenEntry {
 	// pairs land near the boundary. This entry pins the actual
 	// composite so future algorithm-internal changes that shift
 	// the boundary surface a deliberate -update review.
-	entries = append(entries, makeScorerGoldenEntry(defaultS, "abbreviation", "abreviation", "DefaultScorer"))
+	entries = append(entries, makeScorerGoldenEntry(defaultS, "abbreviation", "abreviation", "DefaultScorer")) //nolint:misspell // "abreviation" is a deliberate misspelling — the test fixture compares correct vs misspelled to exercise the near-boundary composite score
 
 	// Row 20: phonetic divergent under DefaultScorer-minus-DM.
 	// Same Smith / Schmidt pair as row 12 + row 16, but under the

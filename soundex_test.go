@@ -200,7 +200,7 @@ func TestSoundexCode_NonASCII_SilentSkip(t *testing.T) {
 	}
 	// Verify output charset is [A-Z0-9] or empty.
 	for _, c := range got {
-		if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
 			t.Errorf("SoundexCode(\"Müller\") = %q; contains non-[A-Z0-9] character %q", got, c)
 		}
 	}

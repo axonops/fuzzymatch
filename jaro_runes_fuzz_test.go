@@ -36,14 +36,14 @@ import (
 // rune-variant Jaro surface.
 func FuzzJaroScoreRunes(f *testing.F) {
 	for _, pair := range []struct{ a, b string }{
-		{"MARTHA", "MARHTA"},   // Jaro 1989 canonical (transposition)
-		{"DIXON", "DICKSONX"},  // Jaro 1989 canonical (asymmetric length)
-		{"café", "cafe"},       // multi-byte diacritic difference
-		{"Привет", "привет"},   // Cyrillic, case-only
-		{"", ""},               // both-empty
-		{"", "abc"},            // one-empty
-		{"aaa", "bbb"},         // no common characters
-		{"\xff\xfe", "abc"},    // invalid UTF-8 (FFFD-replaced)
+		{"MARTHA", "MARHTA"},  // Jaro 1989 canonical (transposition)
+		{"DIXON", "DICKSONX"}, // Jaro 1989 canonical (asymmetric length)
+		{"café", "cafe"},      // multi-byte diacritic difference
+		{"Привет", "привет"},  // Cyrillic, case-only
+		{"", ""},              // both-empty
+		{"", "abc"},           // one-empty
+		{"aaa", "bbb"},        // no common characters
+		{"\xff\xfe", "abc"},   // invalid UTF-8 (FFFD-replaced)
 		{"日本語", "日本語"},        // identity multi-byte
 	} {
 		f.Add(pair.a, pair.b)

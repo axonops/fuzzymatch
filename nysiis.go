@@ -113,7 +113,7 @@ func nysiisIsVowel(b byte) bool {
 // Unicode-aware similarity on non-ASCII input, compose with
 // Normalise + diacritic stripping before calling this function, or
 // use a character-based algorithm (e.g. Levenshtein, Jaro-Winkler).
-func NYSIISCode(s string) string {
+func NYSIISCode(s string) string { //nolint:gocyclo // canonical Taft 1970 state-machine encoder — ~20 distinct transformation rules dispatched on the current position; the CC of 78 reflects the algorithm's documented branch table
 	if len(s) == 0 {
 		return ""
 	}
@@ -129,7 +129,7 @@ func NYSIISCode(s string) string {
 		b := s[i]
 		if b >= 0x80 {
 			// Non-ASCII: skip full UTF-8 sequence.
-			_, sz := runeAt(s, i)
+			sz := runeSizeAt(s, i)
 			i += sz
 			continue
 		}

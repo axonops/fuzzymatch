@@ -61,7 +61,7 @@ func FuzzValidate(f *testing.F) {
 		{"中文", "日本語"},
 		{"\xff\xfe", "abc"},                    // invalid UTF-8 vs ASCII
 		{"\xc0\x80", "abc"},                    // overlong NUL
-		{"𝕳𝖊𝖑𝖑𝖔", "Hello"},                    // 4-byte UTF-8 vs ASCII
+		{"𝕳𝖊𝖑𝖑𝖔", "Hello"},                     // 4-byte UTF-8 vs ASCII
 		{strings.Repeat("a", 70_000), "short"}, // pathologically large
 		{"--", "--"},                           // separator-only both sides
 		{"a\x00b", "a\x00b"},                   // embedded NUL

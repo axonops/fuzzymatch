@@ -266,7 +266,7 @@ func TestMongeElkanScoreAsymmetric_DirectionSensitive(t *testing.T) {
 //   - one-empty → 0.0
 //   - explicit `MongeElkanScore(a, b, ...) ==
 //     (MongeElkanScoreAsymmetric(a, b, ...) +
-//      MongeElkanScoreAsymmetric(b, a, ...)) / 2.0`
+//     MongeElkanScoreAsymmetric(b, a, ...)) / 2.0`
 //   - symmetry pin: `MongeElkanScore(a, b) ==
 //     MongeElkanScore(b, a)` for the RV-ME-asym pair
 func TestMongeElkanScore(t *testing.T) {

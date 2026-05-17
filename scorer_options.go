@@ -451,7 +451,7 @@ func WithCosineAlgorithm(weight float64, n int) ScorerOption {
 // now applies at option-application time; the direct-call TverskyScore
 // panic (see tversky.go) wraps ErrInvalidTverskyParam so consumers can
 // discriminate via errors.Is on a recovered panic value.
-func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption {
+func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption { //nolint:gocyclo // Q2 strict-parameter framework — 4 distinct sentinel returns (ErrInvalidWeight + ErrInvalidQGramSize + ErrInvalidTverskyParam NaN/Inf branch + sign-and-sum branch), each enforced independently
 	return func(cfg *scorerConfig) error {
 		// Phase 8.5 Q2 — strict-parameter guards. NaN/Inf must be
 		// tested before the comparison-based checks because NaN

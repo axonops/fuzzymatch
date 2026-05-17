@@ -156,38 +156,60 @@ func TestDoubleMetaphoneKeys_LiteratureReferenceVectors(t *testing.T) {
 		note          string
 	}{
 		// RV-DM1 — docs/requirements.md §7.4.2 line 667; CONTEXT.md §3 mandatory
-		{"RV-DM1/Schmidt", "Schmidt", "XMT", "SMT", "germanic",
-			"SCH initial → X (primary sh-sound), S (Germanic secondary); load-bearing gate"},
+		{
+			"RV-DM1/Schmidt", "Schmidt", "XMT", "SMT", "germanic",
+			"SCH initial → X (primary sh-sound), S (Germanic secondary); load-bearing gate",
+		},
 		// RV-DM2 — docs/requirements.md §7.4.2 line 667; CONTEXT.md §3 mandatory
-		{"RV-DM2/Smith", "Smith", "SM0", "XMT", "germanic",
-			"SM+TH: SM initial, TH → 0 (theta primary); secondary SM→XMT via initial SM alt"},
+		{
+			"RV-DM2/Smith", "Smith", "SM0", "XMT", "germanic",
+			"SM+TH: SM initial, TH → 0 (theta primary); secondary SM→XMT via initial SM alt",
+		},
 		// RV-DM3 — C reference vectors; cross-verified with oubiwann/metaphone
-		{"RV-DM3/Schwartz", "Schwartz", "XRTS", "XRTS", "germanic",
-			"SCH→X, W→skip, AR→R, TZ→TS"},
+		{
+			"RV-DM3/Schwartz", "Schwartz", "XRTS", "XRTS", "germanic",
+			"SCH→X, W→skip, AR→R, TZ→TS",
+		},
 		// RV-DM4 — docs/requirements.md §7.4.2; CONTEXT.md §3 mandatory; PITFALLS.md Pitfall 5
-		{"RV-DM4/Pacheco", "Pacheco", "PXK", "PXK", "romance",
-			"Spanish: CH after A-O-U vowel → X/K secondary; Romance gate"},
+		{
+			"RV-DM4/Pacheco", "Pacheco", "PXK", "PXK", "romance",
+			"Spanish: CH after A-O-U vowel → X/K secondary; Romance gate",
+		},
 		// RV-DM7 — docs/requirements.md §7.4.2 line 667; CONTEXT.md §3 mandatory
-		{"RV-DM7/Catherine", "Catherine", "K0RN", "KTRN", "greek",
-			"Greek: C→K, TH→0 primary / T secondary, R→R, N→N; Greek gate"},
+		{
+			"RV-DM7/Catherine", "Catherine", "K0RN", "KTRN", "greek",
+			"Greek: C→K, TH→0 primary / T secondary, R→R, N→N; Greek gate",
+		},
 		// RV-DM8 — docs/requirements.md §7.4.2 line 667; CONTEXT.md §3 mandatory
-		{"RV-DM8/Katherine", "Katherine", "K0RN", "KTRN", "greek",
-			"Greek: K→K, TH→0 primary / T secondary, R→R, N→N; Greek gate (must equal Catherine)"},
+		{
+			"RV-DM8/Katherine", "Katherine", "K0RN", "KTRN", "greek",
+			"Greek: K→K, TH→0 primary / T secondary, R→R, N→N; Greek gate (must equal Catherine)",
+		},
 		// RV-DM10 — C reference Slavic branch
-		{"RV-DM10/Sczepanski", "Sczepanski", "", "", "slavic",
-			"Slavic SZC compound; non-empty keys required (exact values from implementation)"},
+		{
+			"RV-DM10/Sczepanski", "Sczepanski", "", "", "slavic",
+			"Slavic SZC compound; non-empty keys required (exact values from implementation)",
+		},
 		// RV-DM15 — docs/requirements.md §7.4.2 line 664 edge case
-		{"RV-DM15/empty", "", "", "", "edge",
-			"Empty input → empty keys → DoubleMetaphoneScore(\"\",\"\") = 1.0"},
+		{
+			"RV-DM15/empty", "", "", "", "edge",
+			"Empty input → empty keys → DoubleMetaphoneScore(\"\",\"\") = 1.0",
+		},
 		// RV-DM16 — C reference initial-CAE-as-S rule
-		{"RV-DM16/Caesar", "Caesar", "SSR", "SSR", "edge",
-			"CAE initial → S (Latin/Greek borrowing)"},
+		{
+			"RV-DM16/Caesar", "Caesar", "SSR", "SSR", "edge",
+			"CAE initial → S (Latin/Greek borrowing)",
+		},
 		// RV-DM17 — C reference initial-KN-as-N rule
-		{"RV-DM17/Knock", "Knock", "NK", "NK", "edge",
-			"Initial KN: K is silent → N"},
+		{
+			"RV-DM17/Knock", "Knock", "NK", "NK", "edge",
+			"Initial KN: K is silent → N",
+		},
 		// RV-DM18 — C reference Q-initial rule
-		{"RV-DM18/Quincy", "Quincy", "KNS", "KNS", "edge",
-			"Q→K, U→skip (vowel), I→skip, N→N, CY→S"},
+		{
+			"RV-DM18/Quincy", "Quincy", "KNS", "KNS", "edge",
+			"Q→K, U→skip (vowel), I→skip, N→N, CY→S",
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -319,7 +341,7 @@ func TestDoubleMetaphoneKeys_OutputCharset(t *testing.T) {
 		p, sec := fuzzymatch.DoubleMetaphoneKeys(s)
 		for _, key := range []string{p, sec} {
 			for _, c := range []byte(key) {
-				if !((c >= 'A' && c <= 'Z') || c == '0') {
+				if (c < 'A' || c > 'Z') && c != '0' {
 					t.Errorf("DoubleMetaphoneKeys(%q): key %q contains invalid char %q (must be [A-Z0])",
 						s, key, string(c))
 				}

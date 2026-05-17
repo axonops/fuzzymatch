@@ -132,7 +132,7 @@ func mraThreshold(sumLen int) int {
 // Unicode-aware similarity on non-ASCII input, compose with
 // Normalise + diacritic stripping before calling this function, or
 // use a character-based algorithm (e.g. Levenshtein, Jaro-Winkler).
-func MRACode(s string) string {
+func MRACode(s string) string { //nolint:gocyclo // canonical NBS-943 three-step encoding (input filter + vowel removal + double-consonant dedup); each step contributes a small branch count, totalling 16
 	if len(s) == 0 {
 		return ""
 	}
@@ -145,7 +145,7 @@ func MRACode(s string) string {
 		b := s[i]
 		if b >= 0x80 {
 			// Non-ASCII: skip full UTF-8 sequence.
-			_, sz := runeAt(s, i)
+			sz := runeSizeAt(s, i)
 			i += sz
 			continue
 		}
@@ -204,13 +204,20 @@ func MRACode(s string) string {
 		copy(result[:], step2Buf[:step2Len])
 		return string(result[:step2Len])
 	}
-	// first 3 + last 3
+	// step2Len > 6 here (the <=6 branch above returned). Every index in
+	// [step2Len-3, step2Len-1] is strictly positive (>= 4) and < step2Len
+	// (which is <= 64 because step2Buf has length 64 and the writes to it
+	// in steps 1-2 above are bounded by `if step2Len < 64` / `if step1Len
+	// < 64` increments). gosec's G602 bounds-prover does not propagate
+	// the `step2Len <= 6` early-return into the negation, so these three
+	// indexed reads trigger false positives — silenced explicitly.
+	// first 3 + last 3:
 	result[0] = step2Buf[0]
 	result[1] = step2Buf[1]
 	result[2] = step2Buf[2]
-	result[3] = step2Buf[step2Len-3]
-	result[4] = step2Buf[step2Len-2]
-	result[5] = step2Buf[step2Len-1]
+	result[3] = step2Buf[step2Len-3] //nolint:gosec // G602 false positive: step2Len > 6 here (early-return above)
+	result[4] = step2Buf[step2Len-2] //nolint:gosec // G602 false positive: step2Len > 6 here (early-return above)
+	result[5] = step2Buf[step2Len-1] //nolint:gosec // G602 false positive: step2Len > 6 here (early-return above)
 	return string(result[:])
 }
 
@@ -263,7 +270,7 @@ func MRACode(s string) string {
 //
 // Non-ASCII input handling: this algorithm operates on ASCII letters
 // [A-Za-z] only. Non-ASCII runes are dropped silently before encoding.
-func MRACompare(a, b string) (matched bool, simScore int) {
+func MRACompare(a, b string) (matched bool, simScore int) { //nolint:gocyclo // canonical NBS-943 six-step comparison (length gate + threshold lookup + L→R + R→L + unmatched count + threshold compare); the branches mirror the algorithm shape
 	// Identity short-circuit covers both-empty (true, 6) and same-string (true, 6).
 	if a == b {
 		return true, 6

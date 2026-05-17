@@ -254,7 +254,7 @@ import (
 //	The two scores differ — the input swap with the SAME (α, β) is the
 //	direct evidence of direction-sensitivity. See the file-level godoc
 //	above for the full derivation.
-func TverskyScore(a, b string, n int, alpha, beta float64) float64 {
+func TverskyScore(a, b string, n int, alpha, beta float64) float64 { //nolint:gocyclo // Q2 strict-parameter framework — five NaN/Inf/sign guards before the core Tversky computation, each a distinct typed-error panic
 	if a == b {
 		return 1.0 // identity short-circuit (covers both-empty too)
 	}
@@ -310,7 +310,7 @@ func TverskyScore(a, b string, n int, alpha, beta float64) float64 {
 //	QB = rune-bigrams("cafe") = {"ca":1, "af":1, "fe":1}; total 3
 //	|A∩B| = 2 (ca + af); |A−B| = 1 (fé); |B−A| = 1 (fe);
 //	T = 2 / (2 + 0.5·1 + 0.5·1) = 2 / 3 = 0.6666666666666666
-func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64 {
+func TverskyScoreRunes(a, b string, n int, alpha, beta float64) float64 { //nolint:gocyclo // rune-surface mirror of TverskyScore — same Q2 strict-parameter guards before the core computation
 	if a == b {
 		return 1.0 // identity short-circuit (covers both-empty too)
 	}
