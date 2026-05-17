@@ -89,6 +89,15 @@ removal here.
   current platform; compares against committed fixtures.
 - `make verify-license-headers` — verify every `.go` file carries
   the Apache-2.0 + AxonOps copyright header.
+- `make verify-llms-sync` — Phase 8.5 Q13 — verify `llms.txt` is in
+  sync with every exported root-package symbol (strict), and surface
+  any `llms-full.txt` drift as an advisory warning. The helper at
+  `scripts/cmd/verify-llms-sync` shares its AST walk with
+  `scripts/cmd/verify-exported-coverage` via the
+  `scripts/internal/astwalk` package, so the two gates cannot disagree
+  about the exported surface. Pass `-strict-llms-full=true` to promote
+  the `llms-full.txt` advisory warning to a failure (planned for
+  enablement after Plan 17's doc-residue fill-in lands).
 - `make regen-swg-cross-validation` — developer-only; regenerate
   `testdata/cross-validation/swg/vectors.json` from biopython's
   `Bio.Align.PairwiseAligner` via `scripts/gen-swg-cross-validation.py`.
