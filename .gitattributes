@@ -1,0 +1,21 @@
+# Golden files and cross-validation corpora MUST be byte-identical across
+# platforms (docs/requirements.md §13.3). Force LF line endings so Windows
+# checkouts don't corrupt the bytes via core.autocrlf=true.
+testdata/golden/**/*.json    text eol=lf
+testdata/cross-validation/**/*.json    text eol=lf
+
+# All Go source uses LF (gofmt assumes it).
+*.go    text eol=lf
+
+# Shell scripts and Makefiles require LF.
+*.sh    text eol=lf
+Makefile text eol=lf
+
+# YAML/TOML/JSON config files: LF.
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.toml   text eol=lf
+*.json   text eol=lf
+
+# Markdown: LF (CommonMark spec is line-ending agnostic but we choose LF for consistency).
+*.md    text eol=lf

@@ -3,8 +3,8 @@
 This project adopts the **Contributor Covenant, version 2.1**, in
 full. The complete text is published at:
 
-- https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
-- Plain text: https://www.contributor-covenant.org/version/2/1/code_of_conduct.txt
+- <https://www.contributor-covenant.org/version/2/1/code_of_conduct.html>
+- Plain text: <https://www.contributor-covenant.org/version/2/1/code_of_conduct.txt>
 
 By participating in this project — opening issues, opening PRs,
 posting comments, attending project events — you agree to be bound by
@@ -14,7 +14,7 @@ that Code in its entirety.
 
 Reports of Code of Conduct violations are received at:
 
-```
+```text
 conduct@axonops.com
 ```
 
@@ -38,4 +38,4 @@ representing the project.
 This Code of Conduct is adapted from the
 [Contributor Covenant](https://www.contributor-covenant.org/),
 version 2.1, available at
-https://www.contributor-covenant.org/version/2/1/code_of_conduct.html.
+<https://www.contributor-covenant.org/version/2/1/code_of_conduct.html>.

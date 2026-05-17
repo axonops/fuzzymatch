@@ -36,7 +36,7 @@ Delete this entire block for non-algorithm PRs.
 
 ### Source Origin Statement
 
-```
+```text
 Source origin:
 - Primary source: <full citation: author, year, title, journal/conference, page range, DOI>
 - Studied for reference vectors: <list each implementation with its licence>

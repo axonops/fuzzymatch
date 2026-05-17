@@ -804,7 +804,7 @@ Token-based algorithms operate on the result of `Tokenise(s, opts)` rather than 
 #### 7.3.2 Token Sort Ratio
 
 - **Category:** token-based, sort-and-compare
-- **Primary source:** SeatGeek (2014). *fuzzywuzzy* Python library, `fuzz.token_sort_ratio` implementation. Canonical modern reference: RapidFuzz documentation (Bachmann, M., 2020–present), https://rapidfuzz.github.io/RapidFuzz/. (No formal academic source exists; this is a practical engineering pattern.)
+- **Primary source:** SeatGeek (2014). *fuzzywuzzy* Python library, `fuzz.token_sort_ratio` implementation. Canonical modern reference: RapidFuzz documentation (Bachmann, M., 2020–present), <https://rapidfuzz.github.io/RapidFuzz/>. (No formal academic source exists; this is a practical engineering pattern.)
 - **AlgoID:** `AlgoTokenSortRatio`
 - **Public functions:**
   - `TokenSortRatioScore(a, b string, opts NormalisationOptions) float64`
@@ -1456,7 +1456,7 @@ Benchmarks in `scan/scan_bench_test.go` cover within-group only, within-plus-cro
 
 ### 12.7 Repository layout
 
-```
+```text
 github.com/axonops/fuzzymatch/scan/
 ├── scan.go                       # Item, Config, Warning, Check
 ├── scan_test.go                  # external/black-box unit tests
@@ -1880,7 +1880,7 @@ Catch-all maintainer list, with potential per-area refinement (e.g. phonetic alg
 
 ## 18. Repository Layout
 
-```
+```text
 github.com/axonops/fuzzymatch/
 ├── .github/
 │   ├── workflows/{ci,nightly,release,security,codeql}.yml
@@ -2165,7 +2165,7 @@ API frozen. Final CHANGELOG. Final benchmark numbers in `bench.txt`. Tag `v1.0.0
 - Taft, R. L. (1970). *Name search techniques*. New York State Identification and Intelligence System, Special Report No. 1.
 - Moore, G. B., Kuhns, J. L., Trefftzs, J. L., Montgomery, C. A. (1977). *Accessing individual records from personal data files using non-unique identifiers*. National Bureau of Standards Technical Note 943.
 - Ratcliff, J. W., Metzener, D. E. (1988). "Pattern matching: the gestalt approach." *Dr. Dobb's Journal*, 13(7):46–51.
-- Bachmann, M. (2020–present). RapidFuzz documentation. https://rapidfuzz.github.io/RapidFuzz/. (Canonical modern reference for Token Sort/Set/Partial Ratio shapes.)
+- Bachmann, M. (2020–present). RapidFuzz documentation. <https://rapidfuzz.github.io/RapidFuzz/>. (Canonical modern reference for Token Sort/Set/Partial Ratio shapes.)
 
 ### Empirical study referenced for algorithm coverage decisions
 

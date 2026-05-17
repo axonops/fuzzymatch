@@ -13,29 +13,36 @@ The goal of the standalone library is to identify similar-named audit fields or 
 These algorithms measure the minimum number of primitive edits (insert, delete, substitute) needed to transform one string into another, then normalise to `[0, 1]`.[^3]
 
 #### Levenshtein Distance
+
 The baseline metric. Supports insert, delete, substitute at unit cost. Excellent for short identifiers with single-character typos (`user_id` vs `user_ud`). The proposed library dep `github.com/agnivade/levenshtein` (MIT) is a single-file, zero-allocation, Unicode-correct implementation widely used in the Go ecosystem.[^4][^1]
 
 **Complexity:** O(m×n) time, O(min(m,n)) space with the two-row optimization.
 
 #### Damerau-Levenshtein Distance
+
 Extends Levenshtein with **transpositions** (adjacent character swap, `ab↔ba`) as a single edit. This is often the most important practical improvement for keyboard-adjacent typos and for identifiers like `creatd_at` vs `created_at`. Two variants exist:[^5]
+
 - **OSA (Optimal String Alignment)** — simpler, cannot handle all transpositions correctly but faster in practice.
 - **Adjacent Transpositions (full Damerau)** — correct in all cases, slightly higher constant factor.
 
 Research across 21 measures ranked Damerau-Levenshtein joint-first for correlating with human judgments on short strings.[^1]
 
 #### Jaro & Jaro-Winkler
+
 Specifically designed for short strings and names. Jaro scores based on matching characters within a proximity window and transpositions; Jaro-Winkler adds a **prefix bonus** (up to 4 characters) that gives extra weight to strings sharing a common prefix. This is ideal for audit field names that often share meaningful prefixes (`request_id` vs `request_uuid`). The proposed `github.com/xrash/smetrics` (MIT) implements Jaro-Winkler cleanly alongside Soundex.[^6][^7][^5]
 
 **Sweet spot:** Short strings (< 20 chars), identifier and name matching.
 
 #### Smith-Waterman-Gotoh
+
 A local alignment algorithm originally from bioinformatics (Smith & Waterman, 1981; Gotoh affine gap improvement, 1982). Unlike global alignment algorithms, it finds the **best matching sub-region** rather than aligning whole strings end-to-end. `github.com/adrg/strutil` (MIT) provides a production-quality Go implementation with configurable gap penalties. This is valuable when one audit type name is a substring of another (`http_request` vs `http_request_header_fields`).[^8][^9][^10][^1]
 
 #### Needleman-Wunsch
+
 A global alignment algorithm with configurable substitution costs. Less applicable than Smith-Waterman for field names because it insists on aligning the full strings. Included for completeness but lower priority in this library.[^11]
 
 #### Hamming Distance
+
 Allows only substitutions; strings must be equal length. Only useful for fixed-width coded fields (e.g., 8-char audit codes). Very fast — O(n).[^12]
 
 ***
@@ -45,17 +52,21 @@ Allows only substitutions; strings must be equal length. Only useful for fixed-w
 Q-gram methods decompose strings into overlapping character n-grams and compare the resulting sets rather than character sequences. This makes them naturally **order-insensitive within a window** and resilient to word reordering.[^1]
 
 #### Trigram Similarity
+
 The most commonly used n-gram for string matching in databases (PostgreSQL's `pg_trgm` uses this natively). For `create_user_event` vs `event_create_user`, trigram Jaccard captures high similarity where Levenshtein scores poorly.[^1]
 
 #### Jaccard Index (Bigram/Trigram)
+
 \[ J(A,B) = \frac{|A \cap B|}{|A \cup B|} \]
 Counts common n-grams divided by the total unique n-grams across both strings. The Bi-Jaccard variant performed "as well as Jaro-Winkler" on character changes in the 21-algorithm study. Available in both `github.com/hbollon/go-edlib` and `github.com/adrg/strutil`.[^13][^1]
 
 #### Sørensen-Dice Coefficient
+
 \[ DSC(A,B) = \frac{2|A \cap B|}{|A| + |B|} \]
 Closely related to Jaccard but gives more weight to the overlap (numerator multiplied by 2). Dice and Jaccard rank closely in empirical tests; Dice is slightly more permissive for partially overlapping sets. Available in `go-edlib`.[^14][^15][^16][^13]
 
 #### Cosine Similarity (Character N-gram)
+
 Treats the n-gram frequency vector of each string as a vector in n-gram space and computes the cosine of the angle between them. Handles length asymmetry better than raw Jaccard because it normalizes by vector magnitude.[^1]
 
 ***
@@ -65,6 +76,7 @@ Treats the n-gram frequency vector of each string as a vector in n-gram space an
 Token-based measures split strings on word boundaries (underscores, camelCase boundaries, hyphens) and compare word sets, completely discarding word order. This is critical for audit type/field names where snake_case and camelCase variants encode the same semantics differently.[^1]
 
 **Key preprocessing step:** A tokenizer that handles all common identifier conventions is essential:
+
 - `snake_case` → split on `_`
 - `camelCase` / `PascalCase` → split on uppercase boundary
 - `kebab-case` → split on `-`
@@ -128,6 +140,7 @@ The 2016 University of Eastern Finland study testing 21 measures across 4,968 ti
 | **Combined (mixed)** | **Soft-TFIDF > Monge-Elkan** | — |
 
 **Conclusions from the study relevant to audit field names**:[^1]
+
 1. No single algorithm wins across all scenarios — this directly motivates a weighted ensemble.
 2. Damerau-Levenshtein is the single best standalone choice for short strings with typos.
 3. Mixed (character + token) approaches consistently outperform either alone.
@@ -138,6 +151,7 @@ The 2016 University of Eastern Finland study testing 21 measures across 4,968 ti
 ## Part 4 — Composite / Ensemble Scoring
 
 ### Weighted Composite Score
+
 The standard approach in record linkage and entity deduplication systems is a **weighted linear combination**:[^25]
 
 \[ \text{Score}(a, b) = \sum_{i} w_i \cdot \text{sim}_i(a, b) \]
@@ -157,10 +171,13 @@ A reasonable starting set of weights for audit field name matching:
 Weights should be fully configurable at library construction time via functional options.[^2][^26]
 
 ### Threshold Behaviour
+
 Most production uses define a similarity threshold (e.g., 0.80) above which two strings are considered "similar". The library should return the raw composite score and leave threshold decisions to the caller — this follows the pattern of all reference libraries reviewed.[^9][^8]
 
 ### Preprocessing Pipeline
+
 Before any metric is applied, a normalization pipeline dramatically improves recall:
+
 1. **Lowercase** all input
 2. **Tokenize** by convention: split on `_`, `-`, `.`, and camelCase boundaries
 3. **Normalize** common abbreviations (configurable mapping: `usr→user`, `evt→event`, `ts→timestamp`)
@@ -220,8 +237,8 @@ Enforce zero deps structurally. In `go.mod`, there should be no `require` direct
 ```makefile
 .PHONY: check-deps
 check-deps:
-	@go mod tidy
-	@grep -q '^require' go.mod && echo "ERROR: external dependencies detected" && exit 1 || echo "OK: zero dependencies"
+ @go mod tidy
+ @grep -q '^require' go.mod && echo "ERROR: external dependencies detected" && exit 1 || echo "OK: zero dependencies"
 ```
 
 For supply-chain safety, also pin the Go toolchain version in `go.mod` using `toolchain go1.24.x` and document the minimum supported Go version prominently in the README.
@@ -314,6 +331,7 @@ The camelCase/snake_case split is critical for this use case. A robust tokenizer
 After token extraction, both the joined form (`usercreate event`) and individual tokens contribute to similarity under different metrics.
 
 ### Avoiding the "God Function" Anti-Pattern
+
 The `go-edlib` library bundles everything into one package, which simplifies imports but limits selective use. Since this is an internal library, keeping each algorithm in its own file (but same package) preserves clarity while avoiding circular-dependency pitfalls noted in Go package design.[^45][^14]
 
 ***
@@ -321,19 +339,23 @@ The `go-edlib` library bundles everything into one package, which simplifies imp
 ## Part 6 — Lessons Learned from Prior Art
 
 ### What Works
+
 - **`StringMetric` interface** in `adrg/strutil` makes algorithms trivially swappable — adopt this.[^8]
 - **Separate normalization from metric logic** — this was the single biggest quality differentiator between libraries reviewed.
 - **Table-driven tests** with known string pairs and expected similarity ranges (not exact floats, due to floating-point variance across implementations) — `go-edlib` is 100% test covered and is good to study.[^15]
 - **Unicode rune-based** processing is mandatory — byte indexing will break on any non-ASCII field name.[^24][^14]
 
 ### What to Avoid
+
 - **Embedding configurable thresholds inside metric functions** — the caller should own the threshold, not the library.
 - **Returning `int` distance instead of normalized `float64`** — distances aren't comparable across metrics without normalization. Always expose `[0, 1]`.
 - **Single monolithic `Compare(a, b, algorithm string) float64`** — use the interface pattern so Go's compiler can statically verify correctness.
 - **Global state / `init()` side effects** — Go library best practice is to avoid any package-level state that isn't explicitly initialized.[^41][^46]
 
 ### Performance Considerations
+
 For an audit library comparing many field names at startup/config-load time, performance is not critical. However, if the library is called in a hot path (e.g., real-time audit event routing):
+
 - **Levenshtein** and **Damerau-Levenshtein** are O(m×n) — acceptable for identifier lengths (< 64 chars).
 - **Ukkonen's optimization** (banded Levenshtein for threshold queries) reduces average complexity to O(k×n) where k is the edit distance threshold — `xrash/smetrics` includes this.[^7]
 - **Phonetics** can serve as a fast pre-filter: skip expensive metrics if phonetic keys don't match.
@@ -354,6 +376,7 @@ For the AxonOps audit similarity library, the recommended implementation set (in
 7. **Soundex / Double Metaphone** — optional phonetic fallback for internationalized field names[^20][^21]
 
 **Reference implementations to study (by copy/port, MIT licensed):**
+
 - Levenshtein/Damerau: `github.com/hbollon/go-edlib` (most complete, well-tested)[^15]
 - Jaro-Winkler: `github.com/xrash/smetrics` (proposed dep, or port to own code)[^6]
 - Smith-Waterman-Gotoh: `github.com/adrg/strutil/metrics` (clean Go implementation)[^8]
@@ -455,4 +478,3 @@ For the AxonOps audit similarity library, the recommended implementation set (in
 45. [Layered Design in Go - iRi](https://www.jerf.org/iri/post/2025/go_layered_design/) - This post will describe how I design my programs in Go. I needed this for work, and while I searched...
 
 46. [Go standards and style guidelines - GitLab Docs](https://docs.gitlab.com/development/go_guide/) - In Go 1.11 and later, a standard dependency system is available behind the name Go Modules. It provi...
-

@@ -40,7 +40,7 @@ Required tools (versions pinned to match CI):
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Go | 1.26.3 (or newer 1.26.x) | https://go.dev/dl |
+| Go | 1.26.3 (or newer 1.26.x) | <https://go.dev/dl> |
 | `golangci-lint` | v2.12.2 | `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2` |
 | `govulncheck` | latest | `go install golang.org/x/vuln/cmd/govulncheck@latest` |
 | `goimports` | latest | `go install golang.org/x/tools/cmd/goimports@latest` |

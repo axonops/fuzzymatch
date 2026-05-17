@@ -23,3 +23,16 @@ ignores:
   - ".planning/**"
   - ".claude/**"
   - "tests/bdd/**/vendor/**"
+  # REVIEW-FINDINGS.md is a multi-agent audit dump: 6300+ lines, one setext-style
+  # H1 per agent, code blocks without language hints, and free-form structure.
+  # It is not consumer-facing documentation — it is an audit artefact, like the
+  # files under `.planning/`. Treating it as lintable produces ~800 advisories
+  # for stylistic choices that are not load-bearing for readers.
+  - "REVIEW-FINDINGS.md"
+  # CLAUDE.md is local-only guidance for Claude Code (gitignored in some
+  # configurations) — internal tooling notes with multiple H1 sections per phase.
+  - "CLAUDE.md"
+  # docs/prior-art-research.md is a research-notes dump with extensive footnote
+  # chains that intentionally cross-reference labels defined elsewhere. The
+  # footnote-validity rule does not fit this format.
+  - "docs/prior-art-research.md"

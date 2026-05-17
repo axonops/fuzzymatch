@@ -29,7 +29,7 @@ a minor bump and a CHANGELOG entry.
 
 ## Reporting a Vulnerability
 
-Report security issues **privately** to **security@axonops.com**.
+Report security issues **privately** to **<security@axonops.com>**.
 
 Do NOT open public issues for vulnerabilities. The issue templates in
 `.github/ISSUE_TEMPLATE/` deliberately omit a "security" type; the
