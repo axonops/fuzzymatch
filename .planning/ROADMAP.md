@@ -17,7 +17,7 @@
 - [x] **Phase 5: Q-gram Algorithms** - Shared q-gram infrastructure + Jaccard, Sørensen-Dice, Cosine, Tversky (completed 2026-05-15)
 - [ ] **Phase 6: Token-based Algorithms** - Monge-Elkan, Token Sort Ratio, Token Set Ratio, Partial Ratio, Token Jaccard
 - [ ] **Phase 7: Phonetic Algorithms** - Soundex, Double Metaphone, NYSIIS, MRA
-- [ ] **Phase 8: Composite Scorer** - Functional-options weighted Scorer, ScoreAll, Match, normalisation control
+- [x] **Phase 8: Composite Scorer** - Functional-options weighted Scorer, ScoreAll, Match, normalisation control (completed 2026-05-17)
 - [ ] **Phase 9: Collection Scan Sub-package** - Within-group + cross-group passes, token-bucket optimisation, suppression composition
 - [ ] **Phase 10: Extract API** - One-to-many `Extract` / `ExtractOne` search, RapidFuzz `process.extract`-equivalent
 - [ ] **Phase 11: Integration Shakedown & v1.0.0** - `axonops/audit` consumption, API freeze, v1.0.0 signed release
@@ -145,7 +145,7 @@
   - [x] 08-01-PLAN.md — Sentinel errors + ScorerOption type + scorerConfig + 12 option functions (foundation; no Scorer methods yet)
   - [x] 08-02-PLAN.md — Scorer struct + NewScorer validation pipeline (missing-threshold first) + weight auto-normalisation + last-write-wins + Score + Match
   - [x] 08-03-PLAN.md — ScoreAll (SPEC OVERRIDE: map[AlgoID]float64) + Threshold + Algorithms + ScorerAlgorithm + DefaultScorer + DefaultScorerOptions + property + concurrent tests
-  - [ ] 08-04-PLAN.md — Finalisation: scorer-default.json golden + scorer.feature BDD + scorer_bench_test + examples (scorer-composition + identifier-similarity extension) + docs/scorer.md + docs/tuning.md + spec amendments
+  - [x] 08-04-PLAN.md — Finalisation: scorer-default.json golden + scorer.feature BDD + scorer_bench_test + examples (scorer-composition + identifier-similarity extension) + docs/scorer.md + docs/tuning.md + spec amendments
 
 ### Phase 9: Collection Scan Sub-package
 **Goal**: Ship the `scan/` sub-package (Layer 3 of the three-layer architecture) — turnkey collection-scan layer over the Scorer with within-group + cross-group passes (separate thresholds), token-bucket optimisation property-test-verified equivalent to naive O(N²), suppression composition (per-item `SilenceLint` flag + global `SuppressedPairs` list + cross-group identical-name default), deterministic output sort by `(Kind, NameA, NameB, GroupA, GroupB)` with in-line completeness assertion that no duplicate sort keys remain. Performance budget < 2s for 10,000 items committed to `bench.txt`. Sentinel error hierarchy for scan-specific failures. Cross-platform `scan-default.json` golden file pinned.
@@ -191,7 +191,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Q-gram Algorithms | 5/5 | Complete    | 2026-05-15 |
 | 6. Token-based Algorithms | 0/6 | Not started | - |
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
-| 8. Composite Scorer | 3/4 | In Progress|  |
+| 8. Composite Scorer | 4/4 | Complete   | 2026-05-17 |
 | 9. Collection Scan Sub-package | 0/TBD | Not started | - |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |
