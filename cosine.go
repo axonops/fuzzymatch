@@ -72,7 +72,10 @@
 //	The dot-product reduction MUST iterate intersection keys in
 //	SORTED ORDER. The implementation builds the intersection key
 //	slice, calls sort.Strings on it, then iterates the sorted slice
-//	with explicit (x*y) + z parenthesisation per DET-06.
+//	with explicit (x*y) + z parenthesisation per DET-06 PLUS an
+//	outer float64(...) wrap on the multiplication product to defeat
+//	compiler-emitted FMA on arm64 (Q11b LOCKED — see
+//	docs/requirements.md §14.4 and the cosineFromQGramMaps footnote).
 //
 //	Sum-of-squares norm reductions iterate map values in any order
 //	(integer addition is exactly associative; the float-determinism
@@ -159,8 +162,10 @@ import (
 //
 // Iteration order over the intersection keys is SORTED (sort.Strings)
 // per CONTEXT.md §3 LOCKED; the dot-product reduction uses explicit
-// (x*y) + z parenthesisation per DET-06. See cosine.go inline footnote
-// for the FMA-risk surface (RESEARCH.md §3 OQ-1).
+// (x*y) + z parenthesisation per DET-06 plus an outer float64(...) wrap
+// on the multiplication product to defeat compiler-emitted FMA on arm64
+// (Q11b LOCKED — docs/requirements.md §14.4). See the inline footnote
+// on cosineFromQGramMaps for the full FMA-defence rationale.
 //
 // The q-gram size n MUST be >= 1; n < 1 panics with the message
 // "fuzzymatch: invalid q-gram size" (CONTEXT.md §5 LOCKED — direct
@@ -285,16 +290,21 @@ func CosineScoreRunes(a, b string, n int) float64 {
 //	math.Sqrt(float64(normASq * normBSq)) (see RESEARCH.md
 //	"Pitfall 6").
 //
-// FMA risk surface (RESEARCH.md §3, OQ-1): Go 1.26 may emit FMA on
-// arm64 for the (x*y)+z pattern; parentheses do NOT defeat FMA fusion
-// per golang/go#17895. The cross-platform CI matrix gate
-// (testdata/golden/algorithms.json) is the load-bearing detector. If
-// matrix divergence ever appears on Cosine entries, remediate by
-// inserting an explicit float64 cast: dot = float64(float64(qa[k]) *
-// float64(qb[k])) + dot — the explicit cast forces intermediate
-// rounding and defeats FMA fusion. See RESEARCH.md §3.4 for the full
-// remediation pattern; this is documentation only — no code change is
-// required while the CI matrix passes.
+// FMA-defeating double-cast (Q11b LOCKED — docs/requirements.md §14.4).
+// The dot-product reduction wraps the multiplication product in an outer
+// float64(...) cast: `dot = float64(float64(qa[k]) * float64(qb[k])) + dot`.
+// The outer cast forces an IEEE-754 round-to-nearest-even at float64
+// precision, which the Go compiler treats as a rounding fence and
+// therefore cannot fuse into FMA (fused multiply-add). On arm64, where
+// the FPU emits FMA by default for `(a*b)+c` patterns, this defence is
+// load-bearing for cross-platform byte-identical output on
+// testdata/golden/algorithms.json. golang/go#17895 documents why
+// parenthesisation alone is not sufficient: parens bind the AST but
+// permit the back-end to elide an intermediate rounding step that
+// `(a*b)+c` would otherwise require, allowing FMA emission. The outer
+// float64(...) cast is the Go-toolchain-acknowledged workaround. Mirror
+// site: scorer.go:380 (composite reduction). See docs/requirements.md
+// §14.4 for the authoritative FMA-defence rationale.
 //
 // When both qa and qb are empty (e.g. n > min(len(a), len(b)) on
 // non-identical inputs), returns 1.0 by the both-empty convention (a
@@ -329,18 +339,21 @@ func cosineFromQGramMaps(qa, qb map[string]int) float64 { //nolint:gocyclo // em
 	// reduction. sort.Strings is byte-lexicographic, total, and
 	// platform-stable (RESEARCH.md §3.6).
 	sort.Strings(intersectionKeys)
-	// Dot product: explicit (x*y) + z parenthesisation per DET-06 —
-	// the project-canonical form that matches lcsstr.go / swg.go /
-	// jaro.go. Per the FMA-risk footnote in this function's godoc
-	// above, parentheses do NOT prevent FMA fusion on arm64 (see
-	// golang/go#17895); the empirical observation is that the
-	// (integer-derived) values of qa[k] and qb[k] are small enough
-	// that any FMA-vs-non-FMA divergence falls below the byte-diff
-	// threshold of the algorithms.json gate. If matrix divergence
-	// ever appears, remediate per RESEARCH.md §3.4.
+	// Dot product: explicit (x*y) + z parenthesisation per DET-06,
+	// plus an outer float64(...) wrap on the multiplication product
+	// to defeat compiler-emitted FMA on arm64 (Q11b LOCKED —
+	// docs/requirements.md §14.4). The outer cast forces an
+	// IEEE-754 round-to-nearest-even at float64 precision, which
+	// the Go compiler treats as a rounding fence and therefore
+	// cannot fuse into FMA (fused multiply-add). On arm64 the FPU
+	// emits FMA by default for `(a*b)+c` patterns; parenthesisation
+	// alone is not sufficient (golang/go#17895), so the outer cast
+	// is the load-bearing defence for cross-platform byte-identical
+	// output on testdata/golden/algorithms.json. Mirror site:
+	// scorer.go:380 (Scorer composite reduction).
 	var dot float64
 	for _, k := range intersectionKeys {
-		dot = (float64(qa[k]) * float64(qb[k])) + dot
+		dot = float64(float64(qa[k])*float64(qb[k])) + dot
 	}
 	// Sum of squares for each norm. Map iteration order is randomised
 	// but integer addition is exactly associative, so the per-side SUM

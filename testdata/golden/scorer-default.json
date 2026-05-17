@@ -82,7 +82,7 @@
     {
       "a": "latitude",
       "b": "longitude",
-      "score": 0.36720085470085473,
+      "score": 0.3672008547008547,
       "match": false,
       "scoreAll": {
         "DamerauLevenshteinOSA": 0.6666666666666667,
@@ -232,7 +232,7 @@
     {
       "a": "Smith",
       "b": "Schmidt",
-      "score": 0.233,
+      "score": 0.23300000000000004,
       "match": false,
       "scoreAll": {
         "DamerauLevenshteinOSA": 0.4285714285714286,
@@ -267,7 +267,7 @@
     {
       "a": "abbreviation",
       "b": "abreviation",
-      "score": 0.743970405812511,
+      "score": 0.7439704058125111,
       "match": false,
       "scoreAll": {
         "DamerauLevenshteinOSA": 0.9166666666666666,
@@ -282,7 +282,7 @@
     {
       "a": "Smith",
       "b": "Schmidt",
-      "score": 2.637857142857143,
+      "score": 2.6378571428571433,
       "match": true,
       "scoreAll": {
         "JaroWinkler": 0.7364285714285714,

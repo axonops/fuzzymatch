@@ -360,27 +360,30 @@ func (s *Scorer) Score(a, b string) float64 {
 	}
 
 	// Float-determinism reduction loop. The canonical Phase 5 pattern
-	// from cosine.go:341-344, lifted to the Scorer's per-algorithm
-	// composite: explicit (entry.weight * score) parenthesisation,
-	// left-to-right accumulation (acc = acc + (entry.weight * score)),
-	// AlgoID-sorted iteration order (the slice was sorted at NewScorer
-	// time). Per cosine.go:288-297 the parens do NOT defeat FMA on
-	// arm64; the empirical observation is that score * weight products
-	// in [0, 1] stay below the byte-diff threshold of the cross-platform
-	// golden gate. DET-06 explicit parens — see CONTEXT.md §5 LOCKED.
+	// from cosine.go:343, lifted to the Scorer's per-algorithm
+	// composite: outer float64(...) wrap on the multiplication
+	// product, left-to-right accumulation
+	// (acc = float64(entry.weight*score) + acc), AlgoID-sorted
+	// iteration order (the slice was sorted at NewScorer time).
+	// DET-06 explicit parens plus Q11b FMA-defence — see
+	// docs/requirements.md §14.4 and CONTEXT.md §5 LOCKED.
 	var acc float64
 	for _, entry := range s.algorithmsAlgoIDSorted {
 		score := entry.scoreFn(na, nb)
-		// DET-06 explicit parens — see CONTEXT.md §5 LOCKED. The
-		// `acc = acc + (entry.weight * score)` form (not `acc +=` and
-		// not `acc + (entry.weight*score)` without parens) is the
-		// locked determinism contract carrying forward from
-		// cosine.go:343. The reduction is left-to-right, AlgoID-sorted,
-		// and uses only + and * — no transcendentals, no FMA-defeating
-		// double cast (see scorer.go header for the FMA-fusion
-		// remediation pattern if cross-platform divergence ever
-		// appears in the plan-08-04 golden gate).
-		acc = acc + (entry.weight * score) //nolint:gocritic // DET-06 explicit-arithmetic locked pattern from cosine.go:343 / CONTEXT.md §5; assignOp shorthand would obscure the determinism contract
+		// FMA-defeating double-cast (Q11b LOCKED —
+		// docs/requirements.md §14.4). The outer float64(...) cast on
+		// the multiplication product forces an IEEE-754 round-to-
+		// nearest-even at float64 precision, which the Go compiler
+		// treats as a rounding fence and therefore cannot fuse into
+		// FMA (fused multiply-add). On arm64, where the FPU emits
+		// FMA by default for `(a*b)+c` patterns, this defence is
+		// load-bearing for cross-platform byte-identical output on
+		// testdata/golden/scorer-default.json. golang/go#17895
+		// documents why parenthesisation alone is not sufficient.
+		// Mirror site: cosine.go:343 (dot-product reduction). The
+		// reduction is left-to-right, AlgoID-sorted, and uses only +
+		// and * — no transcendentals, no FMA.
+		acc = float64(entry.weight*score) + acc //nolint:gocritic // DET-06 + Q11b FMA-defence locked pattern mirroring cosine.go:343 / docs/requirements.md §14.4
 	}
 	return acc
 }
