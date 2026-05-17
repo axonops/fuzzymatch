@@ -221,6 +221,7 @@ scan / Extract (Phases 9–10).
 - var ErrInvalidThreshold error
 - var ErrMissingThreshold error
 - var ErrInternalInvariantViolated error
+- var ErrInvalidSWGParam error
 
 ### Input validation and diagnostics (Phase 8.5 Q4)
 

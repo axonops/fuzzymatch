@@ -200,6 +200,19 @@ func WithAlgorithm(algo AlgoID, weight float64) ScorerOption {
 // All matching entries are removed — if the user inadvertently passed
 // WithAlgorithm(AlgoLevenshtein, w) twice and then WithoutAlgorithm
 // (AlgoLevenshtein), zero Levenshtein entries remain.
+//
+// Silent no-op (Phase 8.5 Gap 7):
+//
+// WithoutAlgorithm(id) silently no-ops when id is not present in the
+// option chain — no error, no warning, no panic, no log line. This is
+// the documented behaviour and is part of the v1.x stability contract:
+// composition patterns such as `append(DefaultScorerOptions(),
+// WithoutAlgorithm(possiblyMissing))` MUST work whether or not the
+// named AlgoID was in the upstream composition. To verify removal
+// succeeded, inspect `s.Algorithms()` on the constructed Scorer —
+// callers needing a "remove-must-find-something" semantic should
+// pre-check the option set themselves rather than relying on this
+// option to surface absence.
 func WithoutAlgorithm(id AlgoID) ScorerOption {
 	return func(cfg *scorerConfig) error {
 		// Linear scan-and-compact. The option slice is typically small

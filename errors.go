@@ -238,3 +238,39 @@ var ErrMissingThreshold = errors.New("fuzzymatch: scorer threshold required (pas
 //	s := fuzzymatch.DefaultScorer()
 //	_ = s.Score("a", "b")
 var ErrInternalInvariantViolated = errors.New("fuzzymatch: internal invariant violated (library bug — please file an issue)")
+
+// ErrInvalidSWGParam indicates a Smith-Waterman-Gotoh parameter struct
+// (SWGParams) violates the documented sign-and-finite invariants:
+// Match must be a finite, non-negative float; Mismatch, GapOpen, and
+// GapExtend must be finite, non-positive floats; NaN and ±Inf are
+// rejected in every field. The Tversky-style strict-parameter framework
+// (docs/requirements.md §6.A) applies — invalid construction is a
+// programmer error and panics with a typed-error value wrapping this
+// sentinel so consumers can discriminate via errors.Is on a recovered
+// panic value.
+//
+// Common causes: copying a partially-initialised SWGParams across a
+// boundary; computing GapOpen / GapExtend from upstream arithmetic that
+// produced NaN or Inf; flipping Match negative by accident; mutating
+// the SWGParams returned by NewSWGParams and forgetting to call
+// Validate() before passing it to SmithWatermanGotohScoreWithParams.
+//
+// Resolution: pass params satisfying Match ≥ 0, Mismatch ≤ 0,
+// GapOpen ≤ 0, GapExtend ≤ 0, all finite. The canonical defaults from
+// NewSWGParams (Match=1.0, Mismatch=-1.0, GapOpen=-1.5, GapExtend=-0.5)
+// always pass this gate; consumers mutating the struct after
+// construction should call params.Validate() to re-assert before use.
+//
+// Example:
+//
+//	defer func() {
+//	    if r := recover(); r != nil {
+//	        if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInvalidSWGParam) {
+//	            // programmer error — log and re-panic, or substitute defaults
+//	        }
+//	    }
+//	}()
+//	params := fuzzymatch.NewSWGParams()
+//	params.Match = math.NaN() // consumer error
+//	params.Validate()         // panics with a typed error wrapping ErrInvalidSWGParam
+var ErrInvalidSWGParam = errors.New("fuzzymatch: invalid Smith-Waterman-Gotoh parameters")

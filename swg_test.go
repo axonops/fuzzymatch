@@ -27,6 +27,7 @@ package fuzzymatch_test
 
 import (
 	"encoding/json"
+	"errors"
 	"math"
 	"os"
 	"path/filepath"
@@ -229,6 +230,63 @@ func TestSmithWatermanGotoh_NewSWGParams_Defaults(t *testing.T) {
 	}
 	if got != want {
 		t.Errorf("NewSWGParams() = %+v; want %+v", got, want)
+	}
+}
+
+// TestSWGParams_Validate_AcceptsDefaults asserts the locked NewSWGParams
+// defaults pass Validate() without panic — defence-in-depth pairing the
+// Validate gate (Phase 8.5 Gap 7) with the NewSWGParams self-test.
+func TestSWGParams_Validate_AcceptsDefaults(t *testing.T) {
+	t.Parallel()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("NewSWGParams().Validate() panicked: %v", r)
+		}
+	}()
+	fuzzymatch.NewSWGParams().Validate()
+}
+
+// TestSWGParams_Validate_RejectsInvariantViolations covers each
+// per-field invariant rejection (Phase 8.5 Gap 7). The expected panic
+// wraps ErrInvalidSWGParam; consumers discriminate via errors.Is on a
+// recovered panic value.
+func TestSWGParams_Validate_RejectsInvariantViolations(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		mutate func(p *fuzzymatch.SWGParams)
+	}{
+		{"Match=NaN", func(p *fuzzymatch.SWGParams) { p.Match = math.NaN() }},
+		{"Match=+Inf", func(p *fuzzymatch.SWGParams) { p.Match = math.Inf(1) }},
+		{"Match<0", func(p *fuzzymatch.SWGParams) { p.Match = -0.5 }},
+		{"Mismatch=NaN", func(p *fuzzymatch.SWGParams) { p.Mismatch = math.NaN() }},
+		{"Mismatch>0", func(p *fuzzymatch.SWGParams) { p.Mismatch = 0.5 }},
+		{"GapOpen=+Inf", func(p *fuzzymatch.SWGParams) { p.GapOpen = math.Inf(1) }},
+		{"GapOpen>0", func(p *fuzzymatch.SWGParams) { p.GapOpen = 0.5 }},
+		{"GapExtend=NaN", func(p *fuzzymatch.SWGParams) { p.GapExtend = math.NaN() }},
+		{"GapExtend>0", func(p *fuzzymatch.SWGParams) { p.GapExtend = 0.5 }},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			p := fuzzymatch.NewSWGParams()
+			c.mutate(&p)
+			defer func() {
+				r := recover()
+				if r == nil {
+					t.Fatalf("Validate did not panic on %s", c.name)
+				}
+				err, ok := r.(error)
+				if !ok {
+					t.Fatalf("recovered value is not an error: %T (%v)", r, r)
+				}
+				if !errors.Is(err, fuzzymatch.ErrInvalidSWGParam) {
+					t.Errorf("recovered error does not wrap ErrInvalidSWGParam: %v", err)
+				}
+			}()
+			p.Validate()
+		})
 	}
 }
 

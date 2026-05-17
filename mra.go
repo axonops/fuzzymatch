@@ -228,6 +228,31 @@ func MRACode(s string) string {
 // catalogue with a non-float64 return shape (per CONTEXT.md §6 LOCKED and
 // spec line 691).
 //
+// Return-shape rationale (Phase 8.5 Gap 7):
+//
+// The (bool, int) tuple is INTENTIONAL and is part of the v1.x stability
+// contract. NBS Tech Note 943 steps 5 and 6 produce two distinct pieces of
+// information per comparison — the raw 0-to-6 similarity counter (step 5)
+// AND the threshold-gated match decision (step 6) — and a downstream
+// consumer doing record linkage needs both:
+//
+//   - The decision (matched bool) drives the binary accept/reject branch.
+//   - The counter (simScore int) drives downstream ranking, scoring
+//     ensembles, and confidence display (a similarity of 5 is meaningfully
+//     stronger than a similarity of 3 even when both pass the threshold).
+//
+// Collapsing the return to a single value would force every consumer to
+// reconstruct the counter via a second pass through the algorithm,
+// defeating the work step 5 already does. Wrapping into a struct was
+// considered and rejected: the result type would appear in exactly one
+// place in the catalogue (this function) and a two-field tuple is
+// idiomatic in Go.
+//
+// MRAScore wraps MRACompare to provide the dispatch-table-compatible
+// float64 surface (1.0 on match, 0.0 otherwise). See docs/algorithms.md
+// and docs/scorer.md for the consumer-facing documentation of this
+// surface decision.
+//
 // Special cases:
 //   - Both empty: MRACompare("", "") = (true, 6) per algorithm-correctness-standards.
 //   - Identity short-circuit: if a == b, returns (true, 6) immediately.

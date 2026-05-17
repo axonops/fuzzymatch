@@ -71,10 +71,14 @@
 //   - NO init()-time table builds (per docs/requirements.md §5(12) and
 //     .claude/skills/determinism-standards): no var-level side effects.
 //   - NO map iteration on output paths (DET-03).
-//   - NO transcendental float operations (DET-06): only +, -, *, /, max-style
-//     if-comparison, and float64() conversion. The forbidden stdlib intrinsics
-//     enumerated in determinism-standards §13.3 are not referenced anywhere
-//     in this file.
+//   - NO transcendental float operations (DET-06) on the SCORING hot path:
+//     only +, -, *, /, max-style if-comparison, and float64() conversion
+//     inside swgDPRaw / swgDPRawRunes / swgClampNormalise. The forbidden
+//     stdlib intrinsics enumerated in determinism-standards §13.3 are not
+//     referenced anywhere on the scoring path. (math.IsNaN / math.IsInf
+//     appear in (SWGParams).validate(), which is a parameter-checking
+//     surface, not a scoring path — these functions inspect bit patterns
+//     and are deterministic across platforms per IEEE-754 §6.3.)
 //   - NO goroutines, channels, or mutexes.
 //   - Rune variants allocate two []rune slices — documented per Phase 2
 //     Pattern 8.
@@ -82,6 +86,11 @@
 //     shorter dimension <= maxStackInputLen.
 
 package fuzzymatch
+
+import (
+	"fmt"
+	"math"
+)
 
 // SWGParams holds the affine-gap parameters for Smith-Waterman-Gotoh local
 // alignment. All fields are exported; SWGParams is a value type (no pointer
@@ -92,8 +101,10 @@ package fuzzymatch
 // Callers may pass nonsense values (e.g. Match < 0, GapOpen > 0, NaN, +Inf):
 // the algorithm still produces a deterministic — though potentially
 // meaningless — score. No validation is performed in the *Score / *RawScore
-// entry points; the Scorer layer (Phase 8) may add composition-time
-// validation later.
+// entry points; consumers who want a strict-parameter gate (per the Q2
+// data-vs-parameter framework in docs/requirements.md §6.A) call
+// (SWGParams).Validate() after mutation, which panics with a typed-error
+// value wrapping ErrInvalidSWGParam when the invariants are violated.
 type SWGParams struct {
 	// Match is the reward for a matching position. Should be >= 0.
 	// Default 1.0 (per NewSWGParams).
@@ -124,13 +135,100 @@ type SWGParams struct {
 //
 // The returned value is a fresh copy; callers can mutate freely without
 // affecting subsequent NewSWGParams() invocations.
+//
+// Validation (Phase 8.5 Gap 7):
+//
+// The returned defaults are guaranteed to satisfy (SWGParams).Validate()
+// — they pass Match ≥ 0, Mismatch ≤ 0, GapOpen ≤ 0, GapExtend ≤ 0 and
+// every field is finite. Consumers MUTATING the returned struct should
+// call Validate() before passing it to SmithWatermanGotohScoreWithParams
+// when the mutated values come from external configuration or upstream
+// arithmetic that might introduce NaN / Inf / sign-flipped values. A
+// defence-in-depth self-test runs inside NewSWGParams to catch the
+// hypothetical case where the locked defaults are tampered with at
+// build time (e.g. via a -ldflags injection); the self-test panics
+// with a typed-error value wrapping ErrInternalInvariantViolated.
 func NewSWGParams() SWGParams {
-	return SWGParams{
+	p := SWGParams{
 		Match:     1.0,
 		Mismatch:  -1.0,
 		GapOpen:   -1.5,
 		GapExtend: -0.5,
 	}
+	// Defence-in-depth: validate the baked-in defaults. The locked
+	// defaults always pass; this self-test fires only if the constants
+	// above have been tampered with (a programmer error / build-time
+	// injection), which is an internal-invariant violation rather than
+	// a caller error — hence ErrInternalInvariantViolated instead of
+	// ErrInvalidSWGParam.
+	if err := p.validate(); err != nil {
+		panic(fmt.Errorf("%w: NewSWGParams default constants violate invariants: %w", ErrInternalInvariantViolated, err))
+	}
+	return p
+}
+
+// Validate checks the affine-gap parameter invariants documented on
+// SWGParams: Match must be a finite, non-negative float; Mismatch,
+// GapOpen, and GapExtend must be finite, non-positive floats. NaN and
+// ±Inf are rejected on every field.
+//
+// Validate panics with a typed-error value wrapping ErrInvalidSWGParam
+// when any invariant is violated — the Q2 strict-parameter framework
+// from docs/requirements.md §6.A applies. Consumers discriminate via
+// errors.Is on a recovered panic value:
+//
+//	defer func() {
+//	    if r := recover(); r != nil {
+//	        if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInvalidSWGParam) {
+//	            // programmer error — log and re-panic, or substitute defaults
+//	        }
+//	    }
+//	}()
+//	params := fuzzymatch.NewSWGParams()
+//	params.Match = math.NaN() // consumer mutation
+//	params.Validate()         // panics with a typed error wrapping ErrInvalidSWGParam
+//
+// Callers who prefer a non-panicking surface inspect SWGParams's fields
+// directly — the per-field constraints are simple enough to assert
+// inline.
+func (p SWGParams) Validate() {
+	if err := p.validate(); err != nil {
+		panic(fmt.Errorf("%w: %w", ErrInvalidSWGParam, err))
+	}
+}
+
+// validate returns a non-nil error describing the first invariant
+// violation found, or nil if every field satisfies the documented
+// constraints. Used by NewSWGParams (with the defence-in-depth
+// ErrInternalInvariantViolated wrap) and Validate (with the
+// ErrInvalidSWGParam wrap) so the two surfaces share a single
+// invariant definition.
+func (p SWGParams) validate() error {
+	if math.IsNaN(p.Match) || math.IsInf(p.Match, 0) {
+		return fmt.Errorf("Match must be finite (got %v)", p.Match)
+	}
+	if p.Match < 0 {
+		return fmt.Errorf("Match must be >= 0 (got %v)", p.Match)
+	}
+	if math.IsNaN(p.Mismatch) || math.IsInf(p.Mismatch, 0) {
+		return fmt.Errorf("Mismatch must be finite (got %v)", p.Mismatch)
+	}
+	if p.Mismatch > 0 {
+		return fmt.Errorf("Mismatch must be <= 0 (got %v)", p.Mismatch)
+	}
+	if math.IsNaN(p.GapOpen) || math.IsInf(p.GapOpen, 0) {
+		return fmt.Errorf("GapOpen must be finite (got %v)", p.GapOpen)
+	}
+	if p.GapOpen > 0 {
+		return fmt.Errorf("GapOpen must be <= 0 (got %v)", p.GapOpen)
+	}
+	if math.IsNaN(p.GapExtend) || math.IsInf(p.GapExtend, 0) {
+		return fmt.Errorf("GapExtend must be finite (got %v)", p.GapExtend)
+	}
+	if p.GapExtend > 0 {
+		return fmt.Errorf("GapExtend must be <= 0 (got %v)", p.GapExtend)
+	}
+	return nil
 }
 
 // SmithWatermanGotohScore returns the Smith-Waterman-Gotoh local-alignment

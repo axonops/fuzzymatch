@@ -286,6 +286,29 @@ func (id AlgoID) String() string { //nolint:gocyclo // one switch case per AlgoI
 //
 // Consumers needing the algorithm count call len(AlgoIDs()); consumers
 // needing the text label call (AlgoID).String().
+//
+// Hot-path caching (Phase 8.5 Gap 7):
+//
+// AlgoIDs returns a freshly-allocated slice on every call. For hot
+// paths that iterate over all algorithms (e.g. per-pair scoring loops
+// in a scan job), cache the slice once at package-init or function-
+// entry time:
+//
+//	var allAlgos = fuzzymatch.AlgoIDs()
+//
+//	func scanRow(row []string, scorer *fuzzymatch.Scorer) {
+//	    for _, id := range allAlgos {
+//	        // ... use id without re-allocating per row
+//	    }
+//	}
+//
+// The returned slice is safe to READ concurrently after the one-time
+// cache assignment but MUST NOT be mutated by the caller — mutation
+// would surface as visible state in unrelated callers' subsequent
+// AlgoIDs() calls only if the implementation switched to a shared
+// slice; today the slice is fresh per call, but the contract is
+// "treat as read-only" so the implementation can evolve without
+// breaking consumers.
 func AlgoIDs() []AlgoID {
 	return []AlgoID{
 		AlgoLevenshtein,
