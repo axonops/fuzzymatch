@@ -2,6 +2,34 @@
   "version": 1,
   "entries": [
     {
+      "name": "TokenSetRatio_both_empty_strings_deviation",
+      "algorithm": "TokenSetRatio",
+      "a": "",
+      "b": "",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSetRatio_both_pure_separator_deviation",
+      "algorithm": "TokenSetRatio",
+      "a": " ",
+      "b": "  ",
+      "expected_score": 0
+    },
+    {
+      "name": "TokenSetRatio_dedup_set_equal",
+      "algorithm": "TokenSetRatio",
+      "a": "alpha beta",
+      "b": "beta alpha alpha beta",
+      "expected_score": 1
+    },
+    {
+      "name": "TokenSetRatio_disjoint",
+      "algorithm": "TokenSetRatio",
+      "a": "abc def",
+      "b": "xyz qrs",
+      "expected_score": 0.14285714285714285
+    },
+    {
       "name": "TokenSetRatio_identity",
       "algorithm": "TokenSetRatio",
       "a": "hello world",
@@ -9,20 +37,11 @@
       "expected_score": 1
     },
     {
-      "name": "TokenSetRatio_both_empty_strings_deviation",
+      "name": "TokenSetRatio_low_overlap_singletons",
       "algorithm": "TokenSetRatio",
-      "a": "",
-      "b": "",
-      "expected_score": 0,
-      "deviation_note": "RapidFuzz issue #110 — empty-input gate fires BEFORE identity short-circuit; returns 0.0 (NOT 1.0)"
-    },
-    {
-      "name": "TokenSetRatio_both_pure_separator_deviation",
-      "algorithm": "TokenSetRatio",
-      "a": " ",
-      "b": "  ",
-      "expected_score": 0,
-      "deviation_note": "RapidFuzz issue #110 — both Tokenise to []; post-Tokenise empty-set gate fires; returns 0.0 (NOT 1.0)"
+      "a": "hello",
+      "b": "world",
+      "expected_score": 0.2
     },
     {
       "name": "TokenSetRatio_one_empty_a",
@@ -57,39 +76,14 @@
       "algorithm": "TokenSetRatio",
       "a": "hello world",
       "b": "world peace",
-      "expected_score": 0.6363636363636364,
-      "derivation_note": "intersection={world}; r1=r2=10/16=0.625; r3=ratio(\"world hello\",\"world peace\")=14/22=7/11; r3 wins"
-    },
-    {
-      "name": "TokenSetRatio_disjoint",
-      "algorithm": "TokenSetRatio",
-      "a": "abc def",
-      "b": "xyz qrs",
-      "expected_score": 0.1428571428571429,
-      "derivation_note": "intersection={}; r3=ratio(\"abc def\",\"qrs xyz\")=2/14=1/7"
-    },
-    {
-      "name": "TokenSetRatio_low_overlap_singletons",
-      "algorithm": "TokenSetRatio",
-      "a": "hello",
-      "b": "world",
-      "expected_score": 0.2
-    },
-    {
-      "name": "TokenSetRatio_dedup_set_equal",
-      "algorithm": "TokenSetRatio",
-      "a": "alpha beta",
-      "b": "beta alpha alpha beta",
-      "expected_score": 1,
-      "derivation_note": "A_set={alpha,beta}; B_set={alpha,beta}; both diffs empty; subset short-circuit"
+      "expected_score": 0.6363636363636364
     },
     {
       "name": "TokenSetRatio_unicode_reorder",
       "algorithm": "TokenSetRatio",
       "a": "café société",
       "b": "société café",
-      "expected_score": 1,
-      "derivation_note": "Tokenise produces same set on both sides; both diffs empty; subset short-circuit"
+      "expected_score": 1
     }
   ]
 }

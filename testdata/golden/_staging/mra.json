@@ -9,13 +9,6 @@
       "expected_score": 0
     },
     {
-      "name": "MRA_both_empty",
-      "algorithm": "MRA",
-      "a": "",
-      "b": "",
-      "expected_score": 1
-    },
-    {
       "name": "MRA_Byrne_Boern_match",
       "algorithm": "MRA",
       "a": "Byrne",
@@ -27,27 +20,6 @@
       "algorithm": "MRA",
       "a": "Catherine",
       "b": "Katherine",
-      "expected_score": 1
-    },
-    {
-      "name": "MRA_one_empty_a",
-      "algorithm": "MRA",
-      "a": "",
-      "b": "Smith",
-      "expected_score": 0
-    },
-    {
-      "name": "MRA_one_empty_b",
-      "algorithm": "MRA",
-      "a": "Smith",
-      "b": "",
-      "expected_score": 0
-    },
-    {
-      "name": "MRA_Smith_both",
-      "algorithm": "MRA",
-      "a": "Smith",
-      "b": "Smith",
       "expected_score": 1
     },
     {
@@ -65,11 +37,39 @@
       "expected_score": 1
     },
     {
+      "name": "MRA_Smith_both",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "Smith",
+      "expected_score": 1
+    },
+    {
       "name": "MRA_William_Willyam_match",
       "algorithm": "MRA",
       "a": "William",
       "b": "Willyam",
       "expected_score": 1
+    },
+    {
+      "name": "MRA_both_empty",
+      "algorithm": "MRA",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "MRA_one_empty_a",
+      "algorithm": "MRA",
+      "a": "",
+      "b": "Smith",
+      "expected_score": 0
+    },
+    {
+      "name": "MRA_one_empty_b",
+      "algorithm": "MRA",
+      "a": "Smith",
+      "b": "",
+      "expected_score": 0
     }
   ]
 }

@@ -1428,3 +1428,963 @@ func TestGolden_Tversky_Staging(t *testing.T) {
 	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
 	assertGoldenStaging(t, "_staging/tversky.json", file)
 }
+
+// -----------------------------------------------------------------------------
+// Phase 08.5 Plan 09 (Q13) — staging-test fill-in for Phase 6 and Phase 7
+// algorithms that previously had committed staging JSON files but no
+// producing Go-side test. The nine functions below close the catalogue at
+// 23 TestGolden_*_Staging entries (matching the 23-algorithm catalogue in
+// CLAUDE.md and algoid.go).
+//
+// Each function follows the mechanical template established by the 14
+// pre-existing TestGolden_*_Staging functions above:
+//
+//   - a build<Algo>StagingEntries(t) constructor returning a slice of
+//     goldenAlgorithmEntry whose ExpectedScore is computed from the current
+//     implementation (so the staging file stays in sync with actual output);
+//   - the test sorts by Name and calls assertGoldenStaging on the
+//     per-algorithm staging path.
+//
+// Test inputs are drawn from each algorithm's existing reference-vector
+// unit tests (the canonical worked examples cited from the primary source)
+// PLUS the standard catalogue edge cases (both-empty, one-empty, identity).
+// The set is hand-picked (no random sampling, no time, no map iteration)
+// so the staging files are deterministic across runs and platforms per
+// determinism-standards §13.4.
+//
+// Code-returning algorithms (DoubleMetaphone, NYSIIS, Soundex, MRA) are
+// scored via their *Score wrappers (which compare codes and return the
+// canonical 0.0 / 1.0 binary), so the standard float64 ExpectedScore
+// shape applies — no framework extension is required (verified against
+// dispatch_*.go for each of the four).
+
+// buildDoubleMetaphoneStagingEntries returns ten DoubleMetaphone entries
+// drawn from double_metaphone_test.go's worked-example slate (Philips 2000)
+// plus the catalogue edge cases. DoubleMetaphoneScore wraps the two-code
+// comparison into the 0.0 / 1.0 binary so the entries fit the standard
+// goldenAlgorithmEntry shape (per the dispatch wrapper in
+// dispatch_double_metaphone.go).
+func buildDoubleMetaphoneStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "DoubleMetaphone_Catherine_Katherine_exact",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Catherine",
+			B:             "Katherine",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Catherine", "Katherine"),
+		},
+		{
+			Name:          "DoubleMetaphone_Cheung_Chen_match",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Cheung",
+			B:             "Chen",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Cheung", "Chen"),
+		},
+		{
+			Name:          "DoubleMetaphone_Cheung_XNK_match",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Cheung",
+			B:             "Cheung",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Cheung", "Cheung"),
+		},
+		{
+			Name:          "DoubleMetaphone_Schmidt_Mueller_nomatch",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Schmidt",
+			B:             "Mueller",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Schmidt", "Mueller"),
+		},
+		{
+			Name:          "DoubleMetaphone_Schmidt_Smith_XMT_match",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Schmidt",
+			B:             "Smith",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Schmidt", "Smith"),
+		},
+		{
+			Name:          "DoubleMetaphone_Smith_Garcia_nomatch",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Smith",
+			B:             "Garcia",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Smith", "Garcia"),
+		},
+		{
+			Name:          "DoubleMetaphone_both_empty",
+			Algorithm:     "DoubleMetaphone",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("", ""),
+		},
+		{
+			Name:          "DoubleMetaphone_identical_Schmidt",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Schmidt",
+			B:             "Schmidt",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Schmidt", "Schmidt"),
+		},
+		{
+			Name:          "DoubleMetaphone_one_empty_a",
+			Algorithm:     "DoubleMetaphone",
+			A:             "",
+			B:             "Schmidt",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("", "Schmidt"),
+		},
+		{
+			Name:          "DoubleMetaphone_one_empty_b",
+			Algorithm:     "DoubleMetaphone",
+			A:             "Schmidt",
+			B:             "",
+			ExpectedScore: fuzzymatch.DoubleMetaphoneScore("Schmidt", ""),
+		},
+	}
+}
+
+// TestGolden_DoubleMetaphone_Staging produces
+// testdata/golden/_staging/double_metaphone.json. Entries are sorted
+// alphabetically by Name. Ten entries cover: Catherine/Katherine,
+// Cheung/Chen, Cheung/Cheung, Schmidt/Mueller, Schmidt/Smith,
+// Smith/Garcia (canonical Philips 2000 worked-example pairs), the
+// catalogue edge cases (both-empty, identity, two one-empty variants).
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_DoubleMetaphone_Staging(t *testing.T) {
+	entries := buildDoubleMetaphoneStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/double_metaphone.json", file)
+}
+
+// buildMongeElkanStagingEntries returns ten Monge-Elkan entries scored via
+// MongeElkanScoreSymmetric — the variant bound to dispatch[AlgoMongeElkan]
+// per CONTEXT.md §4 LOCKED with AlgoJaroWinkler as the default inner and
+// DefaultNormalisationOptions(). The symmetric variant participates in the
+// standard PropAlgorithmScore_Symmetric property test set, so the staging
+// entries match the dispatched output (not the asymmetric direct surface).
+//
+// Reference vectors are drawn from monge_elkan_test.go (RV-ME1 through
+// RV-ME6) plus the standard catalogue edge cases.
+func buildMongeElkanStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	opts := fuzzymatch.DefaultNormalisationOptions()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "MongeElkan_RV-ME1_user_create_vs_usr_creating_symmetric",
+			Algorithm:     "MongeElkan",
+			A:             "user create",
+			B:             "usr creating",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("user create", "usr creating", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_RV-ME2_identity",
+			Algorithm:     "MongeElkan",
+			A:             "alpha beta",
+			B:             "alpha beta",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta", "alpha beta", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_RV-ME3_disjoint_greek_symmetric",
+			Algorithm:     "MongeElkan",
+			A:             "alpha beta",
+			B:             "gamma delta",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta", "gamma delta", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_RV-ME4_RV-ME6_asymmetric_symmetric_average",
+			Algorithm:     "MongeElkan",
+			A:             "alpha",
+			B:             "alpha beta gamma",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha", "alpha beta gamma", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_RV-ME6_RV-ME4_swapped_symmetric_same_average",
+			Algorithm:     "MongeElkan",
+			A:             "alpha beta gamma",
+			B:             "alpha",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta gamma", "alpha", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_both_empty_standard",
+			Algorithm:     "MongeElkan",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("", "", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_one_empty_a",
+			Algorithm:     "MongeElkan",
+			A:             "",
+			B:             "hello world",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("", "hello world", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_one_empty_b",
+			Algorithm:     "MongeElkan",
+			A:             "hello world",
+			B:             "",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("hello world", "", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_pure_separators_both_empty_tokens",
+			Algorithm:     "MongeElkan",
+			A:             "___",
+			B:             "...",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("___", "...", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+		{
+			Name:          "MongeElkan_token_reorder_symmetric",
+			Algorithm:     "MongeElkan",
+			A:             "alpha beta gamma",
+			B:             "gamma alpha beta",
+			ExpectedScore: fuzzymatch.MongeElkanScoreSymmetric("alpha beta gamma", "gamma alpha beta", fuzzymatch.AlgoJaroWinkler, opts),
+		},
+	}
+}
+
+// TestGolden_MongeElkan_Staging produces
+// testdata/golden/_staging/monge_elkan.json. Entries are sorted
+// alphabetically by Name. Ten entries cover RV-ME1 through RV-ME6
+// (Monge & Elkan 1996 §3 reference vectors — including the symmetric
+// average of the asymmetry-pair RV-ME4 / RV-ME6) and the standard
+// catalogue edge cases (both-empty, identity via RV-ME2, two one-empty
+// variants, pure-separator inputs, token reorder).
+//
+// All entries score via MongeElkanScoreSymmetric with the LOCKED default
+// inner AlgoJaroWinkler per dispatch_monge_elkan.go.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_MongeElkan_Staging(t *testing.T) {
+	entries := buildMongeElkanStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/monge_elkan.json", file)
+}
+
+// buildMRAStagingEntries returns ten MRA (Match Rating Approach) entries
+// drawn from mra_test.go's reference vectors (NBS Tech Note 943, Lynch
+// & Arends 1977) plus the catalogue edge cases. MRAScore returns the
+// canonical 0.0 / 1.0 binary outcome from MRACompare's threshold rule;
+// the goldenAlgorithmEntry float64 shape applies directly.
+func buildMRAStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "MRA_Ad_ZachariahMontgomery_nomatch",
+			Algorithm:     "MRA",
+			A:             "Ad",
+			B:             "ZachariahMontgomery",
+			ExpectedScore: fuzzymatch.MRAScore("Ad", "ZachariahMontgomery"),
+		},
+		{
+			Name:          "MRA_Byrne_Boern_match",
+			Algorithm:     "MRA",
+			A:             "Byrne",
+			B:             "Boern",
+			ExpectedScore: fuzzymatch.MRAScore("Byrne", "Boern"),
+		},
+		{
+			Name:          "MRA_Catherine_Katherine_match",
+			Algorithm:     "MRA",
+			A:             "Catherine",
+			B:             "Katherine",
+			ExpectedScore: fuzzymatch.MRAScore("Catherine", "Katherine"),
+		},
+		{
+			Name:          "MRA_Smith_Jones_nomatch",
+			Algorithm:     "MRA",
+			A:             "Smith",
+			B:             "Jones",
+			ExpectedScore: fuzzymatch.MRAScore("Smith", "Jones"),
+		},
+		{
+			Name:          "MRA_Smith_Smyth_match",
+			Algorithm:     "MRA",
+			A:             "Smith",
+			B:             "Smyth",
+			ExpectedScore: fuzzymatch.MRAScore("Smith", "Smyth"),
+		},
+		{
+			Name:          "MRA_Smith_both",
+			Algorithm:     "MRA",
+			A:             "Smith",
+			B:             "Smith",
+			ExpectedScore: fuzzymatch.MRAScore("Smith", "Smith"),
+		},
+		{
+			Name:          "MRA_William_Willyam_match",
+			Algorithm:     "MRA",
+			A:             "William",
+			B:             "Willyam",
+			ExpectedScore: fuzzymatch.MRAScore("William", "Willyam"),
+		},
+		{
+			Name:          "MRA_both_empty",
+			Algorithm:     "MRA",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.MRAScore("", ""),
+		},
+		{
+			Name:          "MRA_one_empty_a",
+			Algorithm:     "MRA",
+			A:             "",
+			B:             "Smith",
+			ExpectedScore: fuzzymatch.MRAScore("", "Smith"),
+		},
+		{
+			Name:          "MRA_one_empty_b",
+			Algorithm:     "MRA",
+			A:             "Smith",
+			B:             "",
+			ExpectedScore: fuzzymatch.MRAScore("Smith", ""),
+		},
+	}
+}
+
+// TestGolden_MRA_Staging produces testdata/golden/_staging/mra.json.
+// Entries are sorted alphabetically by Name. Ten entries cover the
+// canonical NBS Tech Note 943 / Lynch & Arends 1977 reference pairs
+// (Smith/Smyth, Byrne/Boern, William/Willyam, Catherine/Katherine), the
+// Smith/Jones discriminating non-match, the Ad/ZachariahMontgomery
+// length-gate non-match (|len(A)-len(B)| > 3 → fails), Smith identity,
+// and the standard catalogue edge cases.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_MRA_Staging(t *testing.T) {
+	entries := buildMRAStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/mra.json", file)
+}
+
+// buildNYSIISStagingEntries returns ten NYSIIS entries drawn from
+// nysiis_test.go's reference vectors (Taft 1970, NY State Special Report
+// No. 1) plus the catalogue edge cases. NYSIISScore wraps the code-
+// comparison into the canonical 0.0 / 1.0 binary so the standard
+// goldenAlgorithmEntry shape applies.
+func buildNYSIISStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "NYSIIS_Brown_Browne_match",
+			Algorithm:     "NYSIIS",
+			A:             "Brown",
+			B:             "Browne",
+			ExpectedScore: fuzzymatch.NYSIISScore("Brown", "Browne"),
+		},
+		{
+			Name:          "NYSIIS_Brown_Robert_nomatch",
+			Algorithm:     "NYSIIS",
+			A:             "Brown",
+			B:             "Robert",
+			ExpectedScore: fuzzymatch.NYSIISScore("Brown", "Robert"),
+		},
+		{
+			Name:          "NYSIIS_Brown_both",
+			Algorithm:     "NYSIIS",
+			A:             "Brown",
+			B:             "Brown",
+			ExpectedScore: fuzzymatch.NYSIISScore("Brown", "Brown"),
+		},
+		{
+			Name:          "NYSIIS_Catherine_Katherine_match",
+			Algorithm:     "NYSIIS",
+			A:             "Catherine",
+			B:             "Katherine",
+			ExpectedScore: fuzzymatch.NYSIISScore("Catherine", "Katherine"),
+		},
+		{
+			Name:          "NYSIIS_John_Jon_match",
+			Algorithm:     "NYSIIS",
+			A:             "John",
+			B:             "Jon",
+			ExpectedScore: fuzzymatch.NYSIISScore("John", "Jon"),
+		},
+		{
+			Name:          "NYSIIS_Robert_both",
+			Algorithm:     "NYSIIS",
+			A:             "Robert",
+			B:             "Robert",
+			ExpectedScore: fuzzymatch.NYSIISScore("Robert", "Robert"),
+		},
+		{
+			Name:          "NYSIIS_Smith_Jones_nomatch",
+			Algorithm:     "NYSIIS",
+			A:             "Smith",
+			B:             "Jones",
+			ExpectedScore: fuzzymatch.NYSIISScore("Smith", "Jones"),
+		},
+		{
+			Name:          "NYSIIS_both_empty",
+			Algorithm:     "NYSIIS",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.NYSIISScore("", ""),
+		},
+		{
+			Name:          "NYSIIS_one_empty_a",
+			Algorithm:     "NYSIIS",
+			A:             "",
+			B:             "Brown",
+			ExpectedScore: fuzzymatch.NYSIISScore("", "Brown"),
+		},
+		{
+			Name:          "NYSIIS_one_empty_b",
+			Algorithm:     "NYSIIS",
+			A:             "Brown",
+			B:             "",
+			ExpectedScore: fuzzymatch.NYSIISScore("Brown", ""),
+		},
+	}
+}
+
+// TestGolden_NYSIIS_Staging produces testdata/golden/_staging/nysiis.json.
+// Entries are sorted alphabetically by Name. Ten entries cover the Taft
+// 1970 reference pairs (Brown/Browne, Catherine/Katherine, John/Jon),
+// identity (Brown/Brown, Robert/Robert), the Smith/Jones and Brown/Robert
+// non-matches, and the standard catalogue edge cases.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_NYSIIS_Staging(t *testing.T) {
+	entries := buildNYSIISStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/nysiis.json", file)
+}
+
+// buildPartialRatioStagingEntries returns ten PartialRatio entries drawn
+// from partial_ratio_test.go's reference vectors (RapidFuzz canonical
+// alignment pairs + 06-RESEARCH.md Pitfall 3 KEYSTONE three-region
+// regression gate) plus the catalogue edge cases. PartialRatioScore is
+// the byte-path surface bound to dispatch[AlgoPartialRatio]; the rune-
+// path PartialRatioScoreRunes is exercised by separate unit tests.
+func buildPartialRatioStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "PartialRatio_both_empty",
+			Algorithm:     "PartialRatio",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.PartialRatioScore("", ""),
+		},
+		{
+			Name:          "PartialRatio_disjoint_no_overlap",
+			Algorithm:     "PartialRatio",
+			A:             "abc",
+			B:             "xyzzz",
+			ExpectedScore: fuzzymatch.PartialRatioScore("abc", "xyzzz"),
+		},
+		{
+			Name:          "PartialRatio_identity",
+			Algorithm:     "PartialRatio",
+			A:             "abc",
+			B:             "abc",
+			ExpectedScore: fuzzymatch.PartialRatioScore("abc", "abc"),
+		},
+		{
+			Name:          "PartialRatio_one_empty_a",
+			Algorithm:     "PartialRatio",
+			A:             "",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.PartialRatioScore("", "hello"),
+		},
+		{
+			Name:          "PartialRatio_one_empty_b",
+			Algorithm:     "PartialRatio",
+			A:             "hello",
+			B:             "",
+			ExpectedScore: fuzzymatch.PartialRatioScore("hello", ""),
+		},
+		{
+			Name:          "PartialRatio_partial_overlap",
+			Algorithm:     "PartialRatio",
+			A:             "abcd",
+			B:             "xabcy",
+			ExpectedScore: fuzzymatch.PartialRatioScore("abcd", "xabcy"),
+		},
+		{
+			Name:          "PartialRatio_region_1_left_tail_pitfall_3",
+			Algorithm:     "PartialRatio",
+			A:             "abc",
+			B:             "ab",
+			ExpectedScore: fuzzymatch.PartialRatioScore("abc", "ab"),
+		},
+		{
+			Name:          "PartialRatio_region_2_middle_wins",
+			Algorithm:     "PartialRatio",
+			A:             "YANKEES",
+			B:             "NEW YORK YANKEES",
+			ExpectedScore: fuzzymatch.PartialRatioScore("YANKEES", "NEW YORK YANKEES"),
+		},
+		{
+			Name:          "PartialRatio_region_3_right_tail_pitfall_3",
+			Algorithm:     "PartialRatio",
+			A:             "abc",
+			B:             "bc",
+			ExpectedScore: fuzzymatch.PartialRatioScore("abc", "bc"),
+		},
+		{
+			Name:          "PartialRatio_subset_short_at_end",
+			Algorithm:     "PartialRatio",
+			A:             "world",
+			B:             "hello world",
+			ExpectedScore: fuzzymatch.PartialRatioScore("world", "hello world"),
+		},
+	}
+}
+
+// TestGolden_PartialRatio_Staging produces
+// testdata/golden/_staging/partial_ratio.json. Entries are sorted
+// alphabetically by Name. Ten entries cover: identity, both-empty,
+// two one-empty variants, the RapidFuzz canonical YANKEES /
+// NEW YORK YANKEES Region 2 win, the 06-RESEARCH.md Pitfall 3 KEYSTONE
+// Region 1 (left-tail) and Region 3 (right-tail) regression gates,
+// partial-overlap with shifted alignment, subset-at-end, and the
+// disjoint-char-set short-circuit pair.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_PartialRatio_Staging(t *testing.T) {
+	entries := buildPartialRatioStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/partial_ratio.json", file)
+}
+
+// buildSoundexStagingEntries returns ten Soundex entries drawn from
+// soundex_test.go's reference vectors (Knuth 1973 §6.4 worked examples
+// plus the Russell/Odell 1918 patent pairs) and the catalogue edge cases.
+// SoundexScore wraps the four-character-code comparison into the
+// canonical 0.0 / 1.0 binary so the standard goldenAlgorithmEntry shape
+// applies.
+func buildSoundexStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "Soundex_Ashcraft_Ashcroft_match",
+			Algorithm:     "Soundex",
+			A:             "Ashcraft",
+			B:             "Ashcroft",
+			ExpectedScore: fuzzymatch.SoundexScore("Ashcraft", "Ashcroft"),
+		},
+		{
+			Name:          "Soundex_Catherine_Katherine_nomatch",
+			Algorithm:     "Soundex",
+			A:             "Catherine",
+			B:             "Katherine",
+			ExpectedScore: fuzzymatch.SoundexScore("Catherine", "Katherine"),
+		},
+		{
+			Name:          "Soundex_Robert_Rupert_match",
+			Algorithm:     "Soundex",
+			A:             "Robert",
+			B:             "Rupert",
+			ExpectedScore: fuzzymatch.SoundexScore("Robert", "Rupert"),
+		},
+		{
+			Name:          "Soundex_Robert_Smith_nomatch",
+			Algorithm:     "Soundex",
+			A:             "Robert",
+			B:             "Smith",
+			ExpectedScore: fuzzymatch.SoundexScore("Robert", "Smith"),
+		},
+		{
+			Name:          "Soundex_Smith_Jones_nomatch",
+			Algorithm:     "Soundex",
+			A:             "Smith",
+			B:             "Jones",
+			ExpectedScore: fuzzymatch.SoundexScore("Smith", "Jones"),
+		},
+		{
+			Name:          "Soundex_Tymczak_self_match",
+			Algorithm:     "Soundex",
+			A:             "Tymczak",
+			B:             "Tymczak",
+			ExpectedScore: fuzzymatch.SoundexScore("Tymczak", "Tymczak"),
+		},
+		{
+			Name:          "Soundex_both_empty",
+			Algorithm:     "Soundex",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.SoundexScore("", ""),
+		},
+		{
+			Name:          "Soundex_identical_Robert",
+			Algorithm:     "Soundex",
+			A:             "Robert",
+			B:             "Robert",
+			ExpectedScore: fuzzymatch.SoundexScore("Robert", "Robert"),
+		},
+		{
+			Name:          "Soundex_one_empty_a",
+			Algorithm:     "Soundex",
+			A:             "",
+			B:             "Robert",
+			ExpectedScore: fuzzymatch.SoundexScore("", "Robert"),
+		},
+		{
+			Name:          "Soundex_one_empty_b",
+			Algorithm:     "Soundex",
+			A:             "Robert",
+			B:             "",
+			ExpectedScore: fuzzymatch.SoundexScore("Robert", ""),
+		},
+	}
+}
+
+// TestGolden_Soundex_Staging produces testdata/golden/_staging/soundex.json.
+// Entries are sorted alphabetically by Name. Ten entries cover Knuth 1973
+// §6.4 worked-example pairs (Ashcraft/Ashcroft, Tymczak, Robert/Rupert),
+// the Catherine/Katherine non-match (a load-bearing differentiator from
+// NYSIIS — Soundex codes C635 vs K635 differ at index 0, so the binary
+// drops to 0), Robert/Smith and Smith/Jones non-matches, identity, and
+// the catalogue edge cases.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_Soundex_Staging(t *testing.T) {
+	entries := buildSoundexStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/soundex.json", file)
+}
+
+// buildTokenJaccardStagingEntries returns ten TokenJaccard entries drawn
+// from token_jaccard_test.go's reference vectors (RV-TJ1 through RV-TJ6)
+// plus the catalogue edge cases. TokenJaccardScore is the surface bound
+// to dispatch[AlgoTokenJaccard]; the set-vs-multiset KEYSTONE entry
+// (RV-TJ3) is the load-bearing regression gate that distinguishes this
+// algorithm from a multiset-based variant.
+func buildTokenJaccardStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "TokenJaccard_RV-TJ1_partial_overlap",
+			Algorithm:     "TokenJaccard",
+			A:             "a b c",
+			B:             "b c d",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("a b c", "b c d"),
+		},
+		{
+			Name:          "TokenJaccard_RV-TJ2_subset",
+			Algorithm:     "TokenJaccard",
+			A:             "a b",
+			B:             "a b c",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("a b", "a b c"),
+		},
+		{
+			Name:          "TokenJaccard_RV-TJ3_set_vs_multiset_keystone",
+			Algorithm:     "TokenJaccard",
+			A:             "a a b",
+			B:             "a b",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("a a b", "a b"),
+		},
+		{
+			Name:          "TokenJaccard_RV-TJ4_disjoint",
+			Algorithm:     "TokenJaccard",
+			A:             "a b c",
+			B:             "x y z",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("a b c", "x y z"),
+		},
+		{
+			Name:          "TokenJaccard_RV-TJ5_identity",
+			Algorithm:     "TokenJaccard",
+			A:             "a b c",
+			B:             "a b c",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("a b c", "a b c"),
+		},
+		{
+			Name:          "TokenJaccard_RV-TJ6_partial_overlap_greek",
+			Algorithm:     "TokenJaccard",
+			A:             "alpha beta gamma delta",
+			B:             "alpha beta epsilon zeta",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("alpha beta gamma delta", "alpha beta epsilon zeta"),
+		},
+		{
+			Name:          "TokenJaccard_both_empty",
+			Algorithm:     "TokenJaccard",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("", ""),
+		},
+		{
+			Name:          "TokenJaccard_one_empty_a",
+			Algorithm:     "TokenJaccard",
+			A:             "",
+			B:             "hello",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("", "hello"),
+		},
+		{
+			Name:          "TokenJaccard_one_empty_b",
+			Algorithm:     "TokenJaccard",
+			A:             "hello",
+			B:             "",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("hello", ""),
+		},
+		{
+			Name:          "TokenJaccard_token_reorder",
+			Algorithm:     "TokenJaccard",
+			A:             "alpha beta gamma",
+			B:             "gamma alpha beta",
+			ExpectedScore: fuzzymatch.TokenJaccardScore("alpha beta gamma", "gamma alpha beta"),
+		},
+	}
+}
+
+// TestGolden_TokenJaccard_Staging produces
+// testdata/golden/_staging/token_jaccard.json. Entries are sorted
+// alphabetically by Name. Ten entries cover RV-TJ1 (partial overlap),
+// RV-TJ2 (subset), RV-TJ3 (set-vs-multiset KEYSTONE — the load-bearing
+// regression gate distinguishing the set-based variant from a multiset
+// variant), RV-TJ4 (disjoint), RV-TJ5 (identity), RV-TJ6 (partial overlap
+// with Greek tokens), token reorder, and the standard catalogue edge
+// cases.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_TokenJaccard_Staging(t *testing.T) {
+	entries := buildTokenJaccardStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/token_jaccard.json", file)
+}
+
+// buildTokenSetRatioStagingEntries returns twelve TokenSetRatio entries
+// drawn from token_set_ratio_test.go's reference vectors (RapidFuzz
+// canonical three-way-max alignment plus the RapidFuzz issue #110
+// empty-input deviation) and the catalogue edge cases. TokenSetRatioScore
+// is the surface bound to dispatch[AlgoTokenSetRatio].
+//
+// The both-empty and both-pure-separator entries record the RapidFuzz
+// issue #110 deviation (returns 0.0, NOT 1.0) — the empty-input gate
+// fires BEFORE the identity short-circuit by design, mirroring RapidFuzz's
+// reference implementation per CONTEXT.md §3 LOCKED.
+func buildTokenSetRatioStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "TokenSetRatio_both_empty_strings_deviation",
+			Algorithm:     "TokenSetRatio",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("", ""),
+		},
+		{
+			Name:          "TokenSetRatio_both_pure_separator_deviation",
+			Algorithm:     "TokenSetRatio",
+			A:             " ",
+			B:             "  ",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore(" ", "  "),
+		},
+		{
+			Name:          "TokenSetRatio_dedup_set_equal",
+			Algorithm:     "TokenSetRatio",
+			A:             "alpha beta",
+			B:             "beta alpha alpha beta",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("alpha beta", "beta alpha alpha beta"),
+		},
+		{
+			Name:          "TokenSetRatio_disjoint",
+			Algorithm:     "TokenSetRatio",
+			A:             "abc def",
+			B:             "xyz qrs",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("abc def", "xyz qrs"),
+		},
+		{
+			Name:          "TokenSetRatio_identity",
+			Algorithm:     "TokenSetRatio",
+			A:             "hello world",
+			B:             "hello world",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("hello world", "hello world"),
+		},
+		{
+			Name:          "TokenSetRatio_low_overlap_singletons",
+			Algorithm:     "TokenSetRatio",
+			A:             "hello",
+			B:             "world",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("hello", "world"),
+		},
+		{
+			Name:          "TokenSetRatio_one_empty_a",
+			Algorithm:     "TokenSetRatio",
+			A:             "",
+			B:             "hello world",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("", "hello world"),
+		},
+		{
+			Name:          "TokenSetRatio_one_empty_b",
+			Algorithm:     "TokenSetRatio",
+			A:             "hello world",
+			B:             "",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("hello world", ""),
+		},
+		{
+			Name:          "TokenSetRatio_subset_a_in_b",
+			Algorithm:     "TokenSetRatio",
+			A:             "alpha beta",
+			B:             "alpha beta gamma",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("alpha beta", "alpha beta gamma"),
+		},
+		{
+			Name:          "TokenSetRatio_subset_b_in_a",
+			Algorithm:     "TokenSetRatio",
+			A:             "alpha beta gamma",
+			B:             "alpha beta",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("alpha beta gamma", "alpha beta"),
+		},
+		{
+			Name:          "TokenSetRatio_three_way_max_combined_wins",
+			Algorithm:     "TokenSetRatio",
+			A:             "hello world",
+			B:             "world peace",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("hello world", "world peace"),
+		},
+		{
+			Name:          "TokenSetRatio_unicode_reorder",
+			Algorithm:     "TokenSetRatio",
+			A:             "café société",
+			B:             "société café",
+			ExpectedScore: fuzzymatch.TokenSetRatioScore("café société", "société café"),
+		},
+	}
+}
+
+// TestGolden_TokenSetRatio_Staging produces
+// testdata/golden/_staging/token_set_ratio.json. Entries are sorted
+// alphabetically by Name. Twelve entries cover the RapidFuzz canonical
+// three-way max alignment (intersection / r1 / r2 / r3 combined), the
+// RapidFuzz issue #110 empty-input deviation (returns 0.0, NOT 1.0) for
+// both-empty-strings and both-pure-separator variants, dedup_set_equal
+// (subset short-circuit when sets coincide), disjoint, identity, low-
+// overlap singletons, two subset variants, two one-empty variants, and
+// the unicode reorder pair.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_TokenSetRatio_Staging(t *testing.T) {
+	entries := buildTokenSetRatioStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/token_set_ratio.json", file)
+}
+
+// buildTokenSortRatioStagingEntries returns ten TokenSortRatio entries
+// drawn from token_sort_ratio_test.go's reference vectors (RapidFuzz
+// canonical reorder-invariance pairs and the FuzzyWuzzy "fuzzy wuzzy was
+// a bear" reorder canonical) plus the catalogue edge cases.
+// TokenSortRatioScore is the surface bound to dispatch[AlgoTokenSortRatio].
+func buildTokenSortRatioStagingEntries(t *testing.T) []goldenAlgorithmEntry {
+	t.Helper()
+	return []goldenAlgorithmEntry{
+		{
+			Name:          "TokenSortRatio_both_empty",
+			Algorithm:     "TokenSortRatio",
+			A:             "",
+			B:             "",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("", ""),
+		},
+		{
+			Name:          "TokenSortRatio_disjoint",
+			Algorithm:     "TokenSortRatio",
+			A:             "abc",
+			B:             "xyz",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("abc", "xyz"),
+		},
+		{
+			Name:          "TokenSortRatio_identity",
+			Algorithm:     "TokenSortRatio",
+			A:             "hello world",
+			B:             "hello world",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("hello world", "hello world"),
+		},
+		{
+			Name:          "TokenSortRatio_low_overlap",
+			Algorithm:     "TokenSortRatio",
+			A:             "hello",
+			B:             "world",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("hello", "world"),
+		},
+		{
+			Name:          "TokenSortRatio_one_empty_a",
+			Algorithm:     "TokenSortRatio",
+			A:             "",
+			B:             "hello world",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("", "hello world"),
+		},
+		{
+			Name:          "TokenSortRatio_one_empty_b",
+			Algorithm:     "TokenSortRatio",
+			A:             "hello world",
+			B:             "",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("hello world", ""),
+		},
+		{
+			Name:          "TokenSortRatio_subset_mid",
+			Algorithm:     "TokenSortRatio",
+			A:             "alpha beta",
+			B:             "alpha beta gamma",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("alpha beta", "alpha beta gamma"),
+		},
+		{
+			Name:          "TokenSortRatio_subset_short",
+			Algorithm:     "TokenSortRatio",
+			A:             "alpha",
+			B:             "alpha beta",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("alpha", "alpha beta"),
+		},
+		{
+			Name:          "TokenSortRatio_token_reorder_canonical",
+			Algorithm:     "TokenSortRatio",
+			A:             "fuzzy wuzzy was a bear",
+			B:             "wuzzy fuzzy was a bear",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("fuzzy wuzzy was a bear", "wuzzy fuzzy was a bear"),
+		},
+		{
+			Name:          "TokenSortRatio_token_reorder_two",
+			Algorithm:     "TokenSortRatio",
+			A:             "alpha beta",
+			B:             "beta alpha",
+			ExpectedScore: fuzzymatch.TokenSortRatioScore("alpha beta", "beta alpha"),
+		},
+	}
+}
+
+// TestGolden_TokenSortRatio_Staging produces
+// testdata/golden/_staging/token_sort_ratio.json. Entries are sorted
+// alphabetically by Name. Ten entries cover identity, both-empty, two
+// one-empty variants, two token-reorder pairs (two-token swap +
+// FuzzyWuzzy "fuzzy wuzzy was a bear" canonical), two subset pairs
+// (short and mid), disjoint, and low overlap singletons.
+//
+// Run with `-update` to create or refresh the staging file.
+// Re-running without `-update` must exit 0 (file is byte-stable).
+func TestGolden_TokenSortRatio_Staging(t *testing.T) {
+	entries := buildTokenSortRatioStagingEntries(t)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name < entries[j].Name
+	})
+	file := goldenAlgorithmsFile{Version: 1, Entries: entries}
+	assertGoldenStaging(t, "_staging/token_sort_ratio.json", file)
+}

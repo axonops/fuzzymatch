@@ -13,7 +13,7 @@
       "algorithm": "MongeElkan",
       "a": "alpha beta",
       "b": "alpha beta",
-      "expected_score": 1.0
+      "expected_score": 1
     },
     {
       "name": "MongeElkan_RV-ME3_disjoint_greek_symmetric",
@@ -41,35 +41,35 @@
       "algorithm": "MongeElkan",
       "a": "",
       "b": "",
-      "expected_score": 1.0
+      "expected_score": 1
     },
     {
       "name": "MongeElkan_one_empty_a",
       "algorithm": "MongeElkan",
       "a": "",
       "b": "hello world",
-      "expected_score": 0.0
+      "expected_score": 0
     },
     {
       "name": "MongeElkan_one_empty_b",
       "algorithm": "MongeElkan",
       "a": "hello world",
       "b": "",
-      "expected_score": 0.0
+      "expected_score": 0
     },
     {
       "name": "MongeElkan_pure_separators_both_empty_tokens",
       "algorithm": "MongeElkan",
       "a": "___",
       "b": "...",
-      "expected_score": 1.0
+      "expected_score": 1
     },
     {
       "name": "MongeElkan_token_reorder_symmetric",
       "algorithm": "MongeElkan",
       "a": "alpha beta gamma",
       "b": "gamma alpha beta",
-      "expected_score": 1.0
+      "expected_score": 1
     }
   ]
 }

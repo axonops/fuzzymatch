@@ -1105,7 +1105,7 @@
       "algorithm": "TokenSetRatio",
       "a": "abc def",
       "b": "xyz qrs",
-      "expected_score": 0.1428571428571429
+      "expected_score": 0.14285714285714285
     },
     {
       "name": "TokenSetRatio_identity",

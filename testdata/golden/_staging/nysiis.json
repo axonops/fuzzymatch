@@ -2,20 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "name": "NYSIIS_both_empty",
-      "algorithm": "NYSIIS",
-      "a": "",
-      "b": "",
-      "expected_score": 1
-    },
-    {
-      "name": "NYSIIS_Brown_both",
-      "algorithm": "NYSIIS",
-      "a": "Brown",
-      "b": "Brown",
-      "expected_score": 1
-    },
-    {
       "name": "NYSIIS_Brown_Browne_match",
       "algorithm": "NYSIIS",
       "a": "Brown",
@@ -28,6 +14,13 @@
       "a": "Brown",
       "b": "Robert",
       "expected_score": 0
+    },
+    {
+      "name": "NYSIIS_Brown_both",
+      "algorithm": "NYSIIS",
+      "a": "Brown",
+      "b": "Brown",
+      "expected_score": 1
     },
     {
       "name": "NYSIIS_Catherine_Katherine_match",
@@ -44,20 +37,6 @@
       "expected_score": 1
     },
     {
-      "name": "NYSIIS_one_empty_a",
-      "algorithm": "NYSIIS",
-      "a": "",
-      "b": "Brown",
-      "expected_score": 0
-    },
-    {
-      "name": "NYSIIS_one_empty_b",
-      "algorithm": "NYSIIS",
-      "a": "Brown",
-      "b": "",
-      "expected_score": 0
-    },
-    {
       "name": "NYSIIS_Robert_both",
       "algorithm": "NYSIIS",
       "a": "Robert",
@@ -69,6 +48,27 @@
       "algorithm": "NYSIIS",
       "a": "Smith",
       "b": "Jones",
+      "expected_score": 0
+    },
+    {
+      "name": "NYSIIS_both_empty",
+      "algorithm": "NYSIIS",
+      "a": "",
+      "b": "",
+      "expected_score": 1
+    },
+    {
+      "name": "NYSIIS_one_empty_a",
+      "algorithm": "NYSIIS",
+      "a": "",
+      "b": "Brown",
+      "expected_score": 0
+    },
+    {
+      "name": "NYSIIS_one_empty_b",
+      "algorithm": "NYSIIS",
+      "a": "Brown",
+      "b": "",
       "expected_score": 0
     }
   ]

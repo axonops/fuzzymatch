@@ -20,21 +20,21 @@
       "algorithm": "TokenJaccard",
       "a": "a a b",
       "b": "a b",
-      "expected_score": 1.0
+      "expected_score": 1
     },
     {
       "name": "TokenJaccard_RV-TJ4_disjoint",
       "algorithm": "TokenJaccard",
       "a": "a b c",
       "b": "x y z",
-      "expected_score": 0.0
+      "expected_score": 0
     },
     {
       "name": "TokenJaccard_RV-TJ5_identity",
       "algorithm": "TokenJaccard",
       "a": "a b c",
       "b": "a b c",
-      "expected_score": 1.0
+      "expected_score": 1
     },
     {
       "name": "TokenJaccard_RV-TJ6_partial_overlap_greek",
@@ -48,28 +48,28 @@
       "algorithm": "TokenJaccard",
       "a": "",
       "b": "",
-      "expected_score": 1.0
+      "expected_score": 1
     },
     {
       "name": "TokenJaccard_one_empty_a",
       "algorithm": "TokenJaccard",
       "a": "",
       "b": "hello",
-      "expected_score": 0.0
+      "expected_score": 0
     },
     {
       "name": "TokenJaccard_one_empty_b",
       "algorithm": "TokenJaccard",
       "a": "hello",
       "b": "",
-      "expected_score": 0.0
+      "expected_score": 0
     },
     {
       "name": "TokenJaccard_token_reorder",
       "algorithm": "TokenJaccard",
       "a": "alpha beta gamma",
       "b": "gamma alpha beta",
-      "expected_score": 1.0
+      "expected_score": 1
     }
   ]
 }

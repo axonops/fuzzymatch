@@ -2,6 +2,48 @@
   "version": 1,
   "entries": [
     {
+      "name": "DoubleMetaphone_Catherine_Katherine_exact",
+      "algorithm": "DoubleMetaphone",
+      "a": "Catherine",
+      "b": "Katherine",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_Cheung_Chen_match",
+      "algorithm": "DoubleMetaphone",
+      "a": "Cheung",
+      "b": "Chen",
+      "expected_score": 0
+    },
+    {
+      "name": "DoubleMetaphone_Cheung_XNK_match",
+      "algorithm": "DoubleMetaphone",
+      "a": "Cheung",
+      "b": "Cheung",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_Schmidt_Mueller_nomatch",
+      "algorithm": "DoubleMetaphone",
+      "a": "Schmidt",
+      "b": "Mueller",
+      "expected_score": 0
+    },
+    {
+      "name": "DoubleMetaphone_Schmidt_Smith_XMT_match",
+      "algorithm": "DoubleMetaphone",
+      "a": "Schmidt",
+      "b": "Smith",
+      "expected_score": 1
+    },
+    {
+      "name": "DoubleMetaphone_Smith_Garcia_nomatch",
+      "algorithm": "DoubleMetaphone",
+      "a": "Smith",
+      "b": "Garcia",
+      "expected_score": 0
+    },
+    {
       "name": "DoubleMetaphone_both_empty",
       "algorithm": "DoubleMetaphone",
       "a": "",
@@ -16,34 +58,6 @@
       "expected_score": 1
     },
     {
-      "name": "DoubleMetaphone_Schmidt_Smith_XMT_match",
-      "algorithm": "DoubleMetaphone",
-      "a": "Schmidt",
-      "b": "Smith",
-      "expected_score": 1
-    },
-    {
-      "name": "DoubleMetaphone_Catherine_Katherine_exact",
-      "algorithm": "DoubleMetaphone",
-      "a": "Catherine",
-      "b": "Katherine",
-      "expected_score": 1
-    },
-    {
-      "name": "DoubleMetaphone_Schmidt_Mueller_nomatch",
-      "algorithm": "DoubleMetaphone",
-      "a": "Schmidt",
-      "b": "Mueller",
-      "expected_score": 0
-    },
-    {
-      "name": "DoubleMetaphone_Cheung_XNK_match",
-      "algorithm": "DoubleMetaphone",
-      "a": "Cheung",
-      "b": "Cheung",
-      "expected_score": 1
-    },
-    {
       "name": "DoubleMetaphone_one_empty_a",
       "algorithm": "DoubleMetaphone",
       "a": "",
@@ -55,20 +69,6 @@
       "algorithm": "DoubleMetaphone",
       "a": "Schmidt",
       "b": "",
-      "expected_score": 0
-    },
-    {
-      "name": "DoubleMetaphone_Smith_Garcia_nomatch",
-      "algorithm": "DoubleMetaphone",
-      "a": "Smith",
-      "b": "Garcia",
-      "expected_score": 0
-    },
-    {
-      "name": "DoubleMetaphone_Cheung_Chen_match",
-      "algorithm": "DoubleMetaphone",
-      "a": "Cheung",
-      "b": "Chen",
       "expected_score": 0
     }
   ]
