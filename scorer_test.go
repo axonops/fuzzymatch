@@ -579,6 +579,125 @@ func TestDefaultScorer_NeverFails(t *testing.T) {
 	}
 }
 
+// TestDefaultScorer_NeverPanics_PropertyTest is the Phase 8.5 Gap 5
+// companion property test pinning the contract that DefaultScorer never
+// reaches its panic site at scorer.go:592 (the
+// ErrInternalInvariantViolated wrap landed by Plan 01 — a defence-in-
+// depth assertion that the locked default composition cannot drift out
+// of sync with NewScorer's validation pipeline).
+//
+// The panic path is "dead code by construction": DefaultScorerOptions()
+// returns a stable, locked option set that DefaultScorer applies to
+// NewScorer. The property under test is that the panic NEVER fires for:
+//
+//   - The plain DefaultScorerOptions() composition.
+//   - Reasonable WithoutAlgorithm subsets of DefaultScorerOptions
+//     (removing any one of the six default algorithms).
+//   - Reasonable WithoutAlgorithm subsets removing an algorithm NOT in
+//     the default composition (silent no-op semantic — Gap 7).
+//
+// testing/quick drives 100 random selections of which default algorithm
+// to drop (or to attempt to drop when absent). Any panic from
+// DefaultScorer() or NewScorer(append(DefaultScorerOptions(), ...))
+// would fail the test. The locked test name is the load-bearing
+// identifier for Phase 8.5 Gap 5's compliance gate (CONTEXT.md).
+func TestDefaultScorer_NeverPanics_PropertyTest(t *testing.T) {
+	t.Parallel()
+
+	// Helper: assert no panic when invoking the supplied closure.
+	mustNotPanic := func(t *testing.T, label string, fn func()) {
+		t.Helper()
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("%s panicked: %v", label, r)
+			}
+		}()
+		fn()
+	}
+
+	// 1. Bare DefaultScorer() returns a non-nil *Scorer without panic.
+	mustNotPanic(t, "DefaultScorer()", func() {
+		s := fuzzymatch.DefaultScorer()
+		if s == nil {
+			t.Errorf("DefaultScorer() returned nil")
+		}
+	})
+
+	// 2. Property: append(DefaultScorerOptions(), WithoutAlgorithm(any default
+	//    AlgoID)) constructs without panic. The closure picks one of the six
+	//    default algorithms by index modulo len(defaults) so quick.Check
+	//    exercises every removal pattern.
+	defaults := []fuzzymatch.AlgoID{
+		fuzzymatch.AlgoDamerauLevenshteinOSA,
+		fuzzymatch.AlgoJaroWinkler,
+		fuzzymatch.AlgoTokenJaccard,
+		fuzzymatch.AlgoQGramJaccard,
+		fuzzymatch.AlgoSorensenDice,
+		fuzzymatch.AlgoDoubleMetaphone,
+	}
+	propRemoveDefault := func(idx uint8) bool {
+		i := int(idx) % len(defaults)
+		victim := defaults[i]
+		var ok bool
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("removal of default %s panicked: %v", victim, r)
+				}
+			}()
+			opts := append(fuzzymatch.DefaultScorerOptions(),
+				fuzzymatch.WithoutAlgorithm(victim),
+			)
+			s, err := fuzzymatch.NewScorer(opts...)
+			if err != nil {
+				t.Errorf("NewScorer after removing %s: %v", victim, err)
+				return
+			}
+			if s == nil {
+				t.Errorf("NewScorer after removing %s returned nil", victim)
+				return
+			}
+			ok = true
+		}()
+		return ok
+	}
+	if err := quick.Check(propRemoveDefault, &quick.Config{MaxCount: 100}); err != nil {
+		t.Errorf("propRemoveDefault: %v", err)
+	}
+
+	// 3. Property: append(DefaultScorerOptions(), WithoutAlgorithm(non-default))
+	//    is a silent no-op (Gap 7) — construction succeeds without panic and
+	//    Algorithms is unchanged. AlgoCosine is intentionally not part of the
+	//    default composition.
+	propRemoveNonDefault := func() bool {
+		var ok bool
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("removal of absent AlgoCosine panicked: %v", r)
+				}
+			}()
+			opts := append(fuzzymatch.DefaultScorerOptions(),
+				fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoCosine),
+			)
+			s, err := fuzzymatch.NewScorer(opts...)
+			if err != nil {
+				t.Errorf("NewScorer with WithoutAlgorithm(AlgoCosine): %v", err)
+				return
+			}
+			if s == nil {
+				t.Errorf("NewScorer returned nil")
+				return
+			}
+			ok = true
+		}()
+		return ok
+	}
+	if err := quick.Check(propRemoveNonDefault, &quick.Config{MaxCount: 100}); err != nil {
+		t.Errorf("propRemoveNonDefault: %v", err)
+	}
+}
+
 // TestDefaultScorerOptions_FreshSlice verifies that DefaultScorerOptions
 // returns a fresh slice on every call: mutating the returned slice MUST
 // NOT affect a subsequent call's contents, and the mutated state MUST

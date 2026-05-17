@@ -126,6 +126,43 @@ Feature: Composite weighted Scorer (Phase 8)
     When I attempt to construct a Scorer with Levenshtein weight -0.5 and threshold 0.5
     Then constructing the Scorer should return ErrInvalidWeight
 
+  @scorer @errors
+  Scenario: WithAlgorithm with an out-of-range AlgoID returns ErrInvalidAlgoID
+    # Phase 8.5 Gap 2: WithAlgorithm validates the AlgoID against the
+    # dispatch table. AlgoID(999) is out-of-range and the option-
+    # application step returns ErrInvalidAlgoID before NewScorer's
+    # downstream validation runs.
+    When I attempt to construct a Scorer with an invalid AlgoID
+    Then constructing the Scorer should return ErrInvalidAlgoID
+
+  @scorer @errors
+  Scenario: WithQGramJaccardAlgorithm with n=0 returns ErrInvalidQGramSize
+    # Phase 8.5 Gap 2: WithQGramJaccardAlgorithm validates n >= 1.
+    # n = 0 returns ErrInvalidQGramSize at option-application time
+    # (q-gram extraction is undefined for window length < 1).
+    When I attempt to construct a Scorer with QGramJaccard n=0
+    Then constructing the Scorer should return ErrInvalidQGramSize
+
+  @scorer @errors
+  Scenario: WithTverskyAlgorithm with alpha+beta=0 returns ErrInvalidTverskyParam
+    # Phase 8.5 Gap 2: WithTverskyAlgorithm validates α + β > 0.
+    # α = β = 0 collapses the Tversky denominator on disjoint pairs;
+    # the option-application step returns ErrInvalidTverskyParam.
+    When I attempt to construct a Scorer with Tversky alpha=0 beta=0
+    Then constructing the Scorer should return ErrInvalidTverskyParam
+
+  @scorer @options
+  Scenario: WithoutAlgorithm silently no-ops on absent AlgoID
+    # Phase 8.5 Gap 7: WithoutAlgorithm(id) removes every matching
+    # entry from the option chain. If id is not present (here:
+    # AlgoCosine, which is not in DefaultScorerOptions), the option
+    # is a silent no-op — no error, no warning, no panic. The
+    # resulting Scorer's Algorithms list is byte-identical to the
+    # default Scorer's.
+    When I add WithoutAlgorithm for an algorithm absent from the defaults to the option chain
+    Then the Scorer construction succeeds
+    And the Scorer's Algorithms list is unchanged
+
   @scorer @concurrency
   Scenario: Concurrent Score calls return identical results
     # CONTEXT.md §7 class 11: the Scorer is immutable after

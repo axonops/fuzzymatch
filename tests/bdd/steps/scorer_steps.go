@@ -333,6 +333,98 @@ func (sc *ScorerContext) iAttemptToConstructAScorerWithLevenshteinWeightAndThres
 	return nil
 }
 
+// iAttemptToConstructAScorerWithInvalidAlgoID runs NewScorer with
+// WithAlgorithm(AlgoID(999), 1.0) + WithThreshold(0.5) so the option-
+// application step rejects with ErrInvalidAlgoID. Stores the error for
+// the assertion step.
+// Step regex: `^I attempt to construct a Scorer with an invalid AlgoID$`
+func (sc *ScorerContext) iAttemptToConstructAScorerWithInvalidAlgoID() error {
+	_, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoID(999), 1.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	sc.lastErr = err
+	return nil
+}
+
+// iAttemptToConstructAScorerWithInvalidQGramSize runs NewScorer with
+// WithQGramJaccardAlgorithm(1.0, 0) (n = 0 is < 1) + WithThreshold(0.5).
+// Stores the error for the assertion step.
+// Step regex: `^I attempt to construct a Scorer with QGramJaccard n=0$`
+func (sc *ScorerContext) iAttemptToConstructAScorerWithInvalidQGramSize() error {
+	_, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithQGramJaccardAlgorithm(1.0, 0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	sc.lastErr = err
+	return nil
+}
+
+// iAttemptToConstructAScorerWithInvalidTverskyParam runs NewScorer with
+// WithTverskyAlgorithm(1.0, 0.0, 0.0, 3) (α + β = 0 ≤ 0) + WithThreshold(0.5).
+// Stores the error for the assertion step.
+// Step regex: `^I attempt to construct a Scorer with Tversky alpha=0 beta=0$`
+func (sc *ScorerContext) iAttemptToConstructAScorerWithInvalidTverskyParam() error {
+	_, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithTverskyAlgorithm(1.0, 0.0, 0.0, 3),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	sc.lastErr = err
+	return nil
+}
+
+// iAddWithoutAlgorithmForAnUnknownAlgoIDToTheOptionChain stores a
+// "DefaultScorerOptions + WithoutAlgorithm(absent)" option slice on the
+// context for a subsequent construction step. The chosen AlgoID
+// (AlgoCosine) is intentionally NOT part of the default composition so
+// WithoutAlgorithm is exercising the documented silent-no-op semantic.
+// Step regex: `^I add WithoutAlgorithm for an algorithm absent from the defaults to the option chain$`
+func (sc *ScorerContext) iAddWithoutAlgorithmForAnUnknownAlgoIDToTheOptionChain() error {
+	// Snapshot the default algorithm count for the later "unchanged"
+	// assertion. defaultScorer is reused as the comparison Scorer.
+	sc.defaultScorer = fuzzymatch.DefaultScorer()
+	opts := append(fuzzymatch.DefaultScorerOptions(),
+		fuzzymatch.WithoutAlgorithm(fuzzymatch.AlgoCosine),
+	)
+	s, err := fuzzymatch.NewScorer(opts...)
+	if err != nil {
+		return fmt.Errorf("NewScorer(DefaultScorerOptions + WithoutAlgorithm(AlgoCosine)): %w", err)
+	}
+	sc.scorer = s
+	return nil
+}
+
+// theScorerConstructionSucceeds asserts the scorer was built and
+// lastErr is nil.
+// Step regex: `^the Scorer construction succeeds$`
+func (sc *ScorerContext) theScorerConstructionSucceeds() error {
+	if sc.scorer == nil {
+		return fmt.Errorf("scorer not constructed (lastErr=%v)", sc.lastErr)
+	}
+	return nil
+}
+
+// theScorerAlgorithmsListIsUnchanged asserts the Scorer's Algorithms
+// slice is byte-identical (by ID and Weight) to the default Scorer's
+// — used by the WithoutAlgorithm silent-no-op scenario.
+// Step regex: `^the Scorer's Algorithms list is unchanged$`
+func (sc *ScorerContext) theScorerAlgorithmsListIsUnchanged() error {
+	if sc.scorer == nil || sc.defaultScorer == nil {
+		return fmt.Errorf("scorer or defaultScorer not constructed")
+	}
+	got := sc.scorer.Algorithms()
+	want := sc.defaultScorer.Algorithms()
+	if len(got) != len(want) {
+		return fmt.Errorf("Algorithms length mismatch: got=%d want=%d (WithoutAlgorithm should silently no-op on absent AlgoID)", len(got), len(want))
+	}
+	for i := range got {
+		if got[i].ID != want[i].ID || got[i].Weight != want[i].Weight {
+			return fmt.Errorf("Algorithms[%d] mismatch: got=(%s, %f) want=(%s, %f)", i, got[i].ID, got[i].Weight, want[i].ID, want[i].Weight)
+		}
+	}
+	return nil
+}
+
 // constructingTheScorerShouldReturn asserts the stored lastErr matches
 // the named sentinel via errors.Is. Used by all three error-path
 // scenarios.
@@ -351,8 +443,14 @@ func (sc *ScorerContext) constructingTheScorerShouldReturn(errName string) error
 		target = fuzzymatch.ErrInvalidWeight
 	case "ErrInvalidThreshold":
 		target = fuzzymatch.ErrInvalidThreshold
+	case "ErrInvalidAlgoID":
+		target = fuzzymatch.ErrInvalidAlgoID
+	case "ErrInvalidQGramSize":
+		target = fuzzymatch.ErrInvalidQGramSize
+	case "ErrInvalidTverskyParam":
+		target = fuzzymatch.ErrInvalidTverskyParam
 	default:
-		return fmt.Errorf("unknown sentinel name %q (supported: ErrMissingThreshold, ErrEmptyScorer, ErrInvalidWeight, ErrInvalidThreshold)", errName)
+		return fmt.Errorf("unknown sentinel name %q (supported: ErrMissingThreshold, ErrEmptyScorer, ErrInvalidWeight, ErrInvalidThreshold, ErrInvalidAlgoID, ErrInvalidQGramSize, ErrInvalidTverskyParam)", errName)
 	}
 	if !errors.Is(sc.lastErr, target) {
 		return fmt.Errorf("expected errors.Is(err, %s), got err = %v", errName, sc.lastErr)
@@ -679,8 +777,34 @@ func InitScorerSteps(ctx *godog.ScenarioContext) {
 		sc.iAttemptToConstructAScorerWithLevenshteinWeightAndThreshold,
 	)
 	ctx.Step(
+		`^I attempt to construct a Scorer with an invalid AlgoID$`,
+		sc.iAttemptToConstructAScorerWithInvalidAlgoID,
+	)
+	ctx.Step(
+		`^I attempt to construct a Scorer with QGramJaccard n=0$`,
+		sc.iAttemptToConstructAScorerWithInvalidQGramSize,
+	)
+	ctx.Step(
+		`^I attempt to construct a Scorer with Tversky alpha=0 beta=0$`,
+		sc.iAttemptToConstructAScorerWithInvalidTverskyParam,
+	)
+	ctx.Step(
 		`^constructing the Scorer should return (Err\w+)$`,
 		sc.constructingTheScorerShouldReturn,
+	)
+
+	// WithoutAlgorithm silent-no-op scenario (Phase 8.5 Gap 7).
+	ctx.Step(
+		`^I add WithoutAlgorithm for an algorithm absent from the defaults to the option chain$`,
+		sc.iAddWithoutAlgorithmForAnUnknownAlgoIDToTheOptionChain,
+	)
+	ctx.Step(
+		`^the Scorer construction succeeds$`,
+		sc.theScorerConstructionSucceeds,
+	)
+	ctx.Step(
+		`^the Scorer's Algorithms list is unchanged$`,
+		sc.theScorerAlgorithmsListIsUnchanged,
 	)
 
 	// Score / Match / ScoreAll invocations.
