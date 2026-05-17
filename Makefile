@@ -25,7 +25,8 @@ COVERAGE_FLOOR   := 95.0
 
 .PHONY: check test test-bdd test-fuzz lint vet fmt fmt-check bench bench-compare \
 	coverage coverage-check tidy tidy-check security verify-deps-allowlist \
-	verify-determinism verify-license-headers regen-swg-cross-validation \
+	verify-determinism verify-license-headers verify-llms-sync \
+	regen-swg-cross-validation \
 	regen-ratcliff-obershelp-cross-validation regen-token-ratio-cross-validation \
 	regen-phonetic-cross-validation regen-character-cross-validation \
 	regen-qgram-cross-validation regen-monge-elkan-cross-validation \
@@ -196,6 +197,16 @@ verify-determinism:
 
 verify-license-headers:
 	bash scripts/verify-license-headers.sh
+
+# Phase 8.5 Q13: verify llms.txt is in sync with the exported root-package
+# API surface (and llms-full.txt in advisory mode until Plan 17 lands).
+# The helper lives at scripts/cmd/verify-llms-sync; it shares the
+# go/ast walk with scripts/cmd/verify-exported-coverage via
+# scripts/internal/astwalk so the two gates cannot disagree about the
+# set of exported symbols. Exit 0 = clean (llms.txt strictly verified;
+# llms-full.txt drift surfaced as a WARN line, advisory).
+verify-llms-sync:
+	$(GO) run ./scripts/cmd/verify-llms-sync
 
 # Regenerates testdata/cross-validation/swg/vectors.json by invoking the
 # biopython-based generator script. Developer-only — NOT included in

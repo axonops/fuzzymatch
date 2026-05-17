@@ -18,6 +18,13 @@ bench.txt.new
 examples/identifier-similarity/identifier-similarity
 examples/scorer-composition/scorer-composition
 
+# Accidental binaries left at the repo root when `go build ./...` is run
+# locally (the script helpers under scripts/cmd/<name>/ produce a binary
+# named <name>). These are developer-machine artefacts; CI never emits
+# them because it invokes via `go run`.
+/verify-exported-coverage
+/verify-llms-sync
+
 # Editor / OS noise
 .DS_Store
 *.swp

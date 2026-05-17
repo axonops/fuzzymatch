@@ -140,8 +140,8 @@ Twenty-three algorithms in five categories. Every entry has its primary academic
 
 | Algorithm | `AlgoID` | Primary source | Detail |
 |-----------|----------|----------------|--------|
-| Q-Gram Jaccard | `AlgoQGramJaccard` | Ukkonen 1992; Jaccard 1912 | [docs/algorithms.md#qgramjaccard](docs/algorithms.md#qgramjaccard) |
-| Sørensen-Dice | `AlgoSorensenDice` | Sørensen 1948; Dice 1945 | [docs/algorithms.md#sorensendice](docs/algorithms.md#sorensendice) |
+| Q-Gram Jaccard | `AlgoQGramJaccard` | Ukkonen 1992; Jaccard 1912 | [docs/algorithms.md#q-gram-jaccard](docs/algorithms.md#q-gram-jaccard) |
+| Sørensen-Dice | `AlgoSorensenDice` | Sørensen 1948; Dice 1945 | [docs/algorithms.md#sørensen-dice](docs/algorithms.md#sørensen-dice) |
 | Cosine (n-gram) | `AlgoCosine` | Salton & McGill 1983 | [docs/algorithms.md#cosine](docs/algorithms.md#cosine) |
 | Tversky | `AlgoTversky` | Tversky 1977 | [docs/algorithms.md#tversky](docs/algorithms.md#tversky) |
 
@@ -149,18 +149,18 @@ Twenty-three algorithms in five categories. Every entry has its primary academic
 
 | Algorithm | `AlgoID` | Primary source | Detail |
 |-----------|----------|----------------|--------|
-| Monge-Elkan | `AlgoMongeElkan` | Monge & Elkan 1996 | [docs/algorithms.md#mongeelkan](docs/algorithms.md#mongeelkan) |
-| Token Sort Ratio | `AlgoTokenSortRatio` | SeatGeek fuzzywuzzy / RapidFuzz | [docs/algorithms.md#tokensortratio](docs/algorithms.md#tokensortratio) |
-| Token Set Ratio | `AlgoTokenSetRatio` | SeatGeek fuzzywuzzy / RapidFuzz | [docs/algorithms.md#tokensetratio](docs/algorithms.md#tokensetratio) |
-| Partial Ratio | `AlgoPartialRatio` | SeatGeek fuzzywuzzy / RapidFuzz | [docs/algorithms.md#partialratio](docs/algorithms.md#partialratio) |
-| Token Jaccard | `AlgoTokenJaccard` | Jaccard 1912 | [docs/algorithms.md#tokenjaccard](docs/algorithms.md#tokenjaccard) |
+| Monge-Elkan | `AlgoMongeElkan` | Monge & Elkan 1996 | [docs/algorithms.md#monge-elkan](docs/algorithms.md#monge-elkan) |
+| Token Sort Ratio | `AlgoTokenSortRatio` | SeatGeek fuzzywuzzy / RapidFuzz | [docs/algorithms.md#token-sort-ratio](docs/algorithms.md#token-sort-ratio) |
+| Token Set Ratio | `AlgoTokenSetRatio` | SeatGeek fuzzywuzzy / RapidFuzz | [docs/algorithms.md#token-set-ratio](docs/algorithms.md#token-set-ratio) |
+| Partial Ratio | `AlgoPartialRatio` | SeatGeek fuzzywuzzy / RapidFuzz | [docs/algorithms.md#partial-ratio](docs/algorithms.md#partial-ratio) |
+| Token Jaccard | `AlgoTokenJaccard` | Jaccard 1912 | [docs/algorithms.md#token-jaccard](docs/algorithms.md#token-jaccard) |
 
 ### Phonetic (4)
 
 | Algorithm | `AlgoID` | Primary source | Detail |
 |-----------|----------|----------------|--------|
 | Soundex | `AlgoSoundex` | Russell 1918; Knuth 1973 | [docs/algorithms.md#soundex](docs/algorithms.md#soundex) |
-| Double Metaphone | `AlgoDoubleMetaphone` | Philips 2000 | [docs/algorithms.md#doublemetaphone](docs/algorithms.md#doublemetaphone) |
+| Double Metaphone | `AlgoDoubleMetaphone` | Philips 2000 | [docs/algorithms.md#double-metaphone](docs/algorithms.md#double-metaphone) |
 | NYSIIS | `AlgoNYSIIS` | Taft 1970 | [docs/algorithms.md#nysiis](docs/algorithms.md#nysiis) |
 | MRA | `AlgoMRA` | Moore et al. 1977 (NBS TN 943) | [docs/algorithms.md#mra](docs/algorithms.md#mra) |
 
@@ -168,7 +168,7 @@ Twenty-three algorithms in five categories. Every entry has its primary academic
 
 | Algorithm | `AlgoID` | Primary source | Detail |
 |-----------|----------|----------------|--------|
-| Ratcliff-Obershelp | `AlgoRatcliffObershelp` | Ratcliff & Metzener 1988 | [docs/algorithms.md#ratcliffobershelp](docs/algorithms.md#ratcliffobershelp) |
+| Ratcliff-Obershelp | `AlgoRatcliffObershelp` | Ratcliff & Metzener 1988 | [docs/algorithms.md#ratcliff-obershelp](docs/algorithms.md#ratcliff-obershelp) |
 
 **Metaphone 3 is explicitly NOT included** due to U.S. Patent 7,440,941. See [`docs/faq.md`](docs/faq.md#why-no-metaphone-3) for the full patent screen rationale.
 

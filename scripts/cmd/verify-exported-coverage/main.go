@@ -71,6 +71,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/axonops/fuzzymatch/scripts/internal/astwalk"
 )
 
 // floorPercent is the per-exported-function statement-coverage floor
@@ -207,101 +209,27 @@ func run(profile string, out, errOut io.Writer) error { //nolint:gocyclo // cano
 	return nil
 }
 
-// collectExported walks dir via go/parser.ParseDir and returns two
-// sorted slices: exportedFuncs (top-level FuncDecls; methods excluded
-// because their coverage is rolled up to their receiver type and the
-// per-method floor is intentionally NOT enforced separately) and
-// exportedNonFuncs (TypeSpec / ValueSpec names — types, vars, consts).
+// collectExported delegates to the shared astwalk.CollectExported
+// helper and returns two sorted slices for this gate's purposes:
+// exportedFuncs (top-level FuncDecls; methods excluded because their
+// coverage is rolled up to their receiver type and the per-method
+// floor is intentionally NOT enforced separately) and exportedNonFuncs
+// (TypeSpec / ValueSpec names — types, vars, consts).
+//
+// Methods returned by the shared helper are intentionally DROPPED here
+// — see the FuncDecl branch in the AST walk for the per-method-floor
+// rationale. The verify-llms-sync helper consumes the same shared
+// helper but keeps the Methods slice.
 //
 // Test files (*_test.go) and the tests/bdd subtree are excluded from
-// the walk. The helper expects to be invoked from the repo root.
+// the walk by the shared helper. The caller expects to be invoked from
+// the repo root.
 func collectExported(dir string) (funcs, nonFuncs []string, err error) {
-	fset := token.NewFileSet()
-	filter := func(info os.FileInfo) bool {
-		return !strings.HasSuffix(info.Name(), "_test.go")
-	}
-	// parser.SkipObjectResolution speeds the parse for AST-only walks
-	// (we never resolve cross-file identifier links). parser.ParseDir
-	// is deprecated as of Go 1.25 in favour of golang.org/x/tools/go/
-	// packages — we keep it deliberately here because (a) the script is
-	// internal tooling not consumed by downstream code, (b) we do not
-	// inspect build tags so the deprecation rationale does not apply,
-	// and (c) golang.org/x/tools is not part of the root module's zero-
-	// runtime-dep allowlist.
-	pkgs, err := parser.ParseDir(fset, dir, filter, parser.SkipObjectResolution) //nolint:staticcheck // SA1019: ParseDir suits internal AST tooling; see comment above
+	res, err := astwalk.CollectExported(dir, rootPackageName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("parser.ParseDir(%s): %w", dir, err)
+		return nil, nil, err
 	}
-
-	funcSet := make(map[string]struct{})
-	nonFuncSet := make(map[string]struct{})
-
-	for _, pkg := range pkgs {
-		if pkg.Name != rootPackageName {
-			continue
-		}
-		for path, f := range pkg.Files {
-			// Defence in depth: skip the BDD subtree even if
-			// ParseDir surfaces it via symlink. ParseDir does not
-			// recurse so this guard is belt-and-braces.
-			if strings.Contains(path, excludeTestsBDD) {
-				continue
-			}
-			collectExportedFromFile(f, funcSet, nonFuncSet)
-		}
-	}
-
-	funcs = sortedKeys(funcSet)
-	nonFuncs = sortedKeys(nonFuncSet)
-	return funcs, nonFuncs, nil
-}
-
-// collectExportedFromFile walks the top-level Decls of a single
-// *ast.File and partitions exported names into funcs (FuncDecl with no
-// receiver — i.e. package-level functions, NOT methods) vs non-funcs
-// (TypeSpec, ValueSpec).
-func collectExportedFromFile(f *ast.File, funcs, nonFuncs map[string]struct{}) {
-	for _, decl := range f.Decls {
-		switch d := decl.(type) {
-		case *ast.FuncDecl:
-			// Package-level functions only (Recv == nil).
-			// Methods are reachable via their receiver type;
-			// `go tool cover -func` reports them with the
-			// "(Recv).Name" composite key which the Floor-3a
-			// gate intentionally does NOT walk per-method (a
-			// per-method floor would over-constrain method
-			// receivers that legitimately have rare paths).
-			if d.Recv != nil {
-				continue
-			}
-			if d.Name != nil && d.Name.IsExported() {
-				funcs[d.Name.Name] = struct{}{}
-			}
-		case *ast.GenDecl:
-			for _, spec := range d.Specs {
-				collectExportedFromSpec(spec, nonFuncs)
-			}
-		}
-	}
-}
-
-// collectExportedFromSpec records exported identifier names from a
-// single declaration spec (TypeSpec or ValueSpec). Grouped declarations
-// like `const ( A AlgoID = iota; B; C )` produce one ValueSpec per
-// named row, each contributing every name in spec.Names.
-func collectExportedFromSpec(spec ast.Spec, nonFuncs map[string]struct{}) {
-	switch s := spec.(type) {
-	case *ast.TypeSpec:
-		if s.Name != nil && s.Name.IsExported() {
-			nonFuncs[s.Name.Name] = struct{}{}
-		}
-	case *ast.ValueSpec:
-		for _, name := range s.Names {
-			if name != nil && name.IsExported() {
-				nonFuncs[name.Name] = struct{}{}
-			}
-		}
-	}
+	return res.Funcs, res.NonFuncs, nil
 }
 
 // loadFuncCoverage invokes `go tool cover -func=<profile>` and parses

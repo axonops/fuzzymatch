@@ -108,7 +108,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 2).
 - **Cross-reference:** `docs/requirements.md` §7.1.9.
 
-## QGramJaccard
+## Q-Gram Jaccard
 
 - **Category:** q-gram, set similarity (Jaccard index over q-gram sets)
 - **AlgoID constant:** `AlgoQGramJaccard`
@@ -117,7 +117,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 4).
 - **Cross-reference:** `docs/requirements.md` §7.2.1.
 
-## SorensenDice
+## Sørensen-Dice
 
 - **Category:** q-gram, set similarity (Dice coefficient over q-gram sets)
 - **AlgoID constant:** `AlgoSorensenDice`
@@ -144,7 +144,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 4).
 - **Cross-reference:** `docs/requirements.md` §7.2.4.
 
-## MongeElkan
+## Monge-Elkan
 
 - **Category:** token-based, hybrid (uses an inner character-based metric)
 - **AlgoID constant:** `AlgoMongeElkan`
@@ -153,7 +153,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 6).
 - **Cross-reference:** `docs/requirements.md` §7.3.1.
 
-## TokenSortRatio
+## Token Sort Ratio
 
 - **Category:** token-based, sort-and-compare
 - **AlgoID constant:** `AlgoTokenSortRatio`
@@ -162,7 +162,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 6).
 - **Cross-reference:** `docs/requirements.md` §7.3.2.
 
-## TokenSetRatio
+## Token Set Ratio
 
 - **Category:** token-based, set-and-compare
 - **AlgoID constant:** `AlgoTokenSetRatio`
@@ -171,7 +171,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 6).
 - **Cross-reference:** `docs/requirements.md` §7.3.3.
 
-## PartialRatio
+## Partial Ratio
 
 - **Category:** token-based, sliding-window
 - **AlgoID constant:** `AlgoPartialRatio`
@@ -180,7 +180,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 6).
 - **Cross-reference:** `docs/requirements.md` §7.3.4.
 
-## TokenJaccard
+## Token Jaccard
 
 - **Category:** token-based, set similarity (Jaccard index over token sets)
 - **AlgoID constant:** `AlgoTokenJaccard`
@@ -198,7 +198,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 7).
 - **Cross-reference:** `docs/requirements.md` §7.4.1.
 
-## DoubleMetaphone
+## Double Metaphone
 
 - **Category:** phonetic, multi-language tolerant (Philips 2000)
 - **AlgoID constant:** `AlgoDoubleMetaphone`
@@ -228,7 +228,7 @@ the README catalogue table can deep-link.
 - **Status:** planned (Phase 7).
 - **Cross-reference:** `docs/requirements.md` §7.4.4.
 
-## RatcliffObershelp
+## Ratcliff-Obershelp
 
 - **Category:** gestalt, recursive longest-common-substring (Ratcliff-Metzener)
 - **AlgoID constant:** `AlgoRatcliffObershelp`
