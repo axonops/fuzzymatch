@@ -1010,7 +1010,7 @@ type Scorer struct
 // Pitfall 3): options applied in order with first-error short-circuit;
 // then missing-threshold (ErrMissingThreshold) FIRST; then empty-
 // algorithms (ErrEmptyScorer); then defensive AlgoID bounds
-// (ErrInvalidAlgorithm); then dedup by last-write-wins; then weight
+// (ErrInvalidAlgoID); then dedup by last-write-wins; then weight
 // auto-normalisation (sum-to-1 when WithNormaliseWeights(true), the
 // default). On any error returns (nil, err).
 func NewScorer(opts ...ScorerOption) (*Scorer, error)
@@ -1114,7 +1114,7 @@ options below merely accumulate state into an unexported scorerConfig.
 
 Every option validates its inputs at option-application time and returns
 one of the documented sentinel errors on failure (ErrInvalidWeight,
-ErrInvalidThreshold, ErrInvalidAlgorithm). NewScorer short-circuits on
+ErrInvalidThreshold, ErrInvalidAlgoID). NewScorer short-circuits on
 the first non-nil error.
 
 ```go
@@ -1127,7 +1127,7 @@ type ScorerOption func(*scorerConfig) error
 // given weight using the algorithm's dispatch-table default parameters.
 // weight must be > 0 (else ErrInvalidWeight); algo must be in range
 // [0, numAlgorithms) with a populated dispatch entry (else
-// ErrInvalidAlgorithm).
+// ErrInvalidAlgoID).
 func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
 
 // WithoutAlgorithm returns a ScorerOption that removes every previously
@@ -1186,7 +1186,7 @@ func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption
 // WithMongeElkanAlgorithm registers Monge-Elkan symmetric with weight
 // and inner-metric AlgoID. weight must be > 0; inner must be in
 // [0, numAlgorithms) with a populated dispatch entry (else
-// ErrInvalidAlgorithm); inner == AlgoMongeElkan is rejected as
+// ErrInvalidAlgoID); inner == AlgoMongeElkan is rejected as
 // trivial-recursion. The full 18-entry permitted-inner allow-list is
 // enforced inside MongeElkanScoreSymmetric at Score time.
 func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption
@@ -1205,38 +1205,33 @@ All sentinels are flat `errors.New` values. Discriminate via
 `errors.Is(err, fuzzymatch.ErrX)`; never match the error message string.
 
 ```go
-// ErrInvalidInput indicates a caller-provided string fails an
-// algorithm's documented input constraints.
-var ErrInvalidInput = errors.New("fuzzymatch: invalid input")
+// ErrInvalidAlgoID indicates an AlgoID parameter does not match any
+// registered algorithm in the dispatch table. Returned by the Phase 8
+// Scorer option layer (WithAlgorithm, WithMongeElkanAlgorithm, …) on
+// out-of-range or unpopulated AlgoIDs.
+var ErrInvalidAlgoID = errors.New("fuzzymatch: invalid algorithm identifier")
 
-// ErrInvalidConfiguration indicates a Scorer or Extract option set is
-// internally inconsistent (negative weight, threshold outside [0,1],
-// empty algorithm list, forbidden option combination).
-var ErrInvalidConfiguration = errors.New("fuzzymatch: invalid configuration")
-
-// ErrInvalidAlgorithm indicates an AlgoID parameter does not match any
-// registered algorithm in the dispatch table.
-var ErrInvalidAlgorithm = errors.New("fuzzymatch: invalid algorithm")
-
-// ErrEmptyInput indicates BOTH input strings are empty at the boundary
-// of an API that has no defined empty-empty behaviour. Individual
-// algorithm score functions handle empty inputs per their per-algorithm
-// spec and do NOT return this error.
-var ErrEmptyInput = errors.New("fuzzymatch: empty input")
+// ErrInvalidInnerAlgo indicates a Monge-Elkan composite was constructed
+// with an inner AlgoID outside the 18-entry permitted set. The Monge-
+// Elkan formula composes a per-token inner similarity; token-tier
+// algorithms and the MongeElkan self-reference are rejected. Direct
+// MongeElkanScore / MongeElkanScoreSymmetric calls panic with a value
+// wrapping this sentinel (discriminate via recover() + errors.Is).
+var ErrInvalidInnerAlgo = errors.New("fuzzymatch: invalid inner algorithm for Monge-Elkan composite")
 
 // ErrInvalidQGramSize indicates a q-gram-based algorithm option (Phase
 // 8 Scorer: WithQGramJaccardAlgorithm, WithSorensenDiceAlgorithm,
 // WithCosineAlgorithm, WithTverskyAlgorithm) was constructed with
 // n < 1. Direct algorithm calls (QGramJaccardScore, SorensenDiceScore,
-// CosineScore, TverskyScore) panic with the sentinel's message text
-// instead — direct calls fail loudly on programmer error per
-// CONTEXT.md §5 LOCKED.
+// CosineScore, TverskyScore) panic with a value wrapping this sentinel —
+// direct calls fail loudly on programmer error per docs/requirements.md
+// §6.A LOCKED.
 var ErrInvalidQGramSize = errors.New("fuzzymatch: invalid q-gram size")
 
 // ErrInvalidTverskyParam indicates the Tversky algorithm option was
-// constructed with α < 0, β < 0, or α + β == 0. Returned by Phase 8
-// Scorer's WithTverskyAlgorithm; direct TverskyScore / TverskyScoreRunes
-// calls panic with the sentinel's message text instead per CONTEXT.md §5.
+// constructed with α < 0, β < 0, α + β ≤ 0, or any NaN/Inf value.
+// Returned by Phase 8 Scorer's WithTverskyAlgorithm; direct TverskyScore
+// / TverskyScoreRunes calls panic with a value wrapping this sentinel.
 var ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
 
 // ErrEmptyScorer indicates NewScorer was called without any algorithm
@@ -1263,6 +1258,13 @@ var ErrInvalidThreshold = errors.New("fuzzymatch: invalid threshold (must be in 
 // WithThreshold(t) with t ∈ [0.0, 1.0], or use DefaultScorer() which
 // bakes 0.85 in. This check fires FIRST in the validation pipeline.
 var ErrMissingThreshold = errors.New("fuzzymatch: scorer threshold required (pass WithThreshold or use DefaultScorer)")
+
+// ErrInternalInvariantViolated indicates a library invariant that should
+// never fire in correct usage was violated — seeing it as a recovered
+// panic value is unambiguous evidence of a library bug. The single
+// current panic site is DefaultScorer() when its baked-in option
+// pipeline fails validation. Discriminate via recover() + errors.Is.
+var ErrInternalInvariantViolated = errors.New("fuzzymatch: internal invariant violated (library bug — please file an issue)")
 ```
 
 ## Sample programs

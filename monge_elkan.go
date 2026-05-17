@@ -268,6 +268,8 @@
 
 package fuzzymatch
 
+import "fmt"
+
 // permittedMongeElkanInner enumerates the AlgoIDs valid as Monge-Elkan
 // inner metrics. Declared at PACKAGE SCOPE (per DET-13 / Phase 5 §5
 // LOCKED — NO init()-time table builds). Phase 7 ADDITIVELY adds phonetic
@@ -379,7 +381,13 @@ func MongeElkanScore(a, b string, inner AlgoID, opts NormalisationOptions) float
 	// Fires FIRST so invalid inner panics even on identical inputs
 	// (programmer error fails loudly).
 	if !permittedMongeElkanInner[inner] {
-		panic("fuzzymatch: AlgoID " + inner.String() + " not permitted as Monge-Elkan inner metric")
+		// Phase 8.5 Q4 follow-up + Gap 5 pattern: typed-error panic
+		// wrapping ErrInvalidInnerAlgo so consumers can discriminate via
+		// recover() + errors.Is(panicValue.(error), ErrInvalidInnerAlgo).
+		// The error's Error() string contains the AlgoID name + the
+		// documented suffix so the panic-message format test still has
+		// substring anchors to pin against.
+		panic(fmt.Errorf("%w: AlgoID %s not permitted as Monge-Elkan inner metric", ErrInvalidInnerAlgo, inner.String()))
 	}
 	// Identity short-circuit — avoids Tokenise allocations. ME(x, x, sim)
 	// = 1.0 for any well-behaved sim because every token's max-against-

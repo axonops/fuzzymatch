@@ -52,10 +52,8 @@ func sentinelCases() []struct {
 		name string
 		err  error
 	}{
-		{"ErrInvalidInput", fuzzymatch.ErrInvalidInput},
-		{"ErrInvalidConfiguration", fuzzymatch.ErrInvalidConfiguration},
-		{"ErrInvalidAlgorithm", fuzzymatch.ErrInvalidAlgorithm},
-		{"ErrEmptyInput", fuzzymatch.ErrEmptyInput},
+		{"ErrInvalidAlgoID", fuzzymatch.ErrInvalidAlgoID},
+		{"ErrInvalidInnerAlgo", fuzzymatch.ErrInvalidInnerAlgo},
 		{"ErrInvalidQGramSize", fuzzymatch.ErrInvalidQGramSize},
 		{"ErrInvalidTverskyParam", fuzzymatch.ErrInvalidTverskyParam},
 		// Phase 8 sentinels — Scorer construction surface.
@@ -63,6 +61,8 @@ func sentinelCases() []struct {
 		{"ErrInvalidWeight", fuzzymatch.ErrInvalidWeight},
 		{"ErrInvalidThreshold", fuzzymatch.ErrInvalidThreshold},
 		{"ErrMissingThreshold", fuzzymatch.ErrMissingThreshold},
+		// Phase 8.5 sentinels — typed-panic value for library bugs.
+		{"ErrInternalInvariantViolated", fuzzymatch.ErrInternalInvariantViolated},
 	}
 }
 
@@ -215,7 +215,7 @@ func TestSentinels_LowercaseAndNoTrailingPunctuation(t *testing.T) {
 // TestSentinels_AreDistinctAsValues asserts pairwise distinctness via
 // errors.Is. This catches the regression where a future refactor
 // might accidentally alias two sentinels to the same errors.New value
-// (e.g. `ErrEmptyInput = ErrInvalidInput`).
+// (e.g. `ErrInvalidInnerAlgo = ErrInvalidAlgoID`).
 func TestSentinels_AreDistinctAsValues(t *testing.T) {
 	cases := sentinelCases()
 	for i, a := range cases {

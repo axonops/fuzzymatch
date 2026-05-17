@@ -212,16 +212,15 @@ scan / Extract (Phases 9–10).
 
 ### Sentinel errors
 
-- var ErrInvalidInput error
-- var ErrInvalidConfiguration error
-- var ErrInvalidAlgorithm error
-- var ErrEmptyInput error
+- var ErrInvalidAlgoID error
+- var ErrInvalidInnerAlgo error
 - var ErrInvalidQGramSize error
 - var ErrInvalidTverskyParam error
 - var ErrEmptyScorer error
 - var ErrInvalidWeight error
 - var ErrInvalidThreshold error
 - var ErrMissingThreshold error
+- var ErrInternalInvariantViolated error
 
 ## Out of v1.0 scope
 

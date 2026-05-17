@@ -83,8 +83,8 @@ func TestWithAlgorithm_InvalidAlgoID(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			_, err := applyOptionForProbe(WithAlgorithm(c.id, 1.0))
-			if !errors.Is(err, ErrInvalidAlgorithm) {
-				t.Errorf("WithAlgorithm(%v, 1.0) err = %v; want ErrInvalidAlgorithm", c.id, err)
+			if !errors.Is(err, ErrInvalidAlgoID) {
+				t.Errorf("WithAlgorithm(%v, 1.0) err = %v; want ErrInvalidAlgoID", c.id, err)
 			}
 		})
 	}
@@ -487,16 +487,16 @@ func TestWithMongeElkanAlgorithm_RejectsSelf(t *testing.T) {
 	// infinite-loop-equivalent at Score time. The option layer
 	// short-circuits here (not at runtime).
 	_, err := applyOptionForProbe(WithMongeElkanAlgorithm(1.0, AlgoMongeElkan))
-	if !errors.Is(err, ErrInvalidAlgorithm) {
-		t.Errorf("inner=AlgoMongeElkan err = %v; want ErrInvalidAlgorithm", err)
+	if !errors.Is(err, ErrInvalidAlgoID) {
+		t.Errorf("inner=AlgoMongeElkan err = %v; want ErrInvalidAlgoID", err)
 	}
 }
 
 func TestWithMongeElkanAlgorithm_InvalidInner(t *testing.T) {
 	for _, inner := range []AlgoID{AlgoID(999), AlgoID(-1)} {
 		_, err := applyOptionForProbe(WithMongeElkanAlgorithm(1.0, inner))
-		if !errors.Is(err, ErrInvalidAlgorithm) {
-			t.Errorf("inner=%v err = %v; want ErrInvalidAlgorithm", inner, err)
+		if !errors.Is(err, ErrInvalidAlgoID) {
+			t.Errorf("inner=%v err = %v; want ErrInvalidAlgoID", inner, err)
 		}
 	}
 }

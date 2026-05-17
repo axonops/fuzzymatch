@@ -14,96 +14,145 @@
 
 // Package-level sentinel errors for fuzzymatch. All errors are wrappable
 // via fmt.Errorf("...: %w", ErrX) and discoverable by errors.Is /
-// errors.As — never via string matching. See docs/requirements.md §6.4.
+// errors.As — never via string matching. See docs/requirements.md §6
+// (canonical sentinel set) and §6.A (data-vs-parameter validation
+// framework + panic policy).
 //
 // Error message convention (per .claude/skills/go-coding-standards):
 //
 //   - Every message starts with the "fuzzymatch: " package prefix so
 //     wrappers like fmt.Errorf("scorer: %w", err) produce readable
-//     compositions ("scorer: fuzzymatch: invalid input").
+//     compositions ("scorer: fuzzymatch: invalid algorithm identifier").
 //   - The text after the prefix is lowercase and carries no trailing
 //     punctuation ('.', '!', or '?') so concatenation flows cleanly.
 //   - Each sentinel is a flat errors.New value, not a typed struct;
-//     richer per-item context can be added in Phase 9 if scan needs it.
+//     richer per-item context can be added in a later phase if scan
+//     or extract needs it.
 //
-// The four sentinels named here are the v1.x contract; additional
-// sentinels (e.g. ErrInvalidThreshold for the Scorer, or
-// ErrHammingLengthMismatch for the Hamming algorithm) land alongside
-// the features that introduce them in later phases.
+// The Phase 8.5 v1.0 sentinel contract (per docs/requirements.md §6):
+// ErrInvalidAlgoID, ErrInvalidInnerAlgo, ErrInvalidQGramSize,
+// ErrInvalidTverskyParam, ErrEmptyScorer, ErrInvalidWeight,
+// ErrInvalidThreshold, ErrMissingThreshold, ErrInternalInvariantViolated.
 
 package fuzzymatch
 
 import "errors"
 
-// ErrInvalidInput indicates a caller-provided string fails an
-// algorithm's documented input constraints — most commonly invalid
-// UTF-8 on a rune-aware API, or a non-comparable embedded NUL byte
-// where the algorithm rejects it.
-//
-// Most algorithms accept arbitrary bytes and do NOT return this error;
-// the exceptions document their constraints in their own godoc.
-//
-// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidInput); never
-// match the error message string.
-var ErrInvalidInput = errors.New("fuzzymatch: invalid input")
-
-// ErrInvalidConfiguration indicates a Scorer or Extract option set is
-// internally inconsistent — for example, a negative weight, a threshold
-// outside [0.0, 1.0], an empty algorithm list, or a normalisation
-// option combination the library forbids.
-//
-// Returned by the option-applying constructors in Phase 8 (Scorer) and
-// Phase 10 (Extract). See docs/requirements.md §8.
-var ErrInvalidConfiguration = errors.New("fuzzymatch: invalid configuration")
-
 // ErrInvalidQGramSize indicates a q-gram-based algorithm option was
 // constructed with n < 1 — q-gram extraction requires a positive window
-// length.
+// length and the formulas (Jaccard, Dice, Cosine, Tversky) are undefined
+// for empty q-gram sets produced by a sub-unit window.
 //
-// Returned by the Phase 8 Scorer options (e.g. WithQGramJaccardAlgorithm,
-// WithSorensenDiceAlgorithm, WithCosineAlgorithm, WithTverskyAlgorithm)
-// when their n parameter is < 1. Direct algorithm calls
-// (QGramJaccardScore, SorensenDiceScore, CosineScore, TverskyScore)
-// instead panic with a message containing the text of this sentinel —
-// per CONTEXT.md §5 LOCKED, direct calls fail loudly on programmer
-// error and the Scorer returns the typed error.
+// Common causes: passing n = 0 to WithQGramJaccardAlgorithm /
+// WithSorensenDiceAlgorithm / WithCosineAlgorithm / WithTverskyAlgorithm
+// in the mistaken belief that n = 0 selects a sensible default; passing
+// a computed window size that the caller failed to clamp to ≥ 1.
 //
-// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidQGramSize); never
-// match the error message string.
+// Resolution: pass n ≥ 1. The dispatch default for the q-gram tier is
+// n = 3 (the trigram convention from Ukkonen 1992). Direct algorithm
+// calls (QGramJaccardScore, SorensenDiceScore, CosineScore, TverskyScore)
+// panic with a value wrapping this sentinel — per docs/requirements.md
+// §6.A direct calls fail loudly on programmer error and the Scorer
+// option layer returns the typed error.
+//
+// Example:
+//
+//	_, err := fuzzymatch.NewScorer(
+//	    fuzzymatch.WithQGramJaccardAlgorithm(1.0, 3),
+//	    fuzzymatch.WithThreshold(0.85),
+//	)
+//	if errors.Is(err, fuzzymatch.ErrInvalidQGramSize) {
+//	    // diagnostic
+//	}
 var ErrInvalidQGramSize = errors.New("fuzzymatch: invalid q-gram size")
 
 // ErrInvalidTverskyParam indicates a Tversky algorithm option was
-// constructed with an invalid α/β parameter pair: either α < 0, β < 0,
-// or α + β == 0. The Tversky formula requires non-negative weights with
-// at least one strictly positive so the denominator does not collapse.
+// constructed with an invalid α/β parameter pair: α < 0, β < 0, α + β
+// ≤ 0, or any NaN/Inf value. The Tversky formula requires non-negative
+// weights with at least one strictly positive so the denominator does
+// not collapse to zero.
 //
-// Returned by the Phase 8 Scorer option WithTverskyAlgorithm when the
-// supplied (alpha, beta) violate any of the three constraints. Direct
-// calls to TverskyScore / TverskyScoreRunes panic with a message
-// containing the text of this sentinel instead — per CONTEXT.md §5
-// LOCKED, direct calls fail loudly on programmer error.
+// Common causes: passing α = β = 0 in the mistaken belief that a zero
+// pair selects a sensible default; passing a NaN computed by an upstream
+// arithmetic step; passing a negative tuning parameter inadvertently.
 //
-// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidTverskyParam);
-// never match the error message string.
+// Resolution: pass α ≥ 0 and β ≥ 0 with α + β > 0; the canonical
+// Jaccard-equivalent is α = β = 1.0 and the prototype-matching default
+// is α = 1.0, β = 0.0. Direct calls to TverskyScore / TverskyScoreRunes
+// panic with a value wrapping this sentinel on the same inputs.
+//
+// Example:
+//
+//	_, err := fuzzymatch.NewScorer(
+//	    fuzzymatch.WithTverskyAlgorithm(1.0, 1.0, 1.0, 3),
+//	    fuzzymatch.WithThreshold(0.85),
+//	)
+//	if errors.Is(err, fuzzymatch.ErrInvalidTverskyParam) {
+//	    // diagnostic
+//	}
 var ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
 
-// ErrInvalidAlgorithm indicates an AlgoID parameter does not match any
-// registered algorithm in the dispatch table. Returned from the
-// package-internal dispatch helpers (Phase 8+) when called with an
-// out-of-range AlgoID (e.g. AlgoID(999)) or with a catalogue AlgoID
-// whose dispatch entry has not yet been populated.
+// ErrInvalidAlgoID indicates an AlgoID parameter does not match any
+// registered algorithm in the dispatch table. Returned by the Phase 8
+// Scorer option layer (WithAlgorithm, WithMongeElkanAlgorithm, …) when
+// called with an out-of-range AlgoID (e.g. AlgoID(999)), a negative
+// AlgoID, or a catalogue AlgoID whose dispatch entry has not yet been
+// populated.
 //
-// Consumers should call AlgoIDs() to discover the valid set rather
-// than guessing.
-var ErrInvalidAlgorithm = errors.New("fuzzymatch: invalid algorithm")
+// Common causes: casting an int from external configuration to AlgoID
+// without bounds-checking; using a constant from a future minor release
+// that the running version does not yet ship; passing AlgoMongeElkan
+// to WithMongeElkanAlgorithm (trivial-recursion guard — use
+// WithAlgorithm with a different inner instead).
+//
+// Resolution: call AlgoIDs() to discover the valid set rather than
+// guessing; for Monge-Elkan inner metrics, prefer one of the 18
+// permitted inner AlgoIDs documented in monge_elkan.go. Direct calls
+// to MongeElkanScore / MongeElkanScoreSymmetric panic with a value
+// wrapping ErrInvalidInnerAlgo (the inner-specific sentinel) on a
+// non-permitted inner.
+//
+// Example:
+//
+//	_, err := fuzzymatch.NewScorer(
+//	    fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+//	    fuzzymatch.WithThreshold(0.85),
+//	)
+//	if errors.Is(err, fuzzymatch.ErrInvalidAlgoID) {
+//	    // diagnostic
+//	}
+var ErrInvalidAlgoID = errors.New("fuzzymatch: invalid algorithm identifier")
 
-// ErrEmptyInput indicates BOTH input strings are empty at the boundary
-// of an API that has no defined empty-empty behaviour. Individual
-// algorithm score functions handle empty inputs per their per-algorithm
-// specification in docs/requirements.md §7 and do NOT return this
-// error — only higher-level APIs (Scorer, Extract) that require
-// non-degenerate input may surface it.
-var ErrEmptyInput = errors.New("fuzzymatch: empty input")
+// ErrInvalidInnerAlgo indicates a Monge-Elkan composite was constructed
+// with an inner AlgoID outside the 18-entry permitted set documented in
+// monge_elkan.go. The Monge-Elkan formula composes a per-token inner
+// similarity; the inner metric must itself be a per-pair character-,
+// q-gram-, gestalt-, or phonetic-tier algorithm — token-tier algorithms
+// (TokenSortRatio, TokenSetRatio, PartialRatio, TokenJaccard) and the
+// MongeElkan self-reference are rejected.
+//
+// Common causes: passing AlgoMongeElkan to WithMongeElkanAlgorithm
+// (self-recursion); passing a token-tier AlgoID as the inner metric
+// in the mistaken belief that ME composes arbitrary algorithms.
+//
+// Resolution: pick one of the 18 permitted inner AlgoIDs (9 character-
+// tier + 4 q-gram tier + 1 gestalt + 4 phonetic-tier). The default
+// inner is AlgoJaroWinkler — pass that via WithAlgorithm(AlgoMongeElkan,
+// w) for the typical case. Direct MongeElkanScore /
+// MongeElkanScoreSymmetric calls with a non-permitted inner panic with
+// a value wrapping this sentinel.
+//
+// Example:
+//
+//	defer func() {
+//	    if r := recover(); r != nil {
+//	        if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInvalidInnerAlgo) {
+//	            // programmer error — pick a permitted inner
+//	        }
+//	    }
+//	}()
+//	_ = fuzzymatch.MongeElkanScore("a b", "c d", fuzzymatch.AlgoMongeElkan, fuzzymatch.NormalisationOptions{})
+var ErrInvalidInnerAlgo = errors.New("fuzzymatch: invalid inner algorithm for Monge-Elkan composite")
 
 // ErrEmptyScorer indicates NewScorer was called without any algorithm
 // option — the option slice contained zero WithAlgorithm /
@@ -160,3 +209,32 @@ var ErrInvalidThreshold = errors.New("fuzzymatch: invalid threshold (must be in 
 // Discriminate via errors.Is(err, fuzzymatch.ErrMissingThreshold);
 // never match the error message string.
 var ErrMissingThreshold = errors.New("fuzzymatch: scorer threshold required (pass WithThreshold or use DefaultScorer)")
+
+// ErrInternalInvariantViolated indicates a library invariant that
+// should never fire in correct usage was violated — seeing it as a
+// recovered panic value is unambiguous evidence of a library bug.
+//
+// Common causes: NEVER caller-supplied input. The single current panic
+// site is DefaultScorer() when its baked-in option pipeline fails
+// validation (which would indicate the locked default composition has
+// drifted out of sync with NewScorer's validation pipeline). Future
+// "this should be impossible" guards may wrap the same sentinel.
+//
+// Resolution: file a bug report against
+// https://github.com/axonops/fuzzymatch with the panic stack trace
+// and a minimal reproducer. This sentinel MUST NOT be used to wrap
+// caller-supplied parameter errors; parameter errors use the dedicated
+// parameter sentinels (ErrInvalidAlgoID, ErrInvalidWeight, etc.).
+//
+// Example:
+//
+//	defer func() {
+//	    if r := recover(); r != nil {
+//	        if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInternalInvariantViolated) {
+//	            // library bug — collect stack + file issue
+//	        }
+//	    }
+//	}()
+//	s := fuzzymatch.DefaultScorer()
+//	_ = s.Score("a", "b")
+var ErrInternalInvariantViolated = errors.New("fuzzymatch: internal invariant violated (library bug — please file an issue)")

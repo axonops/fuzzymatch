@@ -69,9 +69,12 @@
 //     dependency is "sort" (not even strictly necessary at this plan
 //     boundary — AlgoIDs() returns the canonical order — but reserved
 //     for plan 08-03's Algorithms() accessor which sorts a fresh slice
-//     copy).
+//     copy). Phase 8.5 adds "fmt" for the typed-panic wrapping at
+//     DefaultScorer (ErrInternalInvariantViolated per Gap 5).
 
 package fuzzymatch
+
+import "fmt"
 
 // Scorer is the immutable composite weighted scorer. A Scorer is
 // constructed via NewScorer(opts ...ScorerOption) — once constructed,
@@ -139,7 +142,7 @@ type Scorer struct {
 //  2. Empty-algorithms (ErrEmptyScorer) — at least one WithAlgorithm
 //     (or any With*Algorithm) option must have been applied.
 //  3. Defensive per-entry AlgoID bounds + dispatch nil-check
-//     (ErrInvalidAlgorithm) — the option layer already gates on these
+//     (ErrInvalidAlgoID) — the option layer already gates on these
 //     conditions; NewScorer re-validates for defence-in-depth so the
 //     final *Scorer's contract is bulletproof regardless of how the
 //     option slice was built.
@@ -228,7 +231,7 @@ func NewScorer(opts ...ScorerOption) (*Scorer, error) { //nolint:gocyclo // 9-st
 	// function-pointer dereference.
 	for _, e := range cfg.entries {
 		if int(e.id) < 0 || int(e.id) >= numAlgorithms || dispatch[e.id] == nil {
-			return nil, ErrInvalidAlgorithm
+			return nil, ErrInvalidAlgoID
 		}
 	}
 
@@ -586,7 +589,17 @@ func DefaultScorerOptions() []ScorerOption {
 func DefaultScorer() *Scorer {
 	s, err := NewScorer(DefaultScorerOptions()...)
 	if err != nil {
-		panic("fuzzymatch: DefaultScorer construction failed (this is a bug): " + err.Error())
+		// Phase 8.5 Gap 5: typed-error panic wrapping
+		// ErrInternalInvariantViolated so consumers can discriminate
+		// library bugs from caller errors via:
+		//   defer func() {
+		//     if r := recover(); r != nil {
+		//       if e, ok := r.(error); ok && errors.Is(e, ErrInternalInvariantViolated) { … }
+		//     }
+		//   }()
+		// The double-%w form chains the underlying validation error so
+		// errors.Is also matches whichever NewScorer sentinel fired.
+		panic(fmt.Errorf("%w: DefaultScorer construction failed: %w", ErrInternalInvariantViolated, err))
 	}
 	return s
 }

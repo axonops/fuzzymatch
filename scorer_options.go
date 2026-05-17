@@ -40,7 +40,7 @@
 //
 //   - No init(), no goroutines, no third-party imports. The file uses
 //     only package-internal references (AlgoID, NormalisationOptions,
-//     ErrInvalidWeight, ErrInvalidThreshold, ErrInvalidAlgorithm, the
+//     ErrInvalidWeight, ErrInvalidThreshold, ErrInvalidAlgoID, the
 //     dispatch[] array, numAlgorithms).
 
 package fuzzymatch
@@ -140,7 +140,7 @@ type scorerConfig struct {
 // ErrInvalidWeight at option-application time if weight ≤ 0. algo must
 // be a valid AlgoID with a populated dispatch entry (the 23 catalogue
 // AlgoIDs after Phase 7 all qualify) — the option returns
-// ErrInvalidAlgorithm if int(algo) >= numAlgorithms or
+// ErrInvalidAlgoID if int(algo) >= numAlgorithms or
 // dispatch[algo] == nil.
 //
 // Consumers wanting non-default parameters call the corresponding
@@ -153,7 +153,7 @@ func WithAlgorithm(algo AlgoID, weight float64) ScorerOption {
 			return ErrInvalidWeight
 		}
 		if int(algo) < 0 || int(algo) >= numAlgorithms || dispatch[algo] == nil {
-			return ErrInvalidAlgorithm
+			return ErrInvalidAlgoID
 		}
 		cfg.entries = append(cfg.entries, scorerEntry{
 			id:      algo,
@@ -406,7 +406,7 @@ func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption {
 //
 // weight must be > 0 (else ErrInvalidWeight); inner must be a
 // permitted Monge-Elkan inner AlgoID with a populated dispatch entry
-// (else ErrInvalidAlgorithm). The trivial-recursion case inner ==
+// (else ErrInvalidAlgoID). The trivial-recursion case inner ==
 // AlgoMongeElkan is rejected explicitly here so the consumer sees a
 // typed error at construction time instead of a runtime panic from
 // MongeElkanScoreSymmetric's allow-list gate.
@@ -428,11 +428,11 @@ func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption {
 			return ErrInvalidWeight
 		}
 		if int(inner) < 0 || int(inner) >= numAlgorithms || dispatch[inner] == nil {
-			return ErrInvalidAlgorithm
+			return ErrInvalidAlgoID
 		}
 		if inner == AlgoMongeElkan {
 			// Trivial recursion guard — see godoc above.
-			return ErrInvalidAlgorithm
+			return ErrInvalidAlgoID
 		}
 		cfg.entries = append(cfg.entries, scorerEntry{
 			id:     AlgoMongeElkan,

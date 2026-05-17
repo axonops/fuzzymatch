@@ -30,6 +30,7 @@
 package fuzzymatch_test
 
 import (
+	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -332,16 +333,23 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 						t.Errorf("MongeElkanScore(\"a b\", \"c d\", %s, opts) did not panic", inner)
 						return
 					}
-					msg, ok := r.(string)
+					// Phase 8.5 Q4 follow-up: the panic value is now a
+					// typed error wrapping ErrInvalidInnerAlgo. Consumers
+					// can discriminate via errors.Is.
+					err, ok := r.(error)
 					if !ok {
-						t.Errorf("panic value type = %T (%v); want string", r, r)
+						t.Errorf("panic value type = %T (%v); want error", r, r)
 						return
 					}
+					if !errors.Is(err, fuzzymatch.ErrInvalidInnerAlgo) {
+						t.Errorf("panic error %v is not errors.Is(ErrInvalidInnerAlgo)", err)
+					}
+					msg := err.Error()
 					// Verify the message contains BOTH the AlgoID name
 					// AND the documented prefix; the exact format is
 					// pinned by TestMongeElkan_PanicMessageFormat below.
-					if !strings.Contains(msg, "fuzzymatch: AlgoID "+inner.String()) {
-						t.Errorf("panic message %q does not start with documented prefix containing %s", msg, inner)
+					if !strings.Contains(msg, "AlgoID "+inner.String()) {
+						t.Errorf("panic message %q does not contain documented AlgoID anchor for %s", msg, inner)
 					}
 					if !strings.Contains(msg, "not permitted as Monge-Elkan inner metric") {
 						t.Errorf("panic message %q does not contain documented suffix", msg)
@@ -400,10 +408,16 @@ func TestMongeElkan_PanicsOnNonPermittedInner(t *testing.T) {
 }
 
 // TestMongeElkan_PanicMessageFormat pins the EXACT panic message string
-// format per CONTEXT.md §3 LOCKED. A regression in the message text
-// (e.g. accidental rename, capitalisation drift) surfaces here.
+// format per CONTEXT.md §3 LOCKED + Phase 8.5 Q4 follow-up: the panic
+// value is a typed error (fmt.Errorf("%w: …", ErrInvalidInnerAlgo, …))
+// whose Error() string matches the documented format. A regression in
+// the message text (e.g. accidental rename, capitalisation drift)
+// surfaces here.
 func TestMongeElkan_PanicMessageFormat(t *testing.T) {
-	const wantPrefix = "fuzzymatch: AlgoID "
+	// The typed-error panic value's Error() string is formed by
+	// fmt.Errorf("%w: AlgoID %s not permitted as Monge-Elkan inner metric", ErrInvalidInnerAlgo, name)
+	// which expands to: "fuzzymatch: invalid inner algorithm for Monge-Elkan composite: AlgoID <Name> not permitted as Monge-Elkan inner metric"
+	const wantPrefix = "fuzzymatch: invalid inner algorithm for Monge-Elkan composite: AlgoID "
 	const wantSuffix = " not permitted as Monge-Elkan inner metric"
 	// AlgoMRA is now permitted (plan 07-04). Use AlgoTokenJaccard as the
 	// third representative non-permitted AlgoID.
@@ -423,10 +437,14 @@ func TestMongeElkan_PanicMessageFormat(t *testing.T) {
 					if r == nil {
 						t.Fatalf("did not panic for inner=%s", c.inner)
 					}
-					msg, ok := r.(string)
+					err, ok := r.(error)
 					if !ok {
-						t.Fatalf("panic value type = %T (%v); want string", r, r)
+						t.Fatalf("panic value type = %T (%v); want error", r, r)
 					}
+					if !errors.Is(err, fuzzymatch.ErrInvalidInnerAlgo) {
+						t.Errorf("panic error %v is not errors.Is(ErrInvalidInnerAlgo)", err)
+					}
+					msg := err.Error()
 					want := wantPrefix + c.name + wantSuffix
 					if msg != want {
 						t.Errorf("panic message format drift:\n  got:  %q\n  want: %q", msg, want)
