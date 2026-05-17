@@ -221,6 +221,7 @@ var (
     ErrInvalidAlgoID      = errors.New("fuzzymatch: invalid algorithm identifier")
     ErrInvalidQGramSize   = errors.New("fuzzymatch: invalid q-gram size")
     ErrInvalidTverskyParam = errors.New("fuzzymatch: invalid tversky parameter")
+    ErrInvalidInnerAlgo   = errors.New("fuzzymatch: invalid Monge-Elkan inner algorithm")
 )
 ```
 
@@ -341,7 +342,7 @@ Validation surface depends on the entry point:
 | `WithCosineAlgorithm(weight, n)` (`n < 1`) | `ErrInvalidQGramSize` |
 | `WithTverskyAlgorithm(weight, α, β, n)` (`n < 1`) | `ErrInvalidQGramSize` |
 | `WithTverskyAlgorithm(weight, α, β, n)` (`α < 0`, `β < 0`, or `α + β = 0`) | `ErrInvalidTverskyParam` |
-| `WithMongeElkanAlgorithm(weight, inner)` (inner not in permitted set) | `ErrInvalidAlgoID` |
+| `WithMongeElkanAlgorithm(weight, inner)` (inner is unknown / out-of-range AlgoID, or is a token-tier AlgoID, or is `AlgoMongeElkan` self-reference) | `ErrInvalidInnerAlgo` |
 | `WithThreshold(t)` — see explicit check below | `ErrInvalidThreshold` |
 | `WithAlgorithm(algo, weight)` (`weight ≤ 0`) | `ErrInvalidWeight` |
 | `NewScorer(...)` with no algorithms | `ErrEmptyScorer` |
@@ -377,6 +378,7 @@ The following direct calls panic on invalid parameter inputs:
 - `SorensenDiceScore`, `SorensenDiceScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`
 - `CosineScore`, `CosineScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`
 - `TverskyScore`, `TverskyScoreRunes` — panic with `ErrInvalidQGramSize` if `n < 1`, or `ErrInvalidTverskyParam` if `α < 0`, `β < 0`, or `α + β ≤ 0`
+- `MongeElkanScore`, `MongeElkanScoreAsymmetric` — panic with `ErrInvalidInnerAlgo` if `inner` is the zero value, an out-of-range `AlgoID`, `AlgoMongeElkan` itself (self-reference), or any token-tier `AlgoID` (`AlgoTokenSortRatio`, `AlgoTokenSetRatio`, `AlgoPartialRatio`, `AlgoTokenJaccard`). Permitted inner metrics are the character + q-gram + phonetic + gestalt tiers per the documented `permittedMongeElkanInner` allow-list.
 
 Rationale: direct algorithm functions return just `float64` (no error tuple). Forcing `(float64, error)` returns on every direct call would be massive API churn for an error case that is "programming bug, not runtime data." Parameter errors are programmer errors (`n=0` for q-gram is never legitimate code). Silent-return-0 would hide the bug forever — wrong results would propagate downstream with no diagnostic. Panic-with-recoverable-sentinel catches the bug at first call AND gives advanced consumers a recovery path.
 
@@ -392,8 +394,43 @@ The complete v1.0 sentinel set (declared in `errors.go`, all exported, all `fuzz
 - `ErrInvalidAlgoID` — option function passed an out-of-range `AlgoID` or a Monge-Elkan inner that is not in the permitted set
 - `ErrInvalidQGramSize` — q-gram option or direct call passed `n < 1`
 - `ErrInvalidTverskyParam` — Tversky option or direct call passed `α < 0`, `β < 0`, or `α + β ≤ 0`
+- `ErrInvalidInnerAlgo` — Monge-Elkan option or direct call passed an inner `AlgoID` that is unknown / out-of-range, the `AlgoMongeElkan` self-reference, or a token-tier `AlgoID`
 
-Every sentinel carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation.
+Every sentinel carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation. The exemplar block below shows the locked template form for `ErrInvalidInnerAlgo`; every other sentinel follows the same structure:
+
+```go
+// ErrInvalidInnerAlgo is returned by WithMongeElkanAlgorithm and raised as
+// a panic value by MongeElkanScore / MongeElkanScoreAsymmetric when the
+// inner-metric AlgoID is invalid.
+//
+// What it means:
+//   An AlgoID was passed as the inner metric for a Monge-Elkan call, but
+//   the AlgoID is either (a) unknown / unregistered (zero value or out
+//   of range), or (b) refers to a token-tier algorithm that cannot be
+//   nested as an inner metric, or (c) is AlgoMongeElkan itself (self-
+//   reference would cause infinite recursion).
+//
+// Common causes:
+//   - Passing the zero value of AlgoID (uninitialised variable)
+//   - Passing a token-tier AlgoID: AlgoTokenJaccard, AlgoTokenSortRatio,
+//     AlgoTokenSetRatio, AlgoPartialRatio
+//   - Passing AlgoMongeElkan itself (self-reference)
+//   - Typo in AlgoID constant name producing an out-of-range value
+//
+// Resolution:
+//   - Pass a character-tier AlgoID (Levenshtein, DamerauOSA, Hamming,
+//     Jaro, JaroWinkler, etc.) as the inner metric. Q-gram and phonetic
+//     AlgoIDs are also permitted; consult the algorithm catalogue for
+//     the full set of valid inner AlgoIDs.
+//
+// Example:
+//   // panics with ErrInvalidInnerAlgo on direct call:
+//   _ = fuzzymatch.MongeElkanScore("a", "b", fuzzymatch.AlgoTokenJaccard)
+//
+//   // valid:
+//   _ = fuzzymatch.MongeElkanScore("a", "b", fuzzymatch.AlgoJaroWinkler)
+var ErrInvalidInnerAlgo = errors.New("fuzzymatch: invalid Monge-Elkan inner algorithm")
+```
 
 ---
 
@@ -689,7 +726,7 @@ Token-based algorithms operate on the result of `Tokenise(s, opts)` rather than 
 - **Description:** symmetric Monge-Elkan: for each token in each string, find the maximum-similarity token in the other string using the inner metric, average within each direction, then average the two directions.
 - **Formula:** asymmetric `ME(A, B) = (1/|A|) · Σ_{a ∈ A} max_{b ∈ B} sim_inner(a, b)`; symmetric `(ME(A,B) + ME(B,A)) / 2`.
 - **Default inner metric:** Jaro-Winkler (per the original paper).
-- **Permitted inner metrics:** any AlgoID in the documented permittedMongeElkanInner allow-list (character + q-gram + phonetic tiers). Out-of-set inner values are validated at Scorer construction via `WithMongeElkanAlgorithm(weight, inner)` and return `ErrInvalidAlgoID`. (Monge-Elkan is intentionally **not** in §6.A's "direct calls panic" enumeration; the inner-AlgoID parameter exists in the direct-call signatures but per the Phase 8.5 Q4 doc-alignment resolution Monge-Elkan does not participate in the panic-on-direct-call contract. Direct callers passing an out-of-set `inner` value receive defined-but-meaningless output rather than a panic; if you need validation at the call boundary, route through the Scorer.)
+- **Permitted inner metrics:** any AlgoID in the documented `permittedMongeElkanInner` allow-list (character + q-gram + phonetic + gestalt tiers). Token-tier AlgoIDs (`AlgoTokenSortRatio`, `AlgoTokenSetRatio`, `AlgoPartialRatio`, `AlgoTokenJaccard`) and the `AlgoMongeElkan` self-reference are rejected. Direct callers passing an invalid inner AlgoID receive a panic with `ErrInvalidInnerAlgo` per §6.A. Scorer-construction callers receive the same sentinel as a typed error from `WithMongeElkanAlgorithm(weight, inner)`.
 - **Complexity:** O(|A| · |B| · cost(inner)) where cost(inner) is the inner metric's per-comparison cost; the symmetric variant doubles the constant factor.
 - **Score normalisation:** the formula naturally produces a value in [0.0, 1.0] assuming the inner metric is bounded in [0.0, 1.0].
 - **Symmetry:** `MongeElkanScore` (symmetric) is symmetric by construction; `MongeElkanScoreAsymmetric` violates symmetry (this is property-tested).

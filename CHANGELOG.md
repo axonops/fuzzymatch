@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `WithTverskyAlgorithm` now rejects `α + β ≤ 0` at construction time (returns `ErrInvalidTverskyParam`). Previously `WithTverskyAlgorithm(_, 0, 0, _)` constructed successfully then panicked at first `Score` call. The same guard applies to the direct `TverskyScore` call path, which panics with the same sentinel per the data-vs-parameter framework documented in §6.A. Per Phase 8.5 Q2.
 - Every exported error sentinel now carries the four-section godoc block (What / Common causes / Resolution / Example) per `.claude/skills/documentation-standards/SKILL.md` § Error sentinel documentation. Per Phase 8.5 Q4.
 - `AlgoID.String()` is documented as CamelCase matching the constant suffix (`"Levenshtein"`, `"JaroWinkler"`, `"NYSIIS"`, `"DamerauLevenshteinOSA"`, etc.) — locking the convention against earlier draft language that referenced snake_case forms. Per Phase 8.5 Q6b.
+- Monge-Elkan direct calls (`MongeElkanScore`, `MongeElkanScoreAsymmetric`) now panic with `ErrInvalidInnerAlgo` when passed an invalid inner AlgoID (unknown AlgoID, `AlgoMongeElkan` self-reference, or a token-tier AlgoID). This aligns Monge-Elkan with the data-vs-parameter framework locked in Phase 8.5 Q2. Scorer-construction callers receive the same sentinel as a typed error. New sentinel `ErrInvalidInnerAlgo` added to the canonical `errors.go` set. Per Phase 8.5 Q4 follow-up.
 
 ### Breaking (pre-v1.0)
 

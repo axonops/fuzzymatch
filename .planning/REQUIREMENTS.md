@@ -15,7 +15,7 @@
 - [ ] **FOUND-02**: `AlgoID` typed enum with `String()`, `AlgoIDs()`, and dispatch-table backing (no `Algorithm` interface — avoids hot-path boxing) (`docs/requirements.md` §6, `.claude/skills/go-coding-standards/SKILL.md`)
 - [ ] **FOUND-03**: `Normalise` pipeline — case-fold, separator-strip, ASCII fast path, **Unicode NFC/NFD normalisation + diacritic stripping via `golang.org/x/text/unicode/norm`** (`docs/requirements.md` §9)
 - [ ] **FOUND-04**: `Tokenise` — camelCase / snake_case / PascalCase / kebab-case splitting with stable ordering (`docs/requirements.md` §10)
-- [ ] **FOUND-05**: Sentinel error hierarchy (`ErrInvalidInput`, `ErrInvalidConfiguration`, `ErrInvalidAlgorithm`, etc.) composing well with `errors.Is` / `errors.As` (`docs/requirements.md` §6.4)
+- [ ] **FOUND-05**: Sentinel error hierarchy (`ErrInvalidInput`, `ErrInvalidConfiguration`, `ErrInvalidAlgorithm`, `ErrInvalidInnerAlgo`, etc.) composing well with `errors.Is` / `errors.As` (`docs/requirements.md` §6.4)
 
 ### Character-based algorithms (CHAR)
 
