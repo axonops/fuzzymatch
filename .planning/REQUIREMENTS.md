@@ -101,7 +101,7 @@ Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing compani
 - [ ] **DET-02**: Algorithm score stability across patch releases — score-changing edits require minor version bump (`docs/requirements.md` §11.2)
 - [x] **DET-03**: No map iteration on output paths (verified by property test + lint rule) (`docs/requirements.md` §11.3)
 - [ ] **DET-04**: NaN, +Inf, -Inf, -0 explicit handling with `PropX_NoNaN/NoInf/NoNegativeZero` per algorithm and Scorer/scan (`docs/requirements.md` §11.4)
-- [ ] **DET-05**: Golden files cover `algorithms.json`, `scorer-default.json`, `scan-default.json`, `extract-default.json`, `normalisation.json` (`docs/requirements.md` §11.5)
+- [x] **DET-05**: Golden files cover `algorithms.json`, `scorer-default.json`, `scan-default.json`, `extract-default.json`, `normalisation.json` (`docs/requirements.md` §11.5)
 - [ ] **DET-06**: No transcendental float ops on output paths (`math.Sqrt`/`math.Abs`/`math.Min`/`math.Max` permitted; `Pow`/`Log`/`Exp`/`FMA` patterns forbidden) (`docs/requirements.md` §11.6, research/PITFALLS.md #9)
 
 ### Performance (PERF)
@@ -117,10 +117,10 @@ Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing compani
 
 - [ ] **TEST-01**: Literature reference vectors in unit tests for every algorithm, citing the source paper (`docs/requirements.md` §15.1, `.claude/skills/algorithm-correctness-standards/SKILL.md`)
 - [ ] **TEST-02**: Property tests (`testing/quick`) for mathematical invariants per algorithm — identity, symmetry, range bounds, triangle inequality where applicable (`docs/requirements.md` §15.2)
-- [ ] **TEST-03**: Fuzz tests with malformed UTF-8 corpus — panic-free guarantee (`docs/requirements.md` §15.3)
+- [x] **TEST-03**: Fuzz tests with malformed UTF-8 corpus — panic-free guarantee (`docs/requirements.md` §15.3)
 - [x] **TEST-04**: Benchmark per algorithm with allocation assertions (`docs/requirements.md` §15.4)
 - [ ] **TEST-05**: BDD scenarios (godog) per algorithm + Scorer composition pattern + scan suppression behaviour + Extract behaviour, isolated in `tests/bdd/` sub-module (`docs/requirements.md` §15.5)
-- [ ] **TEST-06**: Meta-tests — README compiles, Makefile targets documented, llms.txt sync-check, godoc examples runnable (`docs/requirements.md` §15.6)
+- [x] **TEST-06**: Meta-tests — README compiles, Makefile targets documented, llms.txt sync-check, godoc examples runnable (`docs/requirements.md` §15.6)
 - [ ] **TEST-07**: Coverage ≥ 95% overall, ≥ 90% per file, 100% public API surface — enforced (not just reported) in CI (`docs/requirements.md` §15.7)
 - [ ] **TEST-08**: Goleak in BDD module to catch goroutine leaks (`docs/requirements.md` §15.8)
 
@@ -266,7 +266,7 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | DET-02 | Phase 2 | Pending |
 | DET-03 | Phase 1 | Complete |
 | DET-04 | Phase 2 | Pending |
-| DET-05 | Phase 1 | Pending |
+| DET-05 | Phase 1 | Complete |
 | DET-06 | Phase 1 | Pending |
 | PERF-01 | Phase 2 | Complete |
 | PERF-02 | Phase 2 | Complete |
@@ -276,10 +276,10 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | PERF-06 | Phase 1 | Pending |
 | TEST-01 | Phase 2 | Pending |
 | TEST-02 | Phase 2 | Pending |
-| TEST-03 | Phase 1 | Pending |
+| TEST-03 | Phase 1 | Complete |
 | TEST-04 | Phase 2 | Complete |
 | TEST-05 | Phase 2 | Pending |
-| TEST-06 | Phase 1 | Pending |
+| TEST-06 | Phase 1 | Complete |
 | TEST-07 | Phase 1 | Pending |
 | TEST-08 | Phase 1 | Pending |
 | CI-01 | Phase 1 | Pending |
