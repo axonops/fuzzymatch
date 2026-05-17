@@ -212,6 +212,13 @@ const numAlgorithms = int(AlgoRatcliffObershelp) + 1
 // apply to the pattern.
 func (id AlgoID) String() string { //nolint:gocyclo // one switch case per AlgoID is intentional — see godoc above
 	switch id {
+	case AlgoIDAny:
+		// AlgoIDAny is declared in warn_kind.go as the sentinel for
+		// cross-cutting Warning scope. It is intentionally not part of
+		// the AlgoLevenshtein..AlgoRatcliffObershelp iota block and not
+		// returned by AlgoIDs(), but it gets a stable label here so
+		// Warning rendering composes cleanly via fmt.Sprintf.
+		return "Any"
 	case AlgoLevenshtein:
 		return "Levenshtein"
 	case AlgoDamerauLevenshteinOSA:
