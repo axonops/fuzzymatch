@@ -184,6 +184,22 @@ scan / Extract (Phases 9–10).
 - func DefaultTokeniseOptions() TokeniseOptions
 - func Tokenise(s string, opts TokeniseOptions) []string
 
+### Scorer construction options (Phase 8 — plan 08-01 lays the option layer; NewScorer + Scorer methods land in plans 08-02 / 08-03)
+
+- type ScorerOption func(*scorerConfig) error
+- func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
+- func WithoutAlgorithm(id AlgoID) ScorerOption
+- func WithNormalisation(opts NormalisationOptions) ScorerOption
+- func WithoutNormalisation() ScorerOption
+- func WithThreshold(t float64) ScorerOption
+- func WithNormaliseWeights(normalise bool) ScorerOption
+- func WithQGramJaccardAlgorithm(weight float64, n int) ScorerOption
+- func WithSorensenDiceAlgorithm(weight float64, n int) ScorerOption
+- func WithCosineAlgorithm(weight float64, n int) ScorerOption
+- func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption
+- func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption
+- func WithSmithWatermanGotohAlgorithm(weight float64, params SWGParams) ScorerOption
+
 ### Sentinel errors
 
 - var ErrInvalidInput error
@@ -192,6 +208,10 @@ scan / Extract (Phases 9–10).
 - var ErrEmptyInput error
 - var ErrInvalidQGramSize error
 - var ErrInvalidTverskyParam error
+- var ErrEmptyScorer error
+- var ErrInvalidWeight error
+- var ErrInvalidThreshold error
+- var ErrMissingThreshold error
 
 ## Out of v1.0 scope
 

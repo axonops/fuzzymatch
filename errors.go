@@ -104,3 +104,59 @@ var ErrInvalidAlgorithm = errors.New("fuzzymatch: invalid algorithm")
 // error — only higher-level APIs (Scorer, Extract) that require
 // non-degenerate input may surface it.
 var ErrEmptyInput = errors.New("fuzzymatch: empty input")
+
+// ErrEmptyScorer indicates NewScorer was called without any algorithm
+// option — the option slice contained zero WithAlgorithm /
+// With*Algorithm entries by the time validation ran. A Scorer with no
+// algorithms has no meaningful composite to compute.
+//
+// Pass at least one WithAlgorithm option (or use DefaultScorer() for
+// the opinionated six-algorithm composition).
+//
+// Returned by NewScorer (Phase 8) after the missing-threshold check
+// passes and the option-validation pipeline finds cfg.entries empty.
+//
+// Discriminate via errors.Is(err, fuzzymatch.ErrEmptyScorer); never
+// match the error message string.
+var ErrEmptyScorer = errors.New("fuzzymatch: scorer has no algorithms (pass at least one WithAlgorithm option or use DefaultScorer)")
+
+// ErrInvalidWeight indicates an algorithm weight passed to a Phase 8
+// Scorer With*Algorithm option was ≤ 0. Weights must be strictly
+// positive so that the auto-normalisation step (sum-to-1) has a
+// positive divisor and the composite score remains in [0.0, 1.0].
+//
+// Returned by every Phase 8 With*Algorithm option at
+// option-application time when the supplied weight fails the
+// strict-positive constraint.
+//
+// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidWeight); never
+// match the error message string.
+var ErrInvalidWeight = errors.New("fuzzymatch: invalid algorithm weight (must be > 0)")
+
+// ErrInvalidThreshold indicates a WithThreshold value was outside the
+// closed interval [0.0, 1.0]. Thresholds are compared against composite
+// scores which the Scorer guarantees fall in [0.0, 1.0] under default
+// weight normalisation; values outside the interval are non-sensical.
+//
+// Returned by WithThreshold at option-application time and surfaced
+// through NewScorer.
+//
+// Discriminate via errors.Is(err, fuzzymatch.ErrInvalidThreshold);
+// never match the error message string.
+var ErrInvalidThreshold = errors.New("fuzzymatch: invalid threshold (must be in [0.0, 1.0])")
+
+// ErrMissingThreshold indicates NewScorer was called without
+// WithThreshold. The threshold is a calibration parameter with no
+// universally-safe default, so the library refuses to guess. Pass
+// WithThreshold(t) with t ∈ [0.0, 1.0] during construction, or use
+// DefaultScorer() for the opinionated default composition that bakes
+// 0.85 in.
+//
+// Returned by NewScorer (Phase 8) when no WithThreshold option is
+// present in the variadic opts slice. This check fires FIRST in the
+// validation pipeline so the error is unambiguous when a user forgets
+// the threshold alongside another option problem.
+//
+// Discriminate via errors.Is(err, fuzzymatch.ErrMissingThreshold);
+// never match the error message string.
+var ErrMissingThreshold = errors.New("fuzzymatch: scorer threshold required (pass WithThreshold or use DefaultScorer)")
