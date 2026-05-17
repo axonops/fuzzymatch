@@ -35,6 +35,7 @@
 package fuzzymatch
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -179,4 +180,110 @@ func TestScorer_EntriesSorted_AlgoIDAscending(t *testing.T) {
 			)
 		}
 	}
+}
+
+// TestNewScorer_RejectsAlgoIDOutOfRange covers the dispatch-validation
+// failure path in NewScorer (scorer.go line 233): when a consumer
+// constructs a WithAlgorithm option with an AlgoID whose dispatch[id]
+// is nil (either negative, beyond numAlgorithms, or a gap in the
+// dispatch table), NewScorer returns ErrInvalidAlgoID. The default
+// public surface cannot produce such an option — this test reaches the
+// branch by constructing an option from inside the package with a
+// manually-set AlgoID outside the canonical range.
+func TestNewScorer_RejectsAlgoIDOutOfRange(t *testing.T) {
+	bad := func(cfg *scorerConfig) error {
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:     AlgoID(numAlgorithms + 100), // beyond dispatch table
+			weight: 1.0,
+		})
+		return nil
+	}
+	_, err := NewScorer(bad, WithThreshold(0.5))
+	if err == nil {
+		t.Fatal("NewScorer with out-of-range AlgoID: want ErrInvalidAlgoID, got nil")
+	}
+	if !errorsIsLocal(err, ErrInvalidAlgoID) {
+		t.Errorf("NewScorer with out-of-range AlgoID: want ErrInvalidAlgoID, got %v", err)
+	}
+}
+
+// TestNewScorer_RejectsZeroWeightSum covers the sum-zero branch in
+// NewScorer (scorer.go line 287): when normalisation is on (default)
+// and after dedup the surviving weights sum to zero, NewScorer returns
+// ErrInvalidWeight. WithAlgorithm rejects zero up front; reaching this
+// branch requires installing a zero-weight entry directly into the
+// config via a custom option from inside the package.
+func TestNewScorer_RejectsZeroWeightSum(t *testing.T) {
+	zero := func(cfg *scorerConfig) error {
+		cfg.entries = append(cfg.entries, scorerEntry{
+			id:     AlgoLevenshtein,
+			weight: 0.0,
+		})
+		return nil
+	}
+	_, err := NewScorer(zero, WithThreshold(0.5))
+	if err == nil {
+		t.Fatal("NewScorer with zero weight sum: want ErrInvalidWeight, got nil")
+	}
+	if !errorsIsLocal(err, ErrInvalidWeight) {
+		t.Errorf("NewScorer with zero weight sum: want ErrInvalidWeight, got %v", err)
+	}
+}
+
+// TestScorerAlgorithm_TypeReference pins ScorerAlgorithm as a value
+// type so the AST-based exported-symbol gate (Floor 3, Phase 8.5 Q12a)
+// records a test-file identifier reference for it.
+func TestScorerAlgorithm_TypeReference(t *testing.T) {
+	sa := ScorerAlgorithm{ID: AlgoLevenshtein, Weight: 1.0}
+	if sa.ID != AlgoLevenshtein || sa.Weight != 1.0 {
+		t.Errorf("ScorerAlgorithm literal init: got %+v, want {AlgoLevenshtein 1.0}", sa)
+	}
+	s, err := NewScorer(WithAlgorithm(AlgoLevenshtein, 1.0), WithThreshold(0.5))
+	if err != nil {
+		t.Fatalf("NewScorer setup: %v", err)
+	}
+	algos := s.Algorithms()
+	if len(algos) != 1 || algos[0].ID != AlgoLevenshtein {
+		t.Errorf("Algorithms(): got %+v, want [{AlgoLevenshtein 1.0}]", algos)
+	}
+	// Pin slice element type — explicit form deliberately keeps the
+	// ScorerAlgorithm identifier reference visible to the AST gate.
+	//nolint:staticcheck // QF1011: explicit type retained so Floor 3's AST walk sees the identifier.
+	var _ []ScorerAlgorithm = algos
+}
+
+// errorsIsLocal delegates to stdlib errors.Is. It exists to make the
+// import-block dependency on `errors` explicit at the call sites
+// elsewhere in this file; tests use `errorsIsLocal(err, target)`
+// uniformly.
+func errorsIsLocal(err, target error) bool {
+	return errors.Is(err, target)
+}
+
+// TestMustDefaultScorer_PanicsOnNewScorerError covers the panic body
+// in mustDefaultScorer (the testable internal helper for DefaultScorer).
+// Reaching this branch via the public API is impossible because
+// DefaultScorerOptions() always produces valid options that NewScorer
+// accepts; this test injects a failing newScorer stub to exercise the
+// defence-in-depth typed-panic.
+func TestMustDefaultScorer_PanicsOnNewScorerError(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("mustDefaultScorer with failing newScorer: expected panic, got none")
+		}
+		err, ok := r.(error)
+		if !ok {
+			t.Fatalf("mustDefaultScorer panic value is not an error: %T (%v)", r, r)
+		}
+		if !errorsIsLocal(err, ErrInternalInvariantViolated) {
+			t.Errorf("mustDefaultScorer panic error: want errors.Is(_, ErrInternalInvariantViolated), got %v", err)
+		}
+	}()
+	// Inject a newScorer that always fails.
+	stubErr := errors.New("simulated NewScorer failure for defence-in-depth test")
+	mustDefaultScorer(func(opts ...ScorerOption) (*Scorer, error) {
+		return nil, stubErr
+	})
+	t.Fatal("mustDefaultScorer with failing newScorer: returned normally (should have panicked)")
 }

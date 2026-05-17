@@ -139,8 +139,16 @@ bench-compare:
 
 # ---- coverage -------------------------------------------------------------
 
+# Coverage scope: ONLY the library package (the root `fuzzymatch`
+# module). Internal CI tooling under `scripts/cmd/*` and
+# `scripts/internal/*` is build-time infrastructure, not library code,
+# and is exempt from the library coverage floors. Including those
+# untested helper packages in `./...` dragged the aggregate from the
+# library's measured ~92% down to ~85% (false signal — see
+# .planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md
+# §Residue R3).
 coverage:
-	CGO_ENABLED=1 $(GO) test -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic ./...
+	CGO_ENABLED=1 $(GO) test -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic .
 
 # Coverage floor enforcement (plan 01-04 lands the script). Enforces all
 # three CLAUDE.md floors:

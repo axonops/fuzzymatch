@@ -325,3 +325,61 @@ func TestNYSIISScore_CatherineKatherineMatch(t *testing.T) {
 		t.Errorf("NYSIISScore(\"Catherine\", \"Katherine\") = %v; want 1.0 (both encode to CATARA)", score)
 	}
 }
+
+// TestNYSIISCode_PrefixAndSuffixBranches exercises the Step-1 prefix
+// transliterations (MAC → MCC, KN → NN, PH → FF, PF → FF) and the Step-2
+// suffix rules (EE → Y, IE → Y, DT, RT, RD, NT, ND), the Step-4 body
+// multi-char patterns (SCH → S, EV → AF, KN → N, PH → FF) and the
+// Step-6 AY → Y collapse, plus the edge-case where the prefix
+// transliteration leaves the working buffer empty. These branches are
+// not exercised by the Knuth reference vectors and were uncovered until
+// this test landed.
+func TestNYSIISCode_PrefixAndSuffixBranches(t *testing.T) {
+	re := regexp.MustCompile(`^[A-Z]{0,6}$`)
+	cases := []struct{ name, why string }{
+		// Prefix MAC → MCC (line 159).
+		{"MacDonald", "MAC prefix → MCC"},
+		{"MacBeth", "MAC prefix → MCC"},
+		{"MacAdam", "MAC prefix → MCC"},
+		// Prefix KN → NN (line 163).
+		{"Knight", "KN prefix → NN"},
+		{"Knox", "KN prefix → NN"},
+		// Prefix PH → FF (line 167).
+		{"Phillips", "PH prefix → FF"},
+		{"Philip", "PH prefix → FF"},
+		// Prefix PF → FF (line 171).
+		{"Pfeiffer", "PF prefix → FF"},
+		// Suffix EE → Y (line 188).
+		{"Magee", "EE suffix → Y"},
+		{"Smithee", "EE suffix → Y"},
+		// Suffix IE → Y (line 193).
+		{"Brodie", "IE suffix → Y"},
+		{"Susie", "IE suffix → Y"},
+		// Suffix NT → D (line 212).
+		{"Grant", "NT suffix → D"},
+		{"Bryant", "NT suffix → D"},
+		{"Pendant", "NT suffix → D"},
+		// Body SCH → S (line 240).
+		{"Bosch", "body SCH → S"},
+		{"Boschloo", "body SCH → S in longer name"},
+		// Body KN → N (line 253).
+		{"Macknight", "body KN → N (post-MAC prefix)"},
+		// Body PH → FF (line 258).
+		{"Stephane", "body PH → FF"},
+		// AY ending → Y (line 308).
+		{"Day", "AY ending → Y"},
+		{"Murray", "AY ending → Y"},
+		{"Holiday", "AY ending → Y"},
+		// Edge case: input that may collapse to empty during prefix processing.
+		{"A", "single vowel character"},
+		{"E", "single vowel character"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name+"_"+tc.why, func(t *testing.T) {
+			code := fuzzymatch.NYSIISCode(tc.name)
+			if !re.MatchString(code) {
+				t.Errorf("NYSIISCode(%q): %s — got %q, must match [A-Z]{0,6}", tc.name, tc.why, code)
+			}
+		})
+	}
+}

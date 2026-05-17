@@ -155,16 +155,32 @@ func NewSWGParams() SWGParams {
 		GapOpen:   -1.5,
 		GapExtend: -0.5,
 	}
-	// Defence-in-depth: validate the baked-in defaults. The locked
-	// defaults always pass; this self-test fires only if the constants
-	// above have been tampered with (a programmer error / build-time
-	// injection), which is an internal-invariant violation rather than
-	// a caller error — hence ErrInternalInvariantViolated instead of
-	// ErrInvalidSWGParam.
+	swgPanicIfInvalid(p)
+	return p
+}
+
+// swgPanicIfInvalid is the testable internal helper for NewSWGParams.
+// It validates the supplied params and panics with an
+// ErrInternalInvariantViolated-wrapped error if any invariant is
+// violated.
+//
+// Why this exists as a separate function: the panic body is
+// defence-in-depth — the locked default constants in NewSWGParams
+// always validate cleanly, so the err != nil branch is unreachable via
+// the public API. Extracting the panic into an unexported helper lets
+// internal tests exercise the panic path (by passing deliberately-
+// invalid params) without exposing a public surface that consumers
+// could misuse.
+//
+// Phase 8.5 Gap 5: the panic wraps ErrInternalInvariantViolated so
+// consumers can discriminate library bugs from caller errors via
+// errors.Is on the recovered panic value. The double-%w form chains
+// the underlying validate() error so errors.Is also matches the
+// specific ErrInvalidSWGParam sentinel.
+func swgPanicIfInvalid(p SWGParams) {
 	if err := p.validate(); err != nil {
 		panic(fmt.Errorf("%w: NewSWGParams default constants violate invariants: %w", ErrInternalInvariantViolated, err))
 	}
-	return p
 }
 
 // Validate checks the affine-gap parameter invariants documented on

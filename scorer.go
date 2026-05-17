@@ -590,18 +590,34 @@ func DefaultScorerOptions() []ScorerOption {
 //	    // similar
 //	}
 func DefaultScorer() *Scorer {
-	s, err := NewScorer(DefaultScorerOptions()...)
+	return mustDefaultScorer(NewScorer)
+}
+
+// mustDefaultScorer is the testable internal helper for DefaultScorer.
+// It calls newScorer with DefaultScorerOptions and panics with an
+// ErrInternalInvariantViolated-wrapped error if construction fails.
+//
+// Why this exists as a separate function: the panic body is
+// defence-in-depth — DefaultScorerOptions() always returns valid
+// options, so the err != nil branch is unreachable via the public API.
+// Extracting the panic into an unexported helper lets internal tests
+// exercise the panic path (by passing a deliberately-failing newScorer
+// stub) without exposing a public surface that consumers could misuse.
+//
+// Phase 8.5 Gap 5: the panic wraps ErrInternalInvariantViolated so
+// consumers can discriminate library bugs from caller errors via:
+//
+//	defer func() {
+//	    if r := recover(); r != nil {
+//	        if e, ok := r.(error); ok && errors.Is(e, ErrInternalInvariantViolated) { … }
+//	    }
+//	}()
+//
+// The double-%w form chains the underlying validation error so
+// errors.Is also matches whichever NewScorer sentinel fired.
+func mustDefaultScorer(newScorer func(opts ...ScorerOption) (*Scorer, error)) *Scorer {
+	s, err := newScorer(DefaultScorerOptions()...)
 	if err != nil {
-		// Phase 8.5 Gap 5: typed-error panic wrapping
-		// ErrInternalInvariantViolated so consumers can discriminate
-		// library bugs from caller errors via:
-		//   defer func() {
-		//     if r := recover(); r != nil {
-		//       if e, ok := r.(error); ok && errors.Is(e, ErrInternalInvariantViolated) { … }
-		//     }
-		//   }()
-		// The double-%w form chains the underlying validation error so
-		// errors.Is also matches whichever NewScorer sentinel fired.
 		panic(fmt.Errorf("%w: DefaultScorer construction failed: %w", ErrInternalInvariantViolated, err))
 	}
 	return s

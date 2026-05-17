@@ -352,3 +352,189 @@ func TestDoubleMetaphoneKeys_OutputCharset(t *testing.T) {
 		}
 	}
 }
+
+// TestDoubleMetaphoneKeys_RareBranchCoverage exercises ethnic-origin and rare-
+// letter-combination branches of the Double Metaphone rule table that the
+// existing literature reference vectors do not hit. Each input is chosen to
+// trip a specific rule path documented in Philips (2000); the test only
+// asserts that DoubleMetaphoneKeys runs to completion and produces non-empty
+// keys (no panic, no infinite loop, no all-zero output). The exact key values
+// are not asserted here because the paper-anchored test (Q11c) and the
+// literature reference vector test cover correctness — this test is a pure
+// coverage gate for rule-dispatch branches.
+func TestDoubleMetaphoneKeys_RareBranchCoverage(t *testing.T) {
+	names := []string{
+		// "ACH" not at start, Germanic — line 330
+		"Bacher", "Macher", "Aachen", "Schumacher",
+		// "CAESAR" — line 338
+		"Caesar", "Caesarian",
+		// "CHIA" — line 344
+		"Chianti", "Chiapas",
+		// "CHAE" Greek initial — line 351
+		"Michael", "Michaela",
+		// Greek initial CHAR / CHOR / CHYM / CHEM — line 358
+		"Character", "Charisma", "Chorus", "Chemistry", "Chemical", "Chymical",
+		// "ORCHES" / "ARCHIT" / "ORCHID" — line 366
+		"Orchestra", "Architect", "Orchid",
+		// CH followed by T or S — line 372
+		"Yacht", "Christmas", "Chthonic",
+		// Initial CH-A Germanic or specific patterns — line 378
+		"Channel", "Vanneman", "Borchard", "Manchester", "Pulchnar",
+		// "MACHE" / "MACHER" — line 384
+		"Mache",
+		// Initial CH-E/I/O Chinese/Greek — line 390
+		"Chen", "Chin", "Chong", "Choi",
+		// "CZ" not "TCZ" — line 408
+		"Wozniak", "Czerny", "Czech",
+		// "CIA" suffix — line 414
+		"Marcia", "Patricia", "Garcia",
+		// "CC" + I/E/H — line 422
+		"Accident", "Accept", "Succeed", "Success",
+		// MCC exception — line 420 (skip)
+		"McCarthy",
+		// CC default — line 429
+		"Account", "Occult",
+		// CK / CG / CQ — line 434
+		"Black", "Eccoli",
+		// CI / CE / CY — line 440
+		"Cigarette", "Cement", "Cycle",
+		// CIA / CIO / CIE Italian — line 442
+		"Caio", "Cierra",
+		// Default C → K, with " C/Q/G" follow — line 451-455
+		"Mc Carthy",
+		// DG-I/E/Y — line 461
+		"Budget", "Edge", "Ridge", "Edgy",
+		// DG default → TK — line 467
+		"Hodgkin",
+		// DT / DD — line 471
+		"Goddard", "Quadrant",
+		// FF — line 480 (skip)
+		"Cliff",
+		// GH after consonant (no vowel before) — line 488
+		"McGhee",
+		// GH initial — line 493
+		"Ghana", "Ghee", "Ghibellines", "Ghirardelli",
+		// GH after B/H/D-2 — line 504 (silent)
+		"Daughter", "Sleighbells",
+		// GH "UGH" → F — line 511
+		"Cough", "Tough", "Rough", "Laugh",
+		// GH end-position → K — line 514
+		"Sigh",
+		// French-Slavic clusters
+		"Brzezinski", "Szymanski", "Kowalski",
+		// Various GN, KN, MB endings
+		"Gnostic", "Knight", "Lamb", "Comb",
+		// PH, PS, PN
+		"Phone", "Pneumonia", "Psalm",
+		// SCH variants
+		"Schmidt", "Schubert", "Scheme", "Schwartz",
+		// SH variants
+		"Shore", "Sheridan",
+		// TH variants
+		"Throne", "Thomas", "Throat",
+		// ZH
+		"Zhukov",
+		// V doubles, W endings
+		"Bavarian", "Willow",
+		// J initial → "J", "A" (English vs French)
+		"Jose", "Juan", "Jean",
+		// Diphthongs and silent letters
+		"Knife", "Wrist", "Pterodactyl", "Tsunami",
+		// More CH cases
+		"Charisma", "Chess", "Chip", "Chair",
+		// Names ending in -CH
+		"Bach", "Rich", "Watch",
+		// Names ending in -GH
+		"Pittsburgh", "Edinburgh",
+		// X clusters
+		"Xerox", "Xylophone",
+		// Slavo-Germanic markers — WITZ pattern in dmSlgCheck
+		"Horowitz", "Berkowitz", "Leibowitz",
+		// Italian GLI cluster
+		"Migliore", "Tagliabue", "Tagliaferro",
+		// Initial G-vowel patterns (GE-/GI- Italian/French)
+		"Geneva", "Geyser", "Geisha", "Gerald", "Geographer",
+		"Gibraltar", "Gibson", "Gilbert", "Giselle", "Ginger",
+		// G default before vowels (Gypsy, Gym)
+		"Gypsy", "Gymnasium",
+		// AGGI/OGGI Italian
+		"Aggregator", "Foggia", "Doggy",
+		// GG normal
+		"Eggleston", "Maggie",
+		// J variants: initial JOSE, SAN JOSE prefix
+		"Jose", "Joseph", "SanJose", "Sanjose",
+		// J after vowel (non-Slavic-Germanic)
+		"Major", "Mojave",
+		// J followed by various consonants
+		"Jklight", "Jstring",
+		// Long input (>64 ASCII letters) to hit dmPrep heap path
+		"AbcdefghijklmnopqrstuvwxyzAbcdefghijklmnopqrstuvwxyzAbcdefghijklmnopqrstuvwxyz",
+		// Names that fill secondary buffer (force alt-trimming in dmAdd)
+		"Schwarzeneggerstein", "Pszczewnikowskaja",
+		// Long input with embedded non-ASCII — hits dmPrep heap-path non-ASCII branch (line 239)
+		"AbcdefghijklmnopqrstuvwxyzAbcdefghijklmnopqrstuvwxyzAbcdefghijklmnopqrstuvwxyz" + "中ñ",
+		// Spanish coda ILLO / ILLA / ALLE (L rule line 619)
+		"Castillo", "Hidalgo", "Sevilla", "Estrella", "Padilla", "Murillo",
+		// UMB followed by ER or end (M rule line 660)
+		"Plumber", "Lumber", "Number", "Coomber", "Thumb", "Comb",
+		// PP and PB collapsed
+		"Apple", "Suppose", "Subpar",
+		// French/Romance IER end → silent R (line 698)
+		"Carrier", "Premier", "Couturier", "Atelier",
+		// ISL/YSL silent (line 711)
+		"Aisle", "Carlisle", "Lysle",
+		// SUGAR initial (line 720)
+		"Sugar", "Sugarcane",
+		// SH + HEIM/HOEK/HOLM/HOLZ Germanic (line 729-732)
+		"Mannheim", "Hochheim", "Stockholm", "Schwarzholz",
+		// SIO / SIA → X (line 758)
+		"Mission", "Russian", "Tension", "Persian",
+		// Slavic SZ
+		"Szwarc", "Szczecin",
+		// French silent endings (line 800-870 area)
+		"Beaulieu", "Renault", "Versailles", "Bordeaux",
+		// Various T patterns (TIA, TCH)
+		"Initiation", "Patrician", "Witch", "Match", "Christmas",
+		// W rules
+		"Wright", "Walsh", "Welch",
+		// Names with Y rules
+		"Lynyrd", "Khrysler",
+		// Initial CHAE Greek (long form) — line 351
+		"Chaerephon", "Chaeronea", "Chaeremon",
+		// CCIA pattern — Italian double-C followed by IA (line 414)
+		"Caccia", "Cuccia", "Ricciardelli",
+		// "C" followed by space + C/Q/G — line 452 (rare, e.g. "Mc Carthy" already covered; try more)
+		"Mc Cartney", "Mc Quade", "Mc Geer",
+		// GH at non-zero position with consonant before AND no vowel before — line 488
+		"Crighton",
+		// GH at i where i-1 == 'I' AND lookback chars — line 514
+		"Light", "Sigh",
+		// L rule line 619: "AS"/"OS" + ALLE — Italian/Spanish
+		"Cavalleros", "Casalleros",
+		// UMB at end (line 660 alt path: i+1==n)
+		"Tomb", "Womb", "Crumb",
+		// PP collapsed inside word (line 678)
+		"Apply", "Trapper",
+		// ISL/YSL at i-1 silent (line 711) — name with ISL pattern
+		"Lisle", "Isle",
+	}
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			p, s := fuzzymatch.DoubleMetaphoneKeys(name)
+			if name != "" && p == "" && s == "" {
+				t.Errorf("DoubleMetaphoneKeys(%q) returned empty keys; expected non-empty for non-empty ASCII input", name)
+			}
+			// Keys must respect the [A-Z0] alphabet and length cap (mirrors OutputCharset test).
+			for _, key := range []string{p, s} {
+				for _, c := range []byte(key) {
+					if (c < 'A' || c > 'Z') && c != '0' {
+						t.Errorf("DoubleMetaphoneKeys(%q): key %q has invalid char %q", name, key, string(c))
+					}
+				}
+				if len(key) > 4 {
+					t.Errorf("DoubleMetaphoneKeys(%q): key %q has len %d > 4", name, key, len(key))
+				}
+			}
+		})
+	}
+}

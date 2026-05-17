@@ -83,6 +83,16 @@ func TestDamerauLevenshteinOSA_Identical(t *testing.T) {
 			if got := fuzzymatch.DamerauLevenshteinOSAScore(s, s); got != 1.0 {
 				t.Errorf("DamerauLevenshteinOSAScore(%q, %q) = %g; want 1.0", s, s, got)
 			}
+			// Exercise the byte-identity fast path in the Runes variants:
+			// when a == b, both variants short-circuit before the []rune
+			// conversion, returning distance 0 / score 1.0 without
+			// allocating rune slices.
+			if got := fuzzymatch.DamerauLevenshteinOSADistanceRunes(s, s); got != 0 {
+				t.Errorf("DamerauLevenshteinOSADistanceRunes(%q, %q) = %d; want 0 (fast identity)", s, s, got)
+			}
+			if got := fuzzymatch.DamerauLevenshteinOSAScoreRunes(s, s); got != 1.0 {
+				t.Errorf("DamerauLevenshteinOSAScoreRunes(%q, %q) = %g; want 1.0 (fast identity)", s, s, got)
+			}
 		})
 	}
 }

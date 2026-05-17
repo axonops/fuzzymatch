@@ -3263,61 +3263,100 @@ func TestProp_MongeElkanScoreAsymmetric_NoNegativeZero(t *testing.T) {
 	}
 }
 
-// TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveWhenTokenCountAsymmetric
-// is the asymmetry-conditional property test (mirrors
-// TestProp_TverskyScore_AsymmetricWhenAlphaNeqBeta). With fixed
-// inner = AlgoLevenshtein (which produces non-zero scores on
-// partially-overlapping tokens), the implication is:
+// TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveOnStrictSubset
+// is the constructive direction-sensitivity property. The naive form —
+// "different token counts always implies different scores" — is
+// mathematically FALSE: for random non-subset pairs the per-token
+// max-similarities can coincidentally produce identical avg(row_maxes)
+// and avg(col_maxes), making fwd == rev despite different token counts.
+// The earlier `DirectionSensitiveWhenTokenCountAsymmetric` form flaked
+// on quick.Check because it asserted that false universal claim.
 //
-//	IF |tokens(a)| ≠ |tokens(b)| AND fwd > 0 AND fwd != 1.0
-//	THEN MongeElkanScoreAsymmetric(a, b, inner) ≠
-//	     MongeElkanScoreAsymmetric(b, a, inner).
+// The truly universal property comes from the SUBSET case. When
+// tokens(b) ⊊ tokens(a) (strict subset), then for inner = identity-on-
+// equal-tokens (which Levenshtein satisfies for token equality):
 //
-// The fwd != 1.0 guard excludes the corner case where the per-token
-// max-mean happens to collapse to 1.0 in both directions (which can
-// happen when one side is a strict singleton subset of the other AND
-// the lone token is identical-to-self). The fwd > 0 guard excludes
-// fully-orthogonal pairs where both directions collapse to 0.0.
+//	MongeElkanScoreAsymmetric(b, a, inner) == 1.0
+//	  (every b-token finds its identical match in a, so all row maxes
+//	   are 1.0, and the average of all-1.0 is 1.0)
 //
-// Detecting whether token-counts differ from inside the property body
-// without re-implementing Tokenise: len(strings.Fields(s)) is a coarse
-// approximation for whitespace-only inputs. For mixed identifier-style
-// inputs the project Tokenise produces semantically richer splits, but
-// the property holds whenever the TOKEN counts differ — the
-// approximation under-counts conservative cases where Tokenise splits
-// camelCase, which means the property STILL holds for those (the
-// premise is just looser than strictly required).
+//	MongeElkanScoreAsymmetric(a, b, inner) < 1.0
+//	  (the "extra" a-tokens not in b have max-sim < 1.0 against b,
+//	   pulling the average strictly below 1.0)
 //
-// Spot-check on the canonical RV-ME6 / RV-ME4 pair confirms the
-// property body actively detects asymmetric inputs (a degenerate
-// `return true` would otherwise slip past quick.Check).
-func TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveWhenTokenCountAsymmetric(t *testing.T) {
+//	Therefore ME(b, a, inner) > ME(a, b, inner) — direction-sensitive.
+//
+// The constructive generator: take a random ASCII tokenisable string b,
+// take random "extra" tokens, and build a = b + " " + extra. Tokenise
+// then yields tokens(b) ⊊ tokens(a) whenever extra produces at least one
+// token not already in b. The property is vacuously true otherwise.
+//
+// Spot-check on the canonical RV-ME4 / RV-ME6 pair confirms the
+// property body actively detects asymmetric inputs.
+func TestProp_MongeElkanScoreAsymmetric_DirectionSensitiveOnStrictSubset(t *testing.T) {
 	inner := fuzzymatch.AlgoLevenshtein
-	f := func(a, b string) bool {
-		if a == b || a == "" || b == "" {
-			return true // short-circuit branches
+	opts := fuzzymatch.DefaultTokeniseOptions()
+	f := func(rawB, rawExtra asciiTokeniseInput) bool {
+		b := string(rawB)
+		extra := string(rawExtra)
+		if b == "" || extra == "" {
+			return true // degenerate
 		}
-		fwd := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
-		rev := fuzzymatch.MongeElkanScoreAsymmetric(b, a, inner)
-		// Token-count premise — approximate via strings.Fields (a
-		// whitespace split). The project Tokenise can split FURTHER on
-		// identifier boundaries, so this under-estimates the token-count
-		// imbalance; the property still holds whenever token counts
-		// differ.
-		aTokens := len(strings.Fields(a))
-		bTokens := len(strings.Fields(b))
-		// Premise: token counts differ AND fwd is a partial-overlap
-		// score (0 < fwd < 1). Both bounds are needed: fwd == 0 means
-		// orthogonal pairs (rev also 0); fwd == 1 means a subset-with-
-		// identical-tokens case where both directions trivially equal 1.
-		if aTokens == bTokens || fwd == 0.0 || fwd == 1.0 {
-			return true // vacuous truth
+		bTokens := fuzzymatch.Tokenise(b, opts)
+		if len(bTokens) == 0 {
+			return true // b normalised to empty — vacuous
 		}
-		// Premise holds — scores must differ.
-		return fwd != rev
+		// Construct a = b + " " + extra. The space guarantees a token
+		// boundary so b's tokens are preserved verbatim in a's tokens.
+		a := b + " " + extra
+		aTokens := fuzzymatch.Tokenise(a, opts)
+		// Verify the subset construction succeeded: every b-token
+		// appears in aTokens. If Tokenise did something unexpected
+		// (e.g., normalisation collapsed tokens), short-circuit.
+		bSet := make(map[string]bool, len(bTokens))
+		for _, tok := range bTokens {
+			bSet[tok] = true
+		}
+		aSet := make(map[string]bool, len(aTokens))
+		for _, tok := range aTokens {
+			aSet[tok] = true
+		}
+		for tok := range bSet {
+			if !aSet[tok] {
+				return true // construction failed — vacuous
+			}
+		}
+		// Verify strict subset: a has at least one token not in b.
+		strict := false
+		for tok := range aSet {
+			if !bSet[tok] {
+				strict = true
+				break
+			}
+		}
+		if !strict {
+			return true // a's tokens == b's tokens — vacuous (no asymmetry)
+		}
+		// Premise holds: tokens(b) ⊊ tokens(a). The property:
+		//   ME(b, a) == 1.0  (every b-token finds its identical match)
+		//   ME(a, b) <  1.0  (the extra a-tokens drag the avg below 1)
+		// Therefore ME(b, a) > ME(a, b), strictly direction-sensitive.
+		mBA := fuzzymatch.MongeElkanScoreAsymmetric(b, a, inner)
+		mAB := fuzzymatch.MongeElkanScoreAsymmetric(a, b, inner)
+		if mBA != 1.0 {
+			t.Logf("ME(b, a) expected 1.0, got %.17g; b=%q a=%q bTokens=%q aTokens=%q",
+				mBA, b, a, bTokens, aTokens)
+			return false
+		}
+		if mAB >= mBA {
+			t.Logf("expected ME(a, b) < ME(b, a); got ME(a,b)=%.17g ME(b,a)=%.17g; b=%q a=%q",
+				mAB, mBA, b, a)
+			return false
+		}
+		return true
 	}
 	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("MongeElkanScoreAsymmetric direction-sensitivity-conditional property violated: %v", err)
+		t.Errorf("MongeElkanScoreAsymmetric strict-subset direction-sensitivity property violated: %v", err)
 	}
 	// Spot-check on the RV-ME4 / RV-ME6 canonical pair.
 	rvME4 := fuzzymatch.MongeElkanScoreAsymmetric("alpha", "alpha beta gamma", inner)
