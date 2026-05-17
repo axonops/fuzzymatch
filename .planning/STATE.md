@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Completed Plan 08.5-14 (Q9 DoubleMetaphone dupBranchBody removal at SAIS-end rule — gocritic Critical finding closed; Gap 6 plan-DAG gate honoured via Plan 05 paper-anchored test)
-last_updated: "2026-05-17T17:45:00.000Z"
+stopped_at: Completed Plan 08.5-15a (Q14b mechanical refactor + Gap 1 file-name convention rename; 23 dispatch init() refactors + WriteGoldenFile unexport pattern + scorer_options merged into _internal_test.go)
+last_updated: "2026-05-17T15:54:45.159Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 15 of 20 (08.5-14 just completed; 14 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14)
-Status: Ready to execute (next: 15a/15b improvement sweep)
+Plan: 16 of 20 (08.5-14 just completed; 14 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14)
+Status: Ready to execute
 Last activity: 2026-05-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08.5 P12 | 35min | 4 tasks tasks | 20 files files |
 | Phase 08.5 P13 | 40min | 4 tasks tasks | 10 files files |
 | Phase 08.5 P14 | 10min | 1 tasks | 1 files |
+| Phase 08.5 P15a | 9min | 2 tasks tasks | 28 files files |
 
 ## Accumulated Context
 
@@ -100,6 +101,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - [Phase ?]: Phase 08.5 Plan 12 (Cluster 6 test-infrastructure bundle large-grain): 18 new test files. 3 meta-tests (internal_coverage_test build-tag gated, readme_shop_front, documentation_test 35 blocks/34 verified/1 skipped). 3 FuzzScorer_* harnesses. 9 rune-variant + 4 distance-variant + 1 phonetic-code fuzz harnesses. 3 Phase-7 phonetic convergence cross-algorithm tests (Smith/Smithe universal; Schmidt/Schmit + Knight/Night partial — empirically-derived pairs replacing plan-suggested NYSIIS-divergent pairs). 2 Scorer property tests. docs:skip-compile marker convention established.
 - [Phase ?]: Plan 08.5-13 (Q4): Validate public surface lands. 10 new exported identifiers (Validate, Warning, WarnKind, WarnKinds, AlgoIDAny, 5 WarnKind constants). AlgoIDAny=-2 sentinel (-1 reserved). WarnKind iota+1 so zero is unset. Per-algorithm fanout for token-tier + ASCII-only Kinds. 64 KiB threshold. sort.SliceStable on (Algorithm, Kind) — T-08.5-26 mitigation. 13 unit tests, 4 benchmarks, FuzzValidate (14 seeds, 28k execs/0 crashes in 5s), 7 BDD scenarios. llms.txt indexed; remaining 6 doc surfaces deferred to Plan 17 as planned.
 - [Phase ?]: Plan 08.5-14 (Q9, Gap 6): DoubleMetaphone dupBranchBody at the French SAIS-end rule (double_metaphone.go formerly lines 766-771) collapsed to a single dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "") call with an 8-line inline comment citing the docs/requirements.md §7.21 spec lock and the TestDoubleMetaphone_PaperWorkedExamples Sais verification gate. Behaviour preservation verified by Plan 05's paper-anchored test (Gap 6 plan-DAG gate, all 10 cases green pre-edit). Single atomic refactor commit (9 insertions / 6 deletions). gocritic dupBranchBody Critical finding for double_metaphone.go closes. Benchmark allocs/bytes unchanged.
+- [Phase ?]: Phase 08.5 Plan 15a (Q14b + Gap 1): mechanical refactors landed atomically — WriteGoldenFile unexport with test-only re-export via export_test.go (production helper named writeGoldenFile, wrapper-prefix string updated); 23 dispatch_*.go files refactored from var _ = func() bool {...}() to explicit func init() (Q14b option A, T-08.5-28 mitigated by unique-slot writes); scorer_options_test.go merged into scorer_options_internal_test.go (Gap 1 rename) via in-place content merge (collision Rule 3) — both probe helpers and Test* functions now live in one _internal_test.go. Plan 15b retains the non-mechanical residue (Gap 2 BDD, Gap 5 companion property test, Gap 7 outcomes, 30+ Code-fix lint sweep).
 
 ### Pending Todos
 
@@ -125,7 +127,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T17:45:00.000Z
-Stopped at: Completed Plan 08.5-14 (Q9 DoubleMetaphone dupBranchBody removal at SAIS-end rule — gocritic Critical finding closed; Gap 6 plan-DAG gate honoured via Plan 05 paper-anchored test)
+Last session: 2026-05-17T15:54:45.155Z
+Stopped at: Completed Plan 08.5-15a (Q14b mechanical refactor + Gap 1 file-name convention rename; 23 dispatch init() refactors + WriteGoldenFile unexport pattern + scorer_options merged into _internal_test.go)
 Resume file: 
-None

@@ -194,7 +194,7 @@
   - [x] 08.5-12-PLAN.md (Wave 4) — Test surface expansion: 3 missing meta-tests + FuzzScorer_* harnesses + 9 rune-variant fuzz + 4 distance-variant fuzz + 1 phonetic-code fuzz + cross-algorithm convergence + Scorer property tests (Wave 1)
   - [x] 08.5-13-PLAN.md (Wave 5) — Q4 Validate public surface: validate.go + warn_kind.go + tests + bench + fuzz + BDD validate.feature (Wave 2; depends on 01)
   - [x] 08.5-14-PLAN.md (Wave 5) — Q9 DoubleMetaphone dupBranchBody removal (Wave 2; depends on 05 — Gap 6 gate)
-  - [ ] 08.5-15a-PLAN.md (Wave 5) — Improvement sweep, mechanical half: Q14b WriteGoldenFile unexport + 23 dispatch init() refactor + Gap 1 filename rename (Wave 5; depends on 01, 02, 03)
+  - [x] 08.5-15a-PLAN.md (Wave 5) — Improvement sweep, mechanical half: Q14b WriteGoldenFile unexport + 23 dispatch init() refactor + Gap 1 filename rename (Wave 5; depends on 01, 02, 03)
   - [ ] 08.5-15b-PLAN.md (Wave 5) — Improvement sweep, non-mechanical half: Gap 2 BDD scenarios for 3 sentinels + Gap 5 companion test + Gap 7 outcomes + 30+ Code-fix lint sweep + British English misspell sweep across .go files (Wave 5; depends on 01, 02, 03)
   - [ ] 08.5-16-PLAN.md (Wave 6) — Q13 devops: release.yml needs:[ci] + nightly.yml + SHA-pin all action references + make verify-llms-sync + HashiCorp licence audit + bench.txt regeneration + docs/algorithms.md anchor casing (Wave 3; depends on 06, 07, 08)
   - [ ] 08.5-17a-PLAN.md (Wave 6) — Documentation cluster, codebase-heavy half: docs/algorithms.md full fill-in + Q12c panic-surface + Q14a 5 MB ceiling + 22-23 per-algorithm godoc cross-refs to fuzzymatch.Validate + Q6a SKILL update (Wave 6; depends on 01, 02, 03, 13)
