@@ -255,6 +255,7 @@ Zero external dependencies is achievable — all referenced algorithms are O(100
 ### Core Interface (inspired by `adrg/strutil`)[^8]
 
 ```go
+// docs:skip-compile
 // Metric is implemented by every algorithm.
 type Metric interface {
     // Similarity returns a value in [0.0, 1.0].
