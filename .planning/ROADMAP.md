@@ -181,7 +181,7 @@
 **Deferred to v1.x**: Cross-algorithm allocation budget / tokenisation cache (Q14a, GitHub issue [#2](https://github.com/axonops/fuzzymatch/issues/2)).
 **Plans**: 20 plans (post-revision 2026-05-17: Plans 15 and 17 split into 15a/15b and 17a/17b per checker MAJOR findings)
   - [x] 08.5-01-PLAN.md (Wave 1) — Sentinel hygiene foundation: Gap 4 atomic rename `ErrInvalidAlgorithm` → `ErrInvalidAlgoID` (15 call sites in 5 files) + Q4 sentinel additions (`ErrInvalidInnerAlgo`, `ErrInternalInvariantViolated`) + Q4 removals (3 unused) + 4-section godoc rewrites + Gap 5 typed panic at scorer.go:586 + Monge-Elkan direct-call typed panic + Q1 placeholder note removal (Wave 1; hard predecessor of Plans 13, 15)
-  - [ ] 08.5-02-PLAN.md (Wave 2) — Q3 MongeElkan symmetric-by-default rename + inert opts removal (atomic across 7+ files, ~22 call sites; breaking pre-v1.0) (Wave 1)
+  - [x] 08.5-02-PLAN.md (Wave 2) — Q3 MongeElkan symmetric-by-default rename + inert opts removal (atomic across 7+ files, ~22 call sites; breaking pre-v1.0) (Wave 1)
   - [ ] 08.5-03-PLAN.md (Wave 3) — Q5 PartialRatioScoreRunes removal (atomic across 8 files; breaking pre-v1.0) (Wave 1)
   - [ ] 08.5-04-PLAN.md (Wave 2) — Q2 functional-option NaN/Inf/α+β guards on WithThreshold/WithAlgorithm/WithTverskyAlgorithm + direct-call TverskyScore typed-panic discipline (Wave 1)
   - [x] 08.5-05-PLAN.md (Wave 1) — Q11c paper-anchored Philips 2000 worked-examples test (~10 cases with citations; Gap 6 gate for Plan 14) (Wave 1)
