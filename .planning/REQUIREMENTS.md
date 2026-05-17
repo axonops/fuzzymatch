@@ -126,22 +126,22 @@ Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing compani
 
 ### CI / quality gates (CI)
 
-- [ ] **CI-01**: golangci-lint v2 with project `.golangci.yml` (`docs/requirements.md` §16.1)
-- [ ] **CI-02**: `go vet` + `go test -race` (`docs/requirements.md` §16.2)
-- [ ] **CI-03**: govulncheck on every PR (`docs/requirements.md` §16.3)
-- [ ] **CI-04**: gosec + CodeQL security scans (`docs/requirements.md` §16.4)
-- [ ] **CI-05**: `make verify-deps-allowlist` — root `go.mod` requires must be `golang.org/x/text` ONLY (`docs/requirements.md` §16.5, PROJECT.md Key Decisions)
+- [x] **CI-01**: golangci-lint v2 with project `.golangci.yml` (`docs/requirements.md` §16.1)
+- [x] **CI-02**: `go vet` + `go test -race` (`docs/requirements.md` §16.2)
+- [x] **CI-03**: govulncheck on every PR (`docs/requirements.md` §16.3)
+- [x] **CI-04**: gosec + CodeQL security scans (`docs/requirements.md` §16.4)
+- [x] **CI-05**: `make verify-deps-allowlist` — root `go.mod` requires must be `golang.org/x/text` ONLY (`docs/requirements.md` §16.5, PROJECT.md Key Decisions)
 - [ ] **CI-06**: `make verify-determinism` — golden-file diff on cross-platform matrix (`docs/requirements.md` §16.6)
 - [ ] **CI-07**: Markdownlint (markdownlint-cli2) on all `*.md` (`docs/requirements.md` §16.7)
 - [ ] **CI-08**: `go mod tidy` no-diff check in CI (`docs/requirements.md` §16.8)
-- [ ] **CI-09**: Conventional-commit lint (`wagoid/commitlint-github-action`) on PRs (`docs/requirements.md` §17)
+- [x] **CI-09**: Conventional-commit lint (`wagoid/commitlint-github-action`) on PRs (`docs/requirements.md` §17)
 - [ ] **CI-10**: CLA assistant (`contributor-assistant/github-action`) on PRs (`docs/requirements.md` §17.1)
 - [ ] **CI-11**: Dependabot daily for `gomod` (root + tests/bdd) and `github-actions` (`docs/requirements.md` §16.9)
 
 ### Release plumbing (REL)
 
-- [ ] **REL-01**: GoReleaser v2 with `~> v2` version pin — generates `checksums.txt`, drives release pipeline (`docs/requirements.md` §17.1)
-- [ ] **REL-02**: Cosign v3 keyless signing of `checksums.txt` (with `--bundle`) via GitHub OIDC (`docs/requirements.md` §17.2)
+- [x] **REL-01**: GoReleaser v2 with `~> v2` version pin — generates `checksums.txt`, drives release pipeline (`docs/requirements.md` §17.1)
+- [x] **REL-02**: Cosign v3 keyless signing of `checksums.txt` (with `--bundle`) via GitHub OIDC (`docs/requirements.md` §17.2)
 - [ ] **REL-03**: SBOM (Syft / SPDX) generation per release (`docs/requirements.md` §17.3)
 - [ ] **REL-04**: GitHub Artifact Attestation (`actions/attest-build-provenance@v2`) (`docs/requirements.md` §17.4)
 - [ ] **REL-05**: Releases happen exclusively via CI on tag push — no local `git tag`, no local `goreleaser release`, no `--no-verify` (`docs/requirements.md` §17.5, CLAUDE.md)
@@ -282,19 +282,19 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | TEST-06 | Phase 1 | Complete |
 | TEST-07 | Phase 1 | Pending |
 | TEST-08 | Phase 1 | Pending |
-| CI-01 | Phase 1 | Pending |
-| CI-02 | Phase 1 | Pending |
-| CI-03 | Phase 1 | Pending |
-| CI-04 | Phase 1 | Pending |
-| CI-05 | Phase 1 | Pending |
+| CI-01 | Phase 1 | Complete |
+| CI-02 | Phase 1 | Complete |
+| CI-03 | Phase 1 | Complete |
+| CI-04 | Phase 1 | Complete |
+| CI-05 | Phase 1 | Complete |
 | CI-06 | Phase 1 | Pending |
 | CI-07 | Phase 1 | Pending |
 | CI-08 | Phase 1 | Pending |
-| CI-09 | Phase 1 | Pending |
+| CI-09 | Phase 1 | Complete |
 | CI-10 | Phase 1 | Pending |
 | CI-11 | Phase 1 | Pending |
-| REL-01 | Phase 1 | Pending |
-| REL-02 | Phase 1 | Pending |
+| REL-01 | Phase 1 | Complete |
+| REL-02 | Phase 1 | Complete |
 | REL-03 | Phase 1 | Pending |
 | REL-04 | Phase 1 | Pending |
 | REL-05 | Phase 1 | Pending |

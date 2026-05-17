@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
 status: executing
-stopped_at: Completed Plan 08.5-15b (Gap 2 BDD + Gap 5 companion + Gap 7 outcomes + Q14b lint sweep 63→0 issues + SWGParams.Validate panic-with-typed-sentinel surface)
-last_updated: "2026-05-17T16:18:30Z"
+stopped_at: Completed Plan 08.5-16 (Q13 — full devops cluster + bench.txt regen). Q7d follow-up flagged for future plan.
+last_updated: "2026-05-17T17:21:44.826Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 16 of 20 (08.5-15b just completed; 16 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15a, 15b)
-Status: Ready to execute Plan 16
+Plan: 17 of 20 (08.5-15b just completed; 16 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15a, 15b)
+Status: Ready to execute
 Last activity: 2026-05-17
 
 Progress: [░░░░░░░░░░] 0%
@@ -74,6 +74,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08.5 P14 | 10min | 1 tasks | 1 files |
 | Phase 08.5 P15a | 9min | 2 tasks tasks | 28 files files |
 | Phase 08.5 P15b | 22min | 3 tasks tasks | 43 files files |
+| Phase 08.5 P16 | 55min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,7 @@ Roadmap-shaping decisions recorded at roadmap creation:
 - [Phase ?]: Plan 08.5-14 (Q9, Gap 6): DoubleMetaphone dupBranchBody at the French SAIS-end rule (double_metaphone.go formerly lines 766-771) collapsed to a single dmAdd(&pBuf, &sBuf, &pLen, &sLen, "S", "") call with an 8-line inline comment citing the docs/requirements.md §7.21 spec lock and the TestDoubleMetaphone_PaperWorkedExamples Sais verification gate. Behaviour preservation verified by Plan 05's paper-anchored test (Gap 6 plan-DAG gate, all 10 cases green pre-edit). Single atomic refactor commit (9 insertions / 6 deletions). gocritic dupBranchBody Critical finding for double_metaphone.go closes. Benchmark allocs/bytes unchanged.
 - [Phase ?]: Phase 08.5 Plan 15a (Q14b + Gap 1): mechanical refactors landed atomically — WriteGoldenFile unexport with test-only re-export via export_test.go (production helper named writeGoldenFile, wrapper-prefix string updated); 23 dispatch_*.go files refactored from var _ = func() bool {...}() to explicit func init() (Q14b option A, T-08.5-28 mitigated by unique-slot writes); scorer_options_test.go merged into scorer_options_internal_test.go (Gap 1 rename) via in-place content merge (collision Rule 3) — both probe helpers and Test* functions now live in one _internal_test.go. Plan 15b retains the non-mechanical residue (Gap 2 BDD, Gap 5 companion property test, Gap 7 outcomes, 30+ Code-fix lint sweep).
 - [Phase ?]: Phase 08.5 Plan 15b (Q14b residue + Gap 2 + Gap 5 companion + Gap 7): 3 BDD scenarios for ErrInvalidAlgoID/ErrInvalidQGramSize/ErrInvalidTverskyParam landed in scorer.feature; TestDefaultScorer_NeverPanics_PropertyTest at quick.Check MaxCount=100 covers DefaultScorer + all 6 default-removal subsets + AlgoCosine silent-no-op. Gap 7 outcomes per CONTEXT.md defaults: MRACompare tuple documented (no code change); (SWGParams).Validate() added with ErrInvalidSWGParam sentinel + NewSWGParams self-test wrapping ErrInternalInvariantViolated; WithoutAlgorithm silent no-op godoc + BDD scenario; AlgoIDs() hot-path-caching godoc. Q14b lint sweep 63→0 issues across 10 linter classes (30 inline fixes + 28 documented //nolint annotations in golangci_residue.md). British English clean across .go files. runeAt → runeSizeAt rename across 6 phonetic-encoder call sites.
+- [Phase ?]: Plan 08.5-16 (Q13): full devops cluster landed — 36 SHA-pinned action references across 8 workflow files; release.yml gated on a GitHub Checks API verify-ci-green pre-flight job; nightly.yml long-form fuzz + benchstat regression + auto-PR for fuzz corpus; make verify-llms-sync as a CI gate (strict on llms.txt, advisory on llms-full.txt until Plan 17); scripts/internal/astwalk shared AST helper; HashiCorp/MPL-2.0 audit PASS (distributed Apache-2.0 surface clean); docs/algorithms.md 9 H2 anchors standardised to hyphenated form; bench.txt regenerated (1296→1419 lines); Q7d 25% q-gram capacity hint surfaced as +15-19% time / +90-107% bytes regression on Medium/Long ASCII — flagged as out-of-scope follow-up.
 
 ### Pending Todos
 
@@ -129,6 +131,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T16:18:30Z
-Stopped at: Completed Plan 08.5-15b (Gap 2 BDD + Gap 5 companion + Gap 7 outcomes + Q14b lint sweep 63→0 issues + SWGParams.Validate panic-with-typed-sentinel surface)
+Last session: 2026-05-17T17:21:44.821Z
+Stopped at: Completed Plan 08.5-16 (Q13 — full devops cluster + bench.txt regen). Q7d follow-up flagged for future plan.
 Resume file: 
