@@ -192,7 +192,7 @@
   - [x] 08.5-10-PLAN.md (Wave 1) — Q10 cross-validation corpora: character (jellyfish), q-gram + Monge-Elkan (py_stringmatching) — 3 generators + 3 vectors.json + 3 Go loader tests + Makefile + CONTRIBUTING (Wave 1)
   - [x] 08.5-11-PLAN.md (Wave 4) — Test infra cleanups: Q11a bench.txt.new deletion + Q11d partial_ratio.go:148 rename + Q12b mixed-shape property-test generators + uint16 overflow fix + Q12a AST-based Coverage Floor 3 helper (Wave 1)
   - [x] 08.5-12-PLAN.md (Wave 4) — Test surface expansion: 3 missing meta-tests + FuzzScorer_* harnesses + 9 rune-variant fuzz + 4 distance-variant fuzz + 1 phonetic-code fuzz + cross-algorithm convergence + Scorer property tests (Wave 1)
-  - [ ] 08.5-13-PLAN.md (Wave 5) — Q4 Validate public surface: validate.go + warn_kind.go + tests + bench + fuzz + BDD validate.feature (Wave 2; depends on 01)
+  - [x] 08.5-13-PLAN.md (Wave 5) — Q4 Validate public surface: validate.go + warn_kind.go + tests + bench + fuzz + BDD validate.feature (Wave 2; depends on 01)
   - [ ] 08.5-14-PLAN.md (Wave 5) — Q9 DoubleMetaphone dupBranchBody removal (Wave 2; depends on 05 — Gap 6 gate)
   - [ ] 08.5-15a-PLAN.md (Wave 5) — Improvement sweep, mechanical half: Q14b WriteGoldenFile unexport + 23 dispatch init() refactor + Gap 1 filename rename (Wave 5; depends on 01, 02, 03)
   - [ ] 08.5-15b-PLAN.md (Wave 5) — Improvement sweep, non-mechanical half: Gap 2 BDD scenarios for 3 sentinels + Gap 5 companion test + Gap 7 outcomes + 30+ Code-fix lint sweep + British English misspell sweep across .go files (Wave 5; depends on 01, 02, 03)

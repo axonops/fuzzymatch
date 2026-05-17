@@ -71,11 +71,11 @@
 
 Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing companion to the comparison-data leniency contract (§6.A). `Validate` surfaces problematic-but-non-fatal input shapes as warnings so consumers can audit input quality before scoring.
 
-- [ ] **VALIDATE-01**: Public `fuzzymatch.Validate(a, b string) []Warning` function — single-pass diagnostic returning nil if no warnings apply; safe for concurrent use; never panics; never returns an error (`docs/requirements.md` §11.5)
-- [ ] **VALIDATE-02**: Public `Warning` struct with `Algorithm AlgoID`, `Kind WarnKind`, `Detail string` fields (`docs/requirements.md` §11.5)
-- [ ] **VALIDATE-03**: Public `WarnKind` enum with CamelCase `String()` method matching the AlgoID.String naming convention (`docs/requirements.md` §11.5 and §6 Algorithm identifiers)
-- [ ] **VALIDATE-04**: Five `WarnKind` constants: `WarnEmptyInput`, `WarnUnequalLength`, `WarnNoTokensAfterNormalise`, `WarnAllNonASCIIDropped`, `WarnPathologicallyLargeInput` (`docs/requirements.md` §11.5)
-- [ ] **VALIDATE-05**: Per-algorithm validation rules — one rule set per algorithm specifying which `WarnKind` constants the algorithm's degraded input triggers (e.g. Hamming → `WarnUnequalLength`; ASCII-only phonetic → `WarnAllNonASCIIDropped`; token-tier → `WarnNoTokensAfterNormalise`) (`docs/requirements.md` §11.5 "Per-WarnKind semantics")
+- [x] **VALIDATE-01**: Public `fuzzymatch.Validate(a, b string) []Warning` function — single-pass diagnostic returning nil if no warnings apply; safe for concurrent use; never panics; never returns an error (`docs/requirements.md` §11.5)
+- [x] **VALIDATE-02**: Public `Warning` struct with `Algorithm AlgoID`, `Kind WarnKind`, `Detail string` fields (`docs/requirements.md` §11.5)
+- [x] **VALIDATE-03**: Public `WarnKind` enum with CamelCase `String()` method matching the AlgoID.String naming convention (`docs/requirements.md` §11.5 and §6 Algorithm identifiers)
+- [x] **VALIDATE-04**: Five `WarnKind` constants: `WarnEmptyInput`, `WarnUnequalLength`, `WarnNoTokensAfterNormalise`, `WarnAllNonASCIIDropped`, `WarnPathologicallyLargeInput` (`docs/requirements.md` §11.5)
+- [x] **VALIDATE-05**: Per-algorithm validation rules — one rule set per algorithm specifying which `WarnKind` constants the algorithm's degraded input triggers (e.g. Hamming → `WarnUnequalLength`; ASCII-only phonetic → `WarnAllNonASCIIDropped`; token-tier → `WarnNoTokensAfterNormalise`) (`docs/requirements.md` §11.5 "Per-WarnKind semantics")
 - [ ] **VALIDATE-06**: Documentation across the six required surfaces per `.claude/skills/documentation-standards/SKILL.md` § Consumer-facing validation and diagnostics features — README Quick Start / Common Patterns, `docs/algorithms.md` (or `docs/best-practices.md`), per-algorithm godoc cross-references, `llms.txt` + `llms-full.txt`, user-guide section, and at least one runnable `examples/` program
 
 ### Collection scan (SCAN)
@@ -245,11 +245,11 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | SCORER-06 | Phase 8 | Complete |
 | SCORER-07 | Phase 8 | Complete |
 | SCORER-08 | Phase 8 | Complete |
-| VALIDATE-01 | Phase 8.5 | Pending |
-| VALIDATE-02 | Phase 8.5 | Pending |
-| VALIDATE-03 | Phase 8.5 | Pending |
-| VALIDATE-04 | Phase 8.5 | Pending |
-| VALIDATE-05 | Phase 8.5 | Pending |
+| VALIDATE-01 | Phase 8.5 | Complete |
+| VALIDATE-02 | Phase 8.5 | Complete |
+| VALIDATE-03 | Phase 8.5 | Complete |
+| VALIDATE-04 | Phase 8.5 | Complete |
+| VALIDATE-05 | Phase 8.5 | Complete |
 | VALIDATE-06 | Phase 8.5 | Pending |
 | SCAN-01 | Phase 9 | Pending |
 | SCAN-02 | Phase 9 | Pending |
