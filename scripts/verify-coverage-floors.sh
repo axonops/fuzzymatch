@@ -6,20 +6,24 @@
 #
 #   1. Overall coverage   >= 95.0%   (matches CLAUDE.md / .claude/skills/go-testing-standards)
 #   2. Per-file coverage  >= 90.0%   (every measurable .go file)
-#   3. Public API surface = 100%     (every exported symbol must be exercised)
+#   3. Per-exported-func  >= 90.0%   (every exported function in the root package)
+#      Plus: every exported type/var/const must be referenced in at
+#      least one *_test.go (AST-based detection).
 #
 # Coverage profile input: `coverage.out` at the repo root, produced by
 # `make coverage` (i.e. `go test -race -coverprofile=coverage.out -covermode=atomic ./...`).
 #
-# Floor #3 semantics
+# Floor #3 semantics (Phase 8.5 Q12a LOCKED 2026-05-17)
 # ------------------
-# 100% public-API coverage is enforced by the EXISTENCE of an exercising
-# test, not by requiring 100.0% statement coverage on the symbol's body.
-# Concretely: for every exported func/type/var/const reported by
-# `go doc -short .` against the root package, there must be at least one
-# coverage row in `go tool cover -func=coverage.out` showing non-zero
-# coverage on the same identifier name. A symbol with 0% coverage means
-# no test ever calls it — that fails this check.
+# Floor 3 was tightened from "exists-at-least-one-test" to ">= 90.0%
+# statement coverage per exported function". Detection moves from
+# `go doc -short` parsing to an AST-based Go helper at
+# scripts/cmd/verify-exported-coverage/main.go which:
+#   - walks the root package via go/parser.ParseDir;
+#   - cross-references exported FuncDecls against `go tool cover -func`;
+#   - for non-func symbols, scans every *_test.go for at least one
+#     identifier reference (Floor 3b lighter check).
+# The helper is shelled out from this script; we forward its exit code.
 #
 # Tolerance for the bootstrap state
 # ---------------------------------
@@ -146,116 +150,44 @@ if (( ${#per_file_offenders[@]} > 0 )); then
     exit 1
 fi
 
-# ---- Floor 3: 100% public-API ----
-# Extract exported identifier names from `go doc -short .` on the root
-# package. `go doc -short` prints one declaration per exported symbol,
-# e.g.:
-#   func Normalise(s string, opts NormalisationOptions) string
-#   type AlgoID int
-#   var ErrInvalidInput error
-#   const DefaultThreshold = 0.6
+# ---- Floor 3: >= 90% statement coverage per exported function ----
 #
-# We parse the second whitespace-separated token of each declaration line
-# (after `func`/`type`/`var`/`const`). For methods (e.g.
-# `func (s Scorer) Score(...)`) the name is the first identifier after
-# the receiver — handled by the awk pattern below.
+# Phase 8.5 Q12a LOCKED (2026-05-17): Floor 3 tightens from "exists-at-
+# least-one-test" to ">= 90.0% statement coverage per exported function".
+# Detection switches from `go doc -short` parsing (whitespace-sensitive,
+# fragile around methods) to AST-based enumeration via the dedicated
+# helper at scripts/cmd/verify-exported-coverage/main.go.
 #
-# Then assert each exported symbol appears in the `go tool cover -func`
-# output with a non-zero coverage percentage.
-declare -a exported=()
-go_doc=$(go doc -short . 2>/dev/null || true)
-while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    name=$(echo "$line" | awk '
-        /^func \(/ {
-            # Method: func (recv) Name(args) ...
-            # Find the closing ) of the receiver and pull the next token.
-            paren = 0;
-            for (i = 1; i <= length($0); i++) {
-                c = substr($0, i, 1);
-                if (c == "(") paren++;
-                else if (c == ")") {
-                    paren--;
-                    if (paren == 0) {
-                        rest = substr($0, i+1);
-                        sub(/^ +/, "", rest);
-                        # Extract the identifier up to ( or whitespace.
-                        match(rest, /^[A-Za-z_][A-Za-z0-9_]*/);
-                        print substr(rest, RSTART, RLENGTH);
-                        exit;
-                    }
-                }
-            }
-            next;
-        }
-        /^func / {
-            # Plain func: func Name(args) ...
-            rest = $0;
-            sub(/^func +/, "", rest);
-            match(rest, /^[A-Za-z_][A-Za-z0-9_]*/);
-            print substr(rest, RSTART, RLENGTH);
-            next;
-        }
-        /^type / { print $2; next }
-        /^var / { print $2; next }
-        /^const / { print $2; next }
-    ')
-    [ -z "$name" ] && continue
-    # Public-API floor only applies to exported names (capitalised first char).
-    case "$name" in
-        [A-Z]*) exported+=("$name") ;;
-    esac
-done <<< "$go_doc"
+# The helper:
+#   - walks the root package via go/parser.ParseDir (excludes *_test.go
+#     and the tests/bdd/ subtree);
+#   - enumerates exported FuncDecls (top-level), TypeSpecs, ValueSpecs;
+#   - cross-references the function set against `go tool cover -func`
+#     output for the supplied profile;
+#   - for non-func symbols, AST-scans every *_test.go for at least one
+#     identifier reference (Floor 3b lighter check).
+#
+# The helper exits 0 on pass, 1 on Floor-3 violations (offender list to
+# stderr), 2 on invocation errors. We forward its exit code.
 
-declare -a uncovered_symbols=()
-for sym in "${exported[@]}"; do
-    # Each func row in `go tool cover -func` is:
-    #   <file>:<line>:\t<funcName>\t<pct>%
-    # For type/var/const symbols (no own coverage rows) we cannot check
-    # via go tool cover; treat them as covered iff the symbol is referenced
-    # in any non-zero coverage row. To keep the check tight, fall back to
-    # checking whether the symbol name appears in `go test ./...` output
-    # at all — but more practically: scan the source for a test that
-    # references the name. For a stricter automated check we restrict
-    # this floor to func-only symbols.
-    sym_row=$(echo "$FUNC_REPORT" | awk -v s="$sym" '
-        BEGIN { found=0 }
-        !/^total:/ {
-            if ($2 == s) {
-                gsub("%", "", $NF);
-                if ($NF+0 > 0) { found=1; exit }
-            }
-        }
-        END { exit (found ? 0 : 1) }
-    ' && echo "covered" || echo "uncovered")
-    if [ "$sym_row" = "uncovered" ]; then
-        # Only flag if `go tool cover` knows about the symbol at all
-        # (i.e. it is a func defined in the package). type/var/const
-        # symbols are out of scope for this automated check.
-        in_func_table=$(echo "$FUNC_REPORT" | awk -v s="$sym" '
-            BEGIN { found=0 }
-            !/^total:/ {
-                if ($2 == s) { found=1; exit }
-            }
-            END { exit (found ? 0 : 1) }
-        ' && echo "yes" || echo "no")
-        if [ "$in_func_table" = "yes" ]; then
-            uncovered_symbols+=("$sym")
-        fi
-    fi
-done
-
-if (( ${#uncovered_symbols[@]} > 0 )); then
-    {
-        echo "verify-coverage-floors: FAIL — ${#uncovered_symbols[@]} exported func(s) have 0% coverage:"
-        for s in "${uncovered_symbols[@]}"; do
-            echo "  $s"
-        done
-        echo
-        echo "Every exported function in the public API surface MUST be exercised by at least one test."
-    } >&2
+if ! command -v go >/dev/null 2>&1; then
+    echo "verify-coverage-floors: FAIL — 'go' not on PATH; cannot invoke verify-exported-coverage helper" >&2
     exit 1
 fi
 
-echo "OK: verify-coverage-floors — overall ${total_pct}% >= ${OVERALL_FLOOR}%; per-file >= ${PER_FILE_FLOOR}%; public-API funcs all exercised (${#exported[@]} exported symbols inspected)."
+# Resolve the repo root from this script's location so the helper is
+# invoked with a stable CWD regardless of where the user runs us from.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if ! (
+    cd "$REPO_ROOT"
+    go run ./scripts/cmd/verify-exported-coverage "$PROFILE"
+); then
+    # The helper has already printed its own offender enumeration to
+    # stderr. We add a one-line trailer for context.
+    echo "verify-coverage-floors: Floor 3 failed — see verify-exported-coverage output above." >&2
+    exit 1
+fi
+
+echo "OK: verify-coverage-floors — overall ${total_pct}% >= ${OVERALL_FLOOR}%; per-file >= ${PER_FILE_FLOOR}%; Floor 3 (AST-based) passed."
 exit 0
