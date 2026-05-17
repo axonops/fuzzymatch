@@ -39,10 +39,10 @@ check: fmt-check vet lint verify-license-headers verify-deps-allowlist tidy-chec
 # ---- test targets ---------------------------------------------------------
 
 test:
-	$(GO) test -race -shuffle=on -count=1 ./...
+	CGO_ENABLED=1 $(GO) test -race -shuffle=on -count=1 ./...
 
 test-bdd:
-	cd $(BDD_DIR) && $(GO) test -race -count=1 ./...
+	cd $(BDD_DIR) && CGO_ENABLED=1 $(GO) test -race -count=1 ./...
 
 # Discovers fuzzers via `go test -list 'Fuzz.*'`. If no fuzzers exist, prints
 # a friendly note and exits 0 — `make check` does not depend on this target.
@@ -140,7 +140,7 @@ bench-compare:
 # ---- coverage -------------------------------------------------------------
 
 coverage:
-	$(GO) test -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic ./...
+	CGO_ENABLED=1 $(GO) test -race -coverprofile=$(COVERAGE_FILE) -covermode=atomic ./...
 
 # Coverage floor enforcement (plan 01-04 lands the script). Enforces all
 # three CLAUDE.md floors:
