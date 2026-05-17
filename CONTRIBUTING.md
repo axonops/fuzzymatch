@@ -297,10 +297,11 @@ primary academic sources and screen for patent encumbrance.
 > scores are minor; intentional algorithm-formula changes are minor;
 > algorithm removals are major (v2.x.y or later).
 
-This is requirement REL-07 from
-[`docs/requirements.md`](docs/requirements.md) §11.2. Reviewers
-enforce this during PR review; the release process refuses tags
-that violate it.
+This follows from the algorithm-output stability discipline in
+[`docs/requirements.md`](docs/requirements.md) §5 ("Algorithm output
+stability across major versions") and §13.1 ("Algorithm score
+stability"). Reviewers enforce this during PR review; the release
+process refuses tags that violate it.
 
 ## Release Process
 

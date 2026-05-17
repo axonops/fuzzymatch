@@ -1,17 +1,17 @@
 # fuzzymatch — github.com/axonops/fuzzymatch
 
 A pure-Go library for fuzzy string matching: 23 string-similarity
-algorithms, a weighted Scorer (Phase 8), a collection-scan sub-package
-(Phase 9), and a one-to-many Extract API (Phase 10). Stdlib-only with
-one curated runtime dep (golang.org/x/text for Unicode normalisation).
-Apache-2.0. Go 1.26+. No cgo.
+algorithms, a weighted Scorer, a collection-scan sub-package, and a
+one-to-many Extract API. Stdlib-only with one curated runtime dep
+(golang.org/x/text for Unicode normalisation). Apache-2.0. Go 1.26+.
+No cgo.
 
 ## Status
 
-Pre-release. The API is not stable until v1.0.0. Phase 1 ships the
-foundation primitives: AlgoID dispatch enum, sentinel errors, Normalise,
-Tokenise. Phase 2+ adds the 23 algorithms, then Scorer (Phase 8) and
-scan / Extract (Phases 9–10).
+Pre-release. The API is not stable until v1.0.0. The library ships
+all 23 algorithm functions, a weighted composite Scorer with
+DefaultScorer + DefaultScorerOptions, the Validate input-quality
+diagnostics surface, and the scan / Extract APIs at v1.0.0.
 
 ## Public API (root package: fuzzymatch)
 
@@ -66,6 +66,12 @@ scan / Extract (Phases 9–10).
 - func DamerauLevenshteinFullScoreRunes(a, b string) float64
 
 ### Hamming distance similarity
+
+Silent-max policy on unequal-length input (Phase 8.5 Q1 LOCKED):
+HammingDistance / HammingDistanceRunes return max(len(a), len(b));
+HammingScore / HammingScoreRunes return 0.0. No error, no panic.
+Consumers wanting an explicit signal call fuzzymatch.Validate(a, b)
+and check for WarnUnequalLength scoped to AlgoHamming.
 
 - func HammingDistance(a, b string) int
 - func HammingDistanceRunes(a, b string) int
@@ -140,13 +146,18 @@ scan / Extract (Phases 9–10).
 ### PartialRatio (RapidFuzz sliding-window with three-region iteration + char-set early-skip)
 
 - func PartialRatioScore(a, b string) float64
-- func PartialRatioScoreRunes(a, b string) float64
 
 ### TokenJaccard (Jaccard 1912 set-Jaccard over Tokenise output — distinct from Q-Gram Jaccard multiset)
 
 - func TokenJaccardScore(a, b string) float64
 
 ### Monge-Elkan (Monge & Elkan 1996) per-token-max with pluggable inner metric
+
+MongeElkanScore is the SYMMETRIC default (arithmetic mean of the two
+directional scores; invariant under argument swap) — Phase 8.5 Q3
+rename. MongeElkanScoreAsymmetric is the directional variant. The
+inert NormalisationOptions parameter was removed from both surfaces
+in Phase 8.5 Q3.
 
 - func MongeElkanScore(a, b string, inner AlgoID) float64
 - func MongeElkanScoreAsymmetric(a, b string, inner AlgoID) float64
@@ -184,7 +195,7 @@ scan / Extract (Phases 9–10).
 - func DefaultTokeniseOptions() TokeniseOptions
 - func Tokenise(s string, opts TokeniseOptions) []string
 
-### Scorer construction options (Phase 8 — plan 08-01 lays the option layer; plan 08-02 lands NewScorer + Score + Match; plan 08-03 lands ScoreAll + Threshold + Algorithms + ScorerAlgorithm + DefaultScorer + DefaultScorerOptions)
+### Scorer construction and options
 
 - type Scorer struct
 - func NewScorer(opts ...ScorerOption) (*Scorer, error)
@@ -223,7 +234,7 @@ scan / Extract (Phases 9–10).
 - var ErrInternalInvariantViolated error
 - var ErrInvalidSWGParam error
 
-### Input validation and diagnostics (Phase 8.5 Q4)
+### Input validation and diagnostics
 
 Consumer-facing diagnostic surface: Validate inspects a pair of inputs
 and returns Warnings describing problematic-but-non-fatal input shapes.

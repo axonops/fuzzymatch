@@ -10,7 +10,7 @@ The goal of the standalone library is to identify similar-named audit fields or 
 
 ### 1.1 Character-Based / Edit Distance
 
-These algorithms measure the minimum number of primitive edits (insert, delete, substitute) needed to transform one string into another, then normalize to `[0, 1]`.[^3]
+These algorithms measure the minimum number of primitive edits (insert, delete, substitute) needed to transform one string into another, then normalise to `[0, 1]`.[^3]
 
 #### Levenshtein Distance
 The baseline metric. Supports insert, delete, substitute at unit cost. Excellent for short identifiers with single-character typos (`user_id` vs `user_ud`). The proposed library dep `github.com/agnivade/levenshtein` (MIT) is a single-file, zero-allocation, Unicode-correct implementation widely used in the Go ecosystem.[^4][^1]

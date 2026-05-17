@@ -37,8 +37,8 @@
 // citation inline at the top of the implementation file, mathematical
 // invariants verified by property tests, canonical reference vectors drawn
 // from the originating paper, and behaviour pinned by BDD scenarios.
-// Output is byte-identical across linux/amd64, linux/arm64, darwin/arm64,
-// and windows/amd64.
+// Output is byte-identical across linux/amd64, linux/arm64, darwin/amd64,
+// darwin/arm64, and windows/amd64.
 //
 // The authoritative technical specification lives at docs/requirements.md
 // in the repository; this godoc is a thin entry point. For per-algorithm

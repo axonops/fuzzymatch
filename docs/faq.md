@@ -5,6 +5,69 @@ inclusions and exclusions, and the reasoning behind some of the more
 opinionated design choices. The entries below are mandated by
 requirement DX-06; subsequent phases extend this list.
 
+## What is Validate and when should I use it?
+
+`fuzzymatch.Validate(a, b string) []Warning` is the consumer-facing
+input-quality diagnostic. It is a pure function that inspects the two
+input strings and returns a sorted slice of `Warning` values describing
+problematic-but-non-fatal input shapes — empty input, unequal-length
+input for Hamming, no tokens after normalisation for token-tier
+algorithms, all-non-ASCII input for ASCII-only algorithms, and
+pathologically large input. `Validate` never panics and returns `nil`
+(not an empty slice) when no warning applies.
+
+Use it on code paths that audit input quality — typically log lines,
+telemetry, or pre-flight checks ahead of a `Scorer.Score` call. The
+algorithms themselves are tolerant: they accept any string and return
+a sensible value (the lenient comparison-data contract documented in
+`docs/requirements.md` §6.A). `Validate` is the optional companion
+that says whether the value will be meaningful.
+
+The recommended idiom is "Validate-then-Score":
+
+```go
+warnings := fuzzymatch.Validate(a, b)
+for _, w := range warnings {
+    log.Printf("input quality: %s (%s): %s", w.Kind, w.Algorithm, w.Detail)
+}
+score := fuzzymatch.DefaultScorer().Score(a, b)
+```
+
+See [`docs/algorithms.md#input-validation-with-fuzzymatchvalidate`](algorithms.md#input-validation-with-fuzzymatchvalidate)
+for the full per-`WarnKind` reference, [`docs/best-practices.md`](best-practices.md)
+for production patterns, and [`examples/validate-input-quality/`](../examples/validate-input-quality/main.go)
+for a runnable end-to-end programme.
+
+## Why no Soft-TFIDF?
+
+Soft-TFIDF (Cohen, Ravikumar & Fienberg 2003) layers token-level
+soft-matching on top of TF-IDF weights computed from a domain corpus.
+The token similarities are typically Jaro-Winkler or Levenshtein-based;
+the corpus weights downweight common tokens ("the", "company", "ltd")
+and upweight rare distinguishing tokens ("AxonOps", "Cassandra").
+
+fuzzymatch deliberately omits Soft-TFIDF for two reasons.
+
+First, **statelessness**. The corpus IDF table is consumer-specific,
+mutable, and non-trivial to ship — different consumers operate on
+different corpora (audit field names, product catalogues, person
+names) with completely different token distributions. A library that
+accepts an IDF table as a parameter is shipping API surface for a
+problem the library cannot solve well in the abstract; consumers in
+practice end up computing their own IDF anyway and would not gain
+much from the wrapper.
+
+Second, **alternatives**. The Monge-Elkan + Jaro-Winkler-inner
+composition (available via `WithMongeElkanAlgorithm(weight,
+AlgoJaroWinkler)`) captures the most useful Soft-TFIDF dynamic — soft
+token matching — without the corpus dependency. For workloads where
+common-token down-weighting is critical, consumers compute IDF in
+their own package and pre-multiply the per-token Monge-Elkan
+contribution.
+
+See [`docs/requirements.md`](requirements.md) §4 for the formal
+out-of-scope statement.
+
 ## Why no Needleman-Wunsch?
 
 Needleman-Wunsch (1970) is a **global** sequence-alignment algorithm —

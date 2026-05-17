@@ -54,8 +54,9 @@ The library is domain-agnostic. It knows about strings, weights, and thresholds 
 
 - **Twenty-three string-similarity algorithms** across five categories: character-based, q-gram, token-based, phonetic, gestalt.
 - **Fresh implementations from primary academic sources.** Every algorithm cites its originating paper inline; no GPL/LGPL-derived code; no patent-encumbered algorithms (Metaphone 3 is explicitly excluded).
-- **Weighted composite `Scorer`** for mixing algorithms with caller-controlled weights and threshold (Phase 8).
-- **Collection-scan sub-package** for one-shot deduplication passes (Phase 9).
+- **Weighted composite `Scorer`** for mixing algorithms with caller-controlled weights and threshold.
+- **Collection-scan sub-package** for one-shot deduplication passes.
+- **Input-quality diagnostics** via [`fuzzymatch.Validate`](docs/algorithms.md#input-validation-with-fuzzymatchvalidate) — a pure, non-panicking function that surfaces problematic-but-non-fatal input shapes (empty input, unequal length for Hamming, no tokens after normalisation, all-non-ASCII for ASCII-only algorithms, pathologically large input) as a sorted `[]Warning` slice.
 - **Cross-platform deterministic output** — verified byte-identical across linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 via golden-file tests.
 - **Pure-function library.** No goroutines, no channels, no I/O, no config files, no background work.
 - **Property-tested and fuzz-tested.** Mathematical invariants (symmetry, identity, range bounds, triangle inequality where applicable) verified via `testing/quick`; every public function has a native Go fuzzer.
@@ -93,7 +94,7 @@ Consumers pick the layer that matches their question:
 
 ## Quick start
 
-> **Note:** Phase 1 (foundation) ships `Normalise` and `Tokenise` primitives plus the `AlgoID` enum and sentinel errors. Algorithm functions (e.g. `LevenshteinScore`) land in Phase 2. The example below uses the Phase-1 primitives; the full algorithm-driven quick start is added with Phase 2.
+The opinionated default `Scorer` composes six algorithms at equal weight with a baked-in threshold of `0.85`. One line constructs it; another decides whether two strings are similar.
 
 ```go
 package main
@@ -115,6 +116,51 @@ func main() {
     // Output: [xmlhttp request]
 }
 ```
+
+For a complete end-to-end example combining `Normalise`, the 23 algorithms, and the `Scorer`, see [`examples/identifier-similarity/`](examples/identifier-similarity/main.go) and [`examples/scorer-composition/`](examples/scorer-composition/main.go).
+
+## Common Patterns
+
+### Validate-then-Score: audit input quality before scoring
+
+`fuzzymatch.Validate(a, b)` surfaces problematic-but-non-fatal input shapes as a sorted `[]Warning`. It is pure, never panics, and returns `nil` when no warnings apply. Use it on code paths that audit input quality — typically log lines, telemetry, or pre-flight checks ahead of `Scorer.Score`.
+
+<!-- docs:skip-compile — illustrative snippet; full programme in examples/validate-input-quality/ -->
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "github.com/axonops/fuzzymatch"
+)
+
+func main() {
+    a, b := "user_id", "" // empty input — degenerate case
+
+    for _, w := range fuzzymatch.Validate(a, b) {
+        log.Printf("input-quality warning: %s (%s): %s",
+            w.Kind, w.Algorithm, w.Detail)
+    }
+
+    score := fuzzymatch.DefaultScorer().Score(a, b)
+    fmt.Printf("score = %.4f\n", score)
+}
+```
+
+The full runnable programme is at [`examples/validate-input-quality/`](examples/validate-input-quality/main.go). See [`docs/algorithms.md#input-validation-with-fuzzymatchvalidate`](docs/algorithms.md#input-validation-with-fuzzymatchvalidate) for the per-`WarnKind` semantics and the [Panic surface](docs/algorithms.md#panic-surface) section for the typed-panic discipline (`Validate` itself never panics).
+
+### Default Scorer
+
+```go
+s := fuzzymatch.DefaultScorer()
+if s.Match("user_id", "userId") {
+    fmt.Println("similar")
+}
+```
+
+`DefaultScorer()` cannot fail. See [`docs/scorer.md`](docs/scorer.md) for the composition and [`docs/tuning.md`](docs/tuning.md) for the threshold-calibration loop.
 
 ---
 
@@ -193,19 +239,19 @@ tokens := fuzzymatch.Tokenise("User-CreateEvent.v2", fuzzymatch.DefaultTokeniseO
 `NormalisationOptions` fields: `Lowercase`, `StripSeparators`, `SeparatorChars`, `SplitCamelCase`, `NFC`, `StripDiacritics`.
 `TokeniseOptions` fields: `Lowercase`, `SplitCamelCase`, `SplitConsecutiveUpper`, `SeparatorChars`.
 
-The `Scorer` (Phase 8) accepts a `NormalisationOptions` value at construction time and applies it before every algorithm invocation.
+The `Scorer` accepts a `NormalisationOptions` value at construction time and applies it before every algorithm invocation.
 
-See [`docs/tuning.md`](docs/tuning.md) for guidance on calibrating algorithm weights and thresholds against a domain corpus, and [`docs/scorer.md`](docs/scorer.md) for the `Scorer` API once Phase 8 lands.
+See [`docs/tuning.md`](docs/tuning.md) for guidance on calibrating algorithm weights and thresholds against a domain corpus, and [`docs/scorer.md`](docs/scorer.md) for the `Scorer` API reference.
 
 ---
 
 ## Thread safety
 
-Every public function in the root package is **pure**: no shared mutable state, no goroutines, no channels, no mutexes. Concurrent callers may invoke `Normalise`, `Tokenise`, and (from Phase 2) every algorithm score function from any number of goroutines without coordination.
+Every public function in the root package is **pure**: no shared mutable state, no goroutines, no channels, no mutexes. Concurrent callers may invoke `Normalise`, `Tokenise`, `Validate`, and every algorithm score function from any number of goroutines without coordination.
 
-The `Scorer` (Phase 8) is **immutable after construction**. A constructed `Scorer` is safe for concurrent use; callers wanting a different configuration construct a fresh `Scorer`.
+The `Scorer` is **immutable after construction**. A constructed `Scorer` is safe for concurrent use; callers wanting a different configuration construct a fresh `Scorer`.
 
-The `scan` sub-package (Phase 9) follows the same discipline: a constructed `scan.Config` is immutable; `scan.Check` is safe for concurrent invocation on disjoint inputs.
+The `scan` sub-package follows the same discipline: a constructed `scan.Config` is immutable; `scan.Check` is safe for concurrent invocation on disjoint inputs.
 
 ---
 
@@ -221,8 +267,9 @@ Every exported type, function, method, and constant carries a godoc comment that
 
 - [`docs/requirements.md`](docs/requirements.md) — the authoritative spec for what this library does.
 - [`docs/algorithms.md`](docs/algorithms.md) — algorithm-by-algorithm reference (per-algorithm detail fills in as each phase lands).
-- [`docs/scorer.md`](docs/scorer.md) — `Scorer` configuration and tuning (Phase 8).
-- [`docs/scan.md`](docs/scan.md) — `scan` sub-package consumer guide (Phase 9).
+- [`docs/scorer.md`](docs/scorer.md) — `Scorer` configuration and tuning.
+- [`docs/scan.md`](docs/scan.md) — `scan` sub-package consumer guide.
+- [`docs/best-practices.md`](docs/best-practices.md) — production patterns including the Validate-then-Score idiom.
 - [`docs/tuning.md`](docs/tuning.md) — threshold tuning and calibration.
 - [`docs/extending.md`](docs/extending.md) — adding a custom algorithm.
 - [`docs/performance.md`](docs/performance.md) — benchmark numbers and optimisation notes.

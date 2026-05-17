@@ -3,7 +3,8 @@
 The `Scorer` is the second layer of fuzzymatch's three-layer
 architecture. It composes any subset of the 23 catalogue algorithms
 into a single weighted similarity score in `[0.0, 1.0]`, with a
-configurable threshold for the boolean `Match` shortcut.
+configurable threshold for the boolean `Match` shortcut. Available
+since v1.0.
 
 A `Scorer` is **immutable after construction** and **safe for
 concurrent use** without external locks. Callers wanting a different
@@ -194,17 +195,18 @@ s, err := fuzzymatch.NewScorer(append(
 See [`docs/requirements.md`](requirements.md) §6 for the full
 `NormalisationOptions` field set.
 
-### Note on Monge-Elkan's `opts` parameter
+### Note on Monge-Elkan's surface
 
-`MongeElkanScore(a, b, inner, opts)` accepts a
-`NormalisationOptions` parameter that is currently a **no-op**
-(`_ = opts` inside the function body). This is a vestigial parameter
-preserved for API stability — when invoked through the Scorer
-(`WithMongeElkanAlgorithm` or via `WithAlgorithm(AlgoMongeElkan, w)`),
-the Scorer's own Normalisation pipeline runs first and the parameter
-is unused. A future major release may either remove the parameter or
-wire it through; this is tracked as a deferred decision in the Phase 8
-context.
+`MongeElkanScore(a, b, inner)` is the **symmetric default** (Phase 8.5
+Q3 rename — the arithmetic mean of the two directional scores;
+invariant under argument swap). The directional variant is
+`MongeElkanScoreAsymmetric(a, b, inner)`. The inert
+`NormalisationOptions` parameter that the v0.x surface accepted has
+been removed from both functions — `Tokenise(DefaultTokeniseOptions())`
+is used internally regardless. Pre-`Normalise` inputs explicitly if
+you want NFC / diacritic stripping before tokenisation, or use the
+Scorer's `WithNormalisation` option which applies normalisation once
+at the Scorer boundary.
 
 ## ScoreAll Method
 
@@ -215,9 +217,8 @@ calibration loop documented in [`docs/tuning.md`](tuning.md).
 
 Note: `docs/requirements.md` §8.3 originally specified
 `map[string]float64`; the implementation uses `map[AlgoID]float64`
-(typed enum keys) for compile-time type safety. This is a deliberate
-SPEC OVERRIDE per the Phase 8 design discussion; the requirements
-document has been amended to match.
+(typed enum keys) for compile-time type safety. The requirements
+document has been amended to match the typed surface.
 
 Go map iteration order is non-deterministic. The map **contents** are
 deterministic (the same inputs always produce the same key set with
@@ -237,9 +238,9 @@ for _, id := range ids {
 ```
 
 Internal computation iterates in `AlgoID`-ascending order regardless,
-so the float-determinism guarantee (Phase 5 carry-forward — the
-composite score is bitwise stable across platforms) holds independently
-of how the consumer iterates the returned map.
+so the float-determinism guarantee — the composite score is bitwise
+stable across platforms — holds independently of how the consumer
+iterates the returned map.
 
 ## Algorithms
 

@@ -1,17 +1,17 @@
-# Scan sub-package (Phase 9)
+# Scan sub-package
 
 The `scan` sub-package at `github.com/axonops/fuzzymatch/scan` is the
 turnkey collection-scan layer over the `Scorer`. It answers the question
 "which pairs in this collection are similar?" with a deterministic,
 suppression-aware, group-aware API.
 
-This document is a scaffold. The scan sub-package lands in Phase 9 of
-the roadmap. Until it ships, see
-[`docs/requirements.md`](requirements.md) §12 for the authoritative spec
-— that section pins the public API surface (`Item`, `Warning`, `Config`,
-`Check`), within-group vs cross-group passes, suppression composition,
-determinism guarantees, token-bucket optimisation, and the per-scan
-performance budget.
+This document is a scaffold; the full consumer-facing reference is
+populated in a follow-up plan. See
+[`docs/requirements.md`](requirements.md) §12 for the authoritative
+spec — that section pins the public API surface (`Item`, `Warning`,
+`Config`, `Check`), within-group vs cross-group passes, suppression
+composition, determinism guarantees, token-bucket optimisation, and
+the per-scan performance budget.
 
 ## Public API
 
@@ -52,6 +52,6 @@ internal sort key.
 
 ## Thread Safety
 
-TBD. The constructed `scan.Config` will be immutable; `scan.Check` will
-be safe for concurrent invocation on disjoint inputs. See the Thread
-safety note in [`README.md`](../README.md).
+The constructed `scan.Config` is immutable; `scan.Check` is safe for
+concurrent invocation on disjoint inputs. See the Thread safety note
+in [`README.md`](../README.md).

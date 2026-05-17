@@ -1,8 +1,8 @@
 # Tuning the Scorer
 
-This document covers the calibration loop for the Phase 8 Scorer:
-how to pick a threshold, how to allocate weights, and how to choose
-the algorithm subset for a particular data domain.
+This document covers the calibration loop for the `Scorer`: how to
+pick a threshold, how to allocate weights, and how to choose the
+algorithm subset for a particular data domain.
 
 The right configuration depends heavily on the consumer's data —
 identifier matching for code/config taxonomies differs from
@@ -68,9 +68,9 @@ The recommended calibration loop:
    produces similar false-positive / false-negative rates on the
    held-out set.
 
-When Phase 9's `scan.Check` ships, this loop can run end-to-end over
-a whole corpus without writing pair-iteration boilerplate. Until then,
-the loop is a short Go program calling `Scorer.Score` in a `for` loop.
+`scan.Check` (in the `fuzzymatch/scan` sub-package) runs this loop
+end-to-end over a whole corpus without pair-iteration boilerplate;
+see [`docs/scan.md`](scan.md) for the sub-package reference.
 
 ## How to pick weights
 
@@ -175,8 +175,8 @@ with `go test -bench` over a representative sample and consider:
 1. Removing algorithms that contribute little signal in your data.
 2. Pre-normalising upstream and passing `WithoutNormalisation` to skip
    the per-call Normalise.
-3. Using the one-to-many `Extract` API (Phase 10) instead of
-   pair-iteration for nearest-neighbour search.
+3. Using the one-to-many `Extract` API instead of pair-iteration for
+   nearest-neighbour search.
 
 ## Pinning a calibrated configuration
 

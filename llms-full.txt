@@ -92,6 +92,105 @@ func AlgoIDs() []AlgoID
 
 Metaphone 3 (Philips 2009, U.S. Patent 7,440,941) is **explicitly EXCLUDED**. See `docs/faq.md` for the rationale.
 
+### Character-tier foundation surface (Levenshtein, Damerau-Levenshtein OSA / Full, Hamming, Jaro, Jaro-Winkler)
+
+The six foundation character-tier algorithms each ship a byte path (`*Score`, `*Distance`) plus a rune-aware variant (`*ScoreRunes`, `*DistanceRunes`). Bytes are the ASCII fast path; runes are the Unicode-correct path. Every signature is symmetric across argument order (true metrics) and returns deterministic byte-identical output across the five-platform CI matrix.
+
+```go
+// LevenshteinDistance returns the Levenshtein edit distance between a
+// and b in bytes (insertions, deletions, substitutions all at unit
+// cost). True metric; symmetric across argument order. Wagner-Fischer
+// 1974 two-row DP; ASCII fast path for inputs ≤ 64 bytes.
+func LevenshteinDistance(a, b string) int
+
+// LevenshteinDistanceRunes returns the Levenshtein edit distance under
+// rune semantics — required for correct Unicode results on multi-byte
+// codepoints.
+func LevenshteinDistanceRunes(a, b string) int
+
+// LevenshteinScore returns 1 - LevenshteinDistance(a, b) / max(len(a),
+// len(b)) in [0.0, 1.0]; both-empty → 1.0 (identity short-circuit).
+func LevenshteinScore(a, b string) float64
+
+// LevenshteinScoreRunes returns the rune-aware Levenshtein similarity.
+func LevenshteinScoreRunes(a, b string) float64
+```
+
+```go
+// DamerauLevenshteinOSADistance returns the Optimal String Alignment
+// Damerau-Levenshtein distance: Levenshtein + adjacent-transposition
+// at unit cost, with the OSA restriction that each substring may not
+// be modified more than once. NOT a true metric (triangle inequality
+// can fail). Boytsov 2011 + Damerau 1964.
+func DamerauLevenshteinOSADistance(a, b string) int
+func DamerauLevenshteinOSADistanceRunes(a, b string) int
+func DamerauLevenshteinOSAScore(a, b string) float64
+func DamerauLevenshteinOSAScoreRunes(a, b string) float64
+```
+
+```go
+// DamerauLevenshteinFullDistance returns the unrestricted Damerau-
+// Levenshtein distance (Lowrance & Wagner 1975). TRUE METRIC: triangle
+// inequality holds; symmetric; identity property satisfied. More
+// expensive than OSA — uses a 2D DP with a "last seen" auxiliary
+// array; allocations are O(m+n) on the heap. Use for academic
+// correctness; use OSA for general-purpose typo correction.
+func DamerauLevenshteinFullDistance(a, b string) int
+func DamerauLevenshteinFullDistanceRunes(a, b string) int
+func DamerauLevenshteinFullScore(a, b string) float64
+func DamerauLevenshteinFullScoreRunes(a, b string) float64
+```
+
+```go
+// HammingDistance returns the Hamming distance between a and b
+// (Hamming 1950) — the number of positions at which the two byte
+// sequences differ.
+//
+// SILENT-MAX POLICY (Phase 8.5 Q1 LOCKED): on unequal-length input,
+// HammingDistance returns max(len(a), len(b)) WITHOUT error or panic.
+// The earlier draft spec proposed an ErrUnequalLength error sentinel;
+// Phase 8.5 Q1 catches the spec up to the shipped code — the data-vs-
+// parameter framework (docs/requirements.md §6.A) classifies the two
+// input strings as comparison data, which is handled leniently.
+// Consumers wanting an explicit "unequal-length" signal call
+// fuzzymatch.Validate(a, b) and check for WarnUnequalLength scoped to
+// AlgoHamming.
+func HammingDistance(a, b string) int
+
+// HammingDistanceRunes returns the rune-aware Hamming distance under
+// the same silent-max policy.
+func HammingDistanceRunes(a, b string) int
+
+// HammingScore returns 1 - HammingDistance(a, b) / max(len(a),
+// len(b)) in [0.0, 1.0]. On unequal-length input the score is 0.0
+// (silent-max policy). Both-empty → 1.0 (identity short-circuit).
+func HammingScore(a, b string) float64
+
+// HammingScoreRunes returns the rune-aware Hamming similarity under
+// the same silent-max policy.
+func HammingScoreRunes(a, b string) float64
+```
+
+```go
+// JaroScore returns the Jaro similarity (Jaro 1989) in [0.0, 1.0].
+// Symmetric across argument order. Both-empty → 1.0; one-empty → 0.0
+// (the catalogue's vacuous-identity convention; differs from
+// jellyfish 1.2.1 which returns 0.0 for jaro_similarity("", "") —
+// variant_divergence documented in
+// testdata/cross-validation/character/vectors.json).
+func JaroScore(a, b string) float64
+func JaroScoreRunes(a, b string) float64
+```
+
+```go
+// JaroWinklerScore returns Jaro-Winkler (Winkler 1990) — Jaro plus a
+// prefix bonus capped at the first 4 characters. Heavily used as a
+// signal for left-anchored identifier matching; included in
+// DefaultScorer.
+func JaroWinklerScore(a, b string) float64
+func JaroWinklerScoreRunes(a, b string) float64
+```
+
 ### Phase 4 algorithm surface (character + gestalt)
 
 The Phase 4 plans land seven new exported functions across three
@@ -465,11 +564,13 @@ and `PartialRatioScore("abc", "bc") = 1.0` (Region 3 right tail) are
 pinned in unit tests, BDD scenarios, AND the cross-validation corpus
 to prevent regression to the naive implementation.
 
-Surfaces: PartialRatio ships BOTH `PartialRatioScore(a, b string) float64`
-(byte path; registered in `dispatch[AlgoPartialRatio]`) AND
-`PartialRatioScoreRunes(a, b string) float64` (rune path; public but
-NOT dispatched — the dispatch table signature is the byte-path one,
-matching LCSStr's rune-variants convention in `lcsstr.go`).
+Surface: PartialRatio ships ONLY `PartialRatioScore(a, b string) float64`
+(byte path; registered in `dispatch[AlgoPartialRatio]`). The rune
+variant `PartialRatioScoreRunes` was REMOVED in Phase 8.5 Q5 — token-
+tier algorithms operate on the output of `Tokenise`, which is itself
+rune-aware (each emitted token is a complete code-point sequence), so
+the byte-level Indel kernel produces correct results on Unicode
+inputs without a separate rune surface.
 
 DOES NOT inherit TokenSetRatio's RapidFuzz issue #110 deviation —
 PartialRatio follows the catalogue's standard both-empty → 1.0
@@ -481,8 +582,7 @@ O(|s|·|l|·max(|s|,|l|)). On long-vs-short mismatches (~10 chars vs
 ~10,000 chars) the middle region performs ~10,000 indelRatio calls,
 each ~100 LCS DP cell updates — the char-set early-skip prunes ~95%
 of these calls when the shared alphabet is small. See
-`BenchmarkPartialRatio_Pathological_LongShortMismatch_Bytes` and
-`BenchmarkPartialRatio_Pathological_LongShortMismatch_Runes` for
+`BenchmarkPartialRatio_Pathological_LongShortMismatch_Bytes` for
 measured timings.
 
 Future optimisation (spec-deferred to v1.x): spec line 612 explicitly
@@ -509,19 +609,6 @@ implementation.
 //   PartialRatioScore("abc", "bc")                   = 1.0  (Pitfall-3 keystone)
 //   PartialRatioScore("abc", "ab")                   = 1.0  (Pitfall-3 keystone)
 func PartialRatioScore(a, b string) float64
-
-// PartialRatioScoreRunes is the rune-path variant of
-// PartialRatioScore. Treats each input as a sequence of Unicode
-// code points so multi-byte UTF-8 sequences are compared atomically.
-// Identity short-circuit fires BEFORE `[]rune` conversion (saves 2
-// heap allocations on identical inputs). NOT registered in the
-// dispatch table — direct-call-only.
-//
-// Reference vector:
-//   PartialRatioScoreRunes("café", "caf") = 1.0
-//     (3-rune subsequence "caf" of 4-rune "café" matches "caf" — the
-//     byte path would diverge because len([]byte("café"))=5).
-func PartialRatioScoreRunes(a, b string) float64
 ```
 
 ### Phase 6 algorithm surface (token tier — TokenJaccard)
@@ -1197,7 +1284,7 @@ func WithTverskyAlgorithm(weight, alpha, beta float64, n int) ScorerOption
 // [0, numAlgorithms) with a populated dispatch entry (else
 // ErrInvalidAlgoID); inner == AlgoMongeElkan is rejected as
 // trivial-recursion. The full 18-entry permitted-inner allow-list is
-// enforced inside MongeElkanScoreSymmetric at Score time.
+// enforced inside MongeElkanScore at Score time.
 func WithMongeElkanAlgorithm(weight float64, inner AlgoID) ScorerOption
 
 // WithSmithWatermanGotohAlgorithm registers Smith-Waterman-Gotoh
@@ -1224,7 +1311,7 @@ var ErrInvalidAlgoID = errors.New("fuzzymatch: invalid algorithm identifier")
 // with an inner AlgoID outside the 18-entry permitted set. The Monge-
 // Elkan formula composes a per-token inner similarity; token-tier
 // algorithms and the MongeElkan self-reference are rejected. Direct
-// MongeElkanScore / MongeElkanScoreSymmetric calls panic with a value
+// MongeElkanScore / MongeElkanScoreAsymmetric calls panic with a value
 // wrapping this sentinel (discriminate via recover() + errors.Is).
 var ErrInvalidInnerAlgo = errors.New("fuzzymatch: invalid inner algorithm for Monge-Elkan composite")
 
@@ -1283,6 +1370,83 @@ var ErrInternalInvariantViolated = errors.New("fuzzymatch: internal invariant vi
 // invariant is violated. Discriminate via recover() + errors.Is.
 var ErrInvalidSWGParam = errors.New("fuzzymatch: invalid Smith-Waterman-Gotoh parameters")
 ```
+
+### Input validation and diagnostics (validate.go + warn_kind.go)
+
+`fuzzymatch.Validate(a, b string) []Warning` is the consumer-facing input-quality diagnostic surface (Phase 8.5 Q4). It inspects the two input strings and returns a deterministically-sorted slice of `Warning` values describing problematic-but-non-fatal input shapes. Pure function, safe for concurrent use, never panics, never returns an error. Returns `nil` (not empty slice) when no warning applies — the VALIDATE-01 contract.
+
+```go
+// Validate inspects the two input strings and returns warnings
+// describing problematic-but-non-fatal input shapes. Pure: no
+// goroutines, no I/O. Safe for concurrent use. Never panics. Returns
+// nil if no warnings apply (NOT an empty slice).
+//
+// Output is deterministically sorted by (Algorithm, Kind) — two
+// successive calls with identical (a, b) return byte-identical slices.
+//
+// Per-WarnKind semantics (docs/requirements.md §11.5):
+//   WarnEmptyInput              — a == "" or b == "" (AlgoIDAny scope)
+//   WarnUnequalLength           — len(a) != len(b) (AlgoHamming scope)
+//   WarnNoTokensAfterNormalise  — Tokenise output empty (5 token-tier algos)
+//   WarnAllNonASCIIDropped      — input all-non-ASCII (5 ASCII-only algos)
+//   WarnPathologicallyLargeInput — max(len) > 65536 (AlgoIDAny scope)
+//
+// See docs/algorithms.md#input-validation-with-fuzzymatchvalidate for
+// the full reference and the Validate-then-Score idiom.
+func Validate(a, b string) []Warning
+
+// Warning describes a single input-quality observation. The Algorithm
+// field scopes the warning to a specific algorithm (or AlgoIDAny for
+// cross-cutting warnings). The Detail field is a human-readable
+// elaboration; consumers MUST NOT parse Detail for programmatic checks
+// — use Algorithm and Kind.
+type Warning struct {
+    Algorithm AlgoID
+    Kind      WarnKind
+    Detail    string
+}
+
+// WarnKind enumerates the 5 input-quality observation categories.
+// Iota starts at 1 so the zero value remains "unset".
+type WarnKind int
+
+const (
+    WarnEmptyInput WarnKind = iota + 1
+    WarnUnequalLength
+    WarnNoTokensAfterNormalise
+    WarnAllNonASCIIDropped
+    WarnPathologicallyLargeInput
+)
+
+// (WarnKind).String() returns the CamelCase label dropping the "Warn"
+// prefix — "EmptyInput", "UnequalLength", "NoTokensAfterNormalise",
+// "AllNonASCIIDropped", "PathologicallyLargeInput". Matches the
+// AlgoID.String() convention (Phase 8.5 Q6b).
+func (k WarnKind) String() string
+
+// WarnKinds returns the full set of 5 WarnKind constants in declared
+// order. Fresh slice per call; safe to mutate. Deterministic across
+// runs and platforms.
+func WarnKinds() []WarnKind
+
+// AlgoIDAny is the sentinel AlgoID value used to scope a Warning that
+// is not algorithm-specific. AlgoIDAny.String() returns "Any". The
+// value (-2) is chosen deliberately: AlgoID(-1) is reserved as the
+// canonical "invalid" sentinel.
+const AlgoIDAny AlgoID = -2
+```
+
+**Validate-then-Score idiom** (the recommended pattern for code paths that audit input quality):
+
+```go
+warnings := fuzzymatch.Validate(a, b)
+for _, w := range warnings {
+    log.Printf("input quality: %s (%s): %s", w.Kind, w.Algorithm, w.Detail)
+}
+score := fuzzymatch.DefaultScorer().Score(a, b)
+```
+
+A runnable end-to-end programme lives at [`examples/validate-input-quality/`](examples/validate-input-quality/main.go).
 
 ## Sample programs
 
