@@ -1031,6 +1031,60 @@ func (s *Scorer) Score(a, b string) float64
 func (s *Scorer) Match(a, b string) bool
 ```
 
+### Scorer accessor surface (scorer.go — Phase 8 plan 08-03)
+
+Plan 08-03 lands the Scorer's introspection methods (Threshold, Algorithms)
+and the per-algorithm breakdown method ScoreAll, along with the
+ScorerAlgorithm data holder. ScoreAll's return type is the SPEC OVERRIDE
+documented in CONTEXT.md §1 — `map[AlgoID]float64` (typed enum keys) rather
+than the spec's `map[string]float64`. The api-ergonomics-reviewer signed off
+on this override in plan 08-03's PR.
+
+```go
+// ScorerAlgorithm describes a single weighted algorithm in a Scorer's
+// configured set. Returned by Scorer.Algorithms() as a fresh slice on
+// every call so consumers can introspect, log, or display the Scorer's
+// composition without coupling to unexported internals.
+//
+// ID is the typed AlgoID; use ID.String() for the canonical CamelCase
+// display name. Weight is the POST-normalisation weight that the
+// Scorer actually uses during Score's reduction loop.
+type ScorerAlgorithm struct
+
+// Threshold returns the match boundary stored at construction time
+// (the value passed to WithThreshold, or 0.85 from DefaultScorer).
+// Plain accessor with no side effects; safe for concurrent use.
+func (s *Scorer) Threshold() float64
+
+// Algorithms returns the configured weighted algorithm set as a fresh
+// slice of ScorerAlgorithm values, in AlgoID-ascending order. Each
+// element's Weight is the POST-normalisation weight. Fresh slice per
+// call — consumers may freely mutate, sort, or filter without
+// affecting subsequent calls. Safe for concurrent use.
+func (s *Scorer) Algorithms() []ScorerAlgorithm
+
+// ScoreAll returns per-algorithm raw scores for the configured
+// algorithm set as a map[AlgoID]float64.
+//
+// SPEC OVERRIDE: docs/requirements.md §8.3 specifies map[string]float64;
+// this implementation returns map[AlgoID]float64 because AlgoID is a
+// typed enum that the rest of the library exposes, giving consumers
+// compile-time key safety. Use AlgoID.String() for snake_case display.
+// The spec deviation is documented in CONTEXT.md §1 (Phase 8) and
+// api-ergonomics-reviewer signed off on this override in plan 08-03's
+// PR.
+//
+// Map iteration order is non-deterministic per Go map semantics. Map
+// CONTENTS are deterministic byte-for-byte (per-algorithm scores are
+// deterministic; see PropScorer_DeterministicAcrossRuns). Consumers
+// requiring stable iteration order MUST sort the keys themselves —
+// typically via fuzzymatch.AlgoIDs() then key-lookup.
+//
+// A fresh map is allocated on every call (spec §8.6). Pre-normalisation
+// policy mirrors Score (CONTEXT.md §3 LOCKED). Safe for concurrent use.
+func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64
+```
+
 ### Scorer construction options (scorer_options.go — Phase 8 plan 08-01)
 
 Plan 08-01 lays the functional-options surface for the composite weighted

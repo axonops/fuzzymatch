@@ -287,3 +287,244 @@ func TestScorer_WithoutNormalisation(t *testing.T) {
 		t.Errorf("WithoutNormalisation: Score(hello, hello) = %g; want 1.0", got)
 	}
 }
+
+// TestScorer_Threshold_ReturnsStoredValue verifies the plain-accessor
+// contract for Threshold(): the value passed to WithThreshold during
+// NewScorer is returned verbatim. No mutation, no transformation, no
+// hidden state.
+func TestScorer_Threshold_ReturnsStoredValue(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.73),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	if got := s.Threshold(); got != 0.73 {
+		t.Errorf("Threshold() = %g; want 0.73 exactly", got)
+	}
+}
+
+// TestScorer_Algorithms_FreshSlice verifies that Algorithms() returns a
+// fresh slice on every call. Mutating the returned slice MUST NOT
+// affect the internal Scorer state, and a subsequent Algorithms() call
+// MUST return unmodified data.
+func TestScorer_Algorithms_FreshSlice(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoJaroWinkler, 1.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	first := s.Algorithms()
+	if len(first) != 2 {
+		t.Fatalf("first call: len = %d; want 2", len(first))
+	}
+	// Mutate the first slice: change weight and ID.
+	originalID := first[0].ID
+	originalWeight := first[0].Weight
+	first[0].Weight = 999.0
+	first[0].ID = fuzzymatch.AlgoCosine // wrong ID
+
+	second := s.Algorithms()
+	if len(second) != 2 {
+		t.Fatalf("second call: len = %d; want 2", len(second))
+	}
+	if second[0].ID != originalID {
+		t.Errorf("second call's entry[0].ID = %v; want %v (fresh slice required)", second[0].ID, originalID)
+	}
+	if second[0].Weight != originalWeight {
+		t.Errorf("second call's entry[0].Weight = %g; want %g (fresh slice required)", second[0].Weight, originalWeight)
+	}
+}
+
+// TestScorer_Algorithms_SortedAscending verifies that the returned
+// slice is in AlgoID-ascending order regardless of the option-
+// application order the consumer supplied. The internal slice is
+// AlgoID-sorted at NewScorer time (per scorer_internal_test.go's
+// invariant test); Algorithms() preserves that order.
+func TestScorer_Algorithms_SortedAscending(t *testing.T) {
+	t.Parallel()
+	// Supplied in reverse AlgoID order:
+	//   TokenJaccard (17), JaroWinkler (5), Levenshtein (0).
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoTokenJaccard, 1.0),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoJaroWinkler, 1.0),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	algos := s.Algorithms()
+	if len(algos) != 3 {
+		t.Fatalf("len = %d; want 3", len(algos))
+	}
+	want := []fuzzymatch.AlgoID{
+		fuzzymatch.AlgoLevenshtein,
+		fuzzymatch.AlgoJaroWinkler,
+		fuzzymatch.AlgoTokenJaccard,
+	}
+	for i, w := range want {
+		if algos[i].ID != w {
+			t.Errorf("algos[%d].ID = %v; want %v", i, algos[i].ID, w)
+		}
+	}
+	// Strict-ascending integer cross-check.
+	for i := 1; i < len(algos); i++ {
+		if int(algos[i-1].ID) >= int(algos[i].ID) {
+			t.Errorf(
+				"algos[%d..%d] not strictly ascending: int(%v)=%d >= int(%v)=%d",
+				i-1, i,
+				algos[i-1].ID, int(algos[i-1].ID),
+				algos[i].ID, int(algos[i].ID),
+			)
+		}
+	}
+}
+
+// TestScorer_Algorithms_PostNormalisationWeights verifies that the
+// returned ScorerAlgorithm.Weight is the POST-normalisation weight that
+// the Scorer actually uses during Score's reduction. A 2-algorithm
+// Scorer with raw weights 1.0 and 3.0 normalises to (0.25, 0.75); both
+// values are dyadic-friendly fractions and exactly representable in
+// IEEE-754, so the comparison is exact ==.
+func TestScorer_Algorithms_PostNormalisationWeights(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoJaroWinkler, 3.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	algos := s.Algorithms()
+	if len(algos) != 2 {
+		t.Fatalf("len = %d; want 2", len(algos))
+	}
+	if algos[0].Weight != 0.25 {
+		t.Errorf("algos[0].Weight = %g; want 0.25 (post-normalisation)", algos[0].Weight)
+	}
+	if algos[1].Weight != 0.75 {
+		t.Errorf("algos[1].Weight = %g; want 0.75 (post-normalisation)", algos[1].Weight)
+	}
+}
+
+// TestScorer_ScoreAll_Keys verifies that ScoreAll returns a map whose
+// keyset is EXACTLY the configured algorithm set. A 3-algorithm Scorer
+// produces a map of length 3 containing exactly those AlgoIDs as keys.
+func TestScorer_ScoreAll_Keys(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoJaroWinkler, 1.0),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoTokenJaccard, 1.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	got := s.ScoreAll("kitten", "sitting")
+	if len(got) != 3 {
+		t.Fatalf("len(ScoreAll) = %d; want 3", len(got))
+	}
+	wantKeys := []fuzzymatch.AlgoID{
+		fuzzymatch.AlgoLevenshtein,
+		fuzzymatch.AlgoJaroWinkler,
+		fuzzymatch.AlgoTokenJaccard,
+	}
+	for _, k := range wantKeys {
+		if _, ok := got[k]; !ok {
+			t.Errorf("ScoreAll missing key %v", k)
+		}
+	}
+}
+
+// TestScorer_ScoreAll_ValuesMatchPerAlgoCalls verifies that ScoreAll's
+// map values are byte-identical to the per-algorithm score function
+// called on the same (pre-normalised) inputs. We use a single-
+// Levenshtein Scorer with WithoutNormalisation so the comparison is
+// trivially against LevenshteinScore on raw inputs.
+func TestScorer_ScoreAll_ValuesMatchPerAlgoCalls(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithoutNormalisation(),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	got := s.ScoreAll("kitten", "sitting")
+	want := fuzzymatch.LevenshteinScore("kitten", "sitting")
+	if got[fuzzymatch.AlgoLevenshtein] != want {
+		t.Errorf(
+			"ScoreAll[AlgoLevenshtein] = %g; want %g (must equal raw LevenshteinScore on raw inputs)",
+			got[fuzzymatch.AlgoLevenshtein], want,
+		)
+	}
+}
+
+// TestScorer_ScoreAll_FreshMap verifies that ScoreAll allocates a fresh
+// map on every call (per spec §8.6). Mutating the returned map MUST
+// NOT affect subsequent ScoreAll calls.
+func TestScorer_ScoreAll_FreshMap(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	m1 := s.ScoreAll("kitten", "sitting")
+	m1[fuzzymatch.AlgoLevenshtein] = 999.0
+	m2 := s.ScoreAll("kitten", "sitting")
+	if m2[fuzzymatch.AlgoLevenshtein] == 999.0 {
+		t.Errorf(
+			"second ScoreAll returned mutated value 999.0; want a fresh map (got %g)",
+			m2[fuzzymatch.AlgoLevenshtein],
+		)
+	}
+}
+
+// TestScorer_ScoreAll_PreNormalises verifies that ScoreAll applies the
+// same normalisation gate as Score: when normalisation is enabled
+// (default), the per-algorithm scores in ScoreAll reflect the algorithm
+// invocation on the NORMALISED inputs. We compare two Scorers (with /
+// without normalisation) on identifier-style input — the with-norm
+// Levenshtein score is strictly greater than the without-norm score.
+func TestScorer_ScoreAll_PreNormalises(t *testing.T) {
+	t.Parallel()
+	withNorm, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer (with-norm): %v", err)
+	}
+	withoutNorm, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithoutNormalisation(),
+		fuzzymatch.WithThreshold(0.5),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer (without-norm): %v", err)
+	}
+	const a, b = "XMLParser", "xml_parser"
+	with := withNorm.ScoreAll(a, b)
+	without := withoutNorm.ScoreAll(a, b)
+	if !(without[fuzzymatch.AlgoLevenshtein] < with[fuzzymatch.AlgoLevenshtein]) {
+		t.Errorf(
+			"ScoreAll must reflect normalisation gate: with=%g, without=%g (a=%q, b=%q)",
+			with[fuzzymatch.AlgoLevenshtein],
+			without[fuzzymatch.AlgoLevenshtein],
+			a, b,
+		)
+	}
+}
