@@ -115,11 +115,11 @@ Added during Phase 8.5 doc-alignment (2026-05-17) as the consumer-facing compani
 
 ### Testing discipline (TEST)
 
-- [ ] **TEST-01**: Literature reference vectors in unit tests for every algorithm, citing the source paper (`docs/requirements.md` §15.1, `.claude/skills/algorithm-correctness-standards/SKILL.md`)
-- [ ] **TEST-02**: Property tests (`testing/quick`) for mathematical invariants per algorithm — identity, symmetry, range bounds, triangle inequality where applicable (`docs/requirements.md` §15.2)
+- [x] **TEST-01**: Literature reference vectors in unit tests for every algorithm, citing the source paper (`docs/requirements.md` §15.1, `.claude/skills/algorithm-correctness-standards/SKILL.md`)
+- [x] **TEST-02**: Property tests (`testing/quick`) for mathematical invariants per algorithm — identity, symmetry, range bounds, triangle inequality where applicable (`docs/requirements.md` §15.2)
 - [x] **TEST-03**: Fuzz tests with malformed UTF-8 corpus — panic-free guarantee (`docs/requirements.md` §15.3)
 - [x] **TEST-04**: Benchmark per algorithm with allocation assertions (`docs/requirements.md` §15.4)
-- [ ] **TEST-05**: BDD scenarios (godog) per algorithm + Scorer composition pattern + scan suppression behaviour + Extract behaviour, isolated in `tests/bdd/` sub-module (`docs/requirements.md` §15.5)
+- [x] **TEST-05**: BDD scenarios (godog) per algorithm + Scorer composition pattern + scan suppression behaviour + Extract behaviour, isolated in `tests/bdd/` sub-module (`docs/requirements.md` §15.5)
 - [x] **TEST-06**: Meta-tests — README compiles, Makefile targets documented, llms.txt sync-check, godoc examples runnable (`docs/requirements.md` §15.6)
 - [ ] **TEST-07**: Coverage ≥ 95% overall, ≥ 90% per file, 100% public API surface — enforced (not just reported) in CI (`docs/requirements.md` §15.7)
 - [ ] **TEST-08**: Goleak in BDD module to catch goroutine leaks (`docs/requirements.md` §15.8)
@@ -274,11 +274,11 @@ Populated by `gsd-roadmapper` on 2026-05-13. Each v1 requirement maps to exactly
 | PERF-04 | Phase 1 | Complete |
 | PERF-05 | Phase 9 | Pending |
 | PERF-06 | Phase 1 | Pending |
-| TEST-01 | Phase 2 | Pending |
-| TEST-02 | Phase 2 | Pending |
+| TEST-01 | Phase 2 | Complete |
+| TEST-02 | Phase 2 | Complete |
 | TEST-03 | Phase 1 | Complete |
 | TEST-04 | Phase 2 | Complete |
-| TEST-05 | Phase 2 | Pending |
+| TEST-05 | Phase 2 | Complete |
 | TEST-06 | Phase 1 | Complete |
 | TEST-07 | Phase 1 | Pending |
 | TEST-08 | Phase 1 | Pending |
