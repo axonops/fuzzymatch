@@ -1584,4 +1584,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	// algorithm-focused AlgorithmContext). All Scorer scenarios live
 	// under the @scorer Gherkin tag in features/scorer.feature.
 	InitScorerSteps(ctx)
+
+	// Phase 8.5 Plan 13 — Validate steps. Registered via a dedicated
+	// InitValidateSteps function in validate_steps.go so the
+	// ValidateContext lives in its own type (separate from
+	// AlgorithmContext and ScorerContext). All Validate scenarios
+	// live under the @validate Gherkin tag in features/validate.feature.
+	InitValidateSteps(ctx)
 }
