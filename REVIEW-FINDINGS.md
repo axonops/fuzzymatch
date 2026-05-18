@@ -1,21 +1,28 @@
 # fuzzymatch — Comprehensive Code Review Findings
 
-## Phase 8.5 Verification (2026-05-17)
+## Phase 8.5 Verification (2026-05-17, updated 2026-05-18)
 
 **Phase 8.5 (Review Remediation Gate) is COMPLETE.** All 74 Critical and 195 Important findings recorded below have been **CLOSED** by the 19 plans of Phase 8.5 (08.5-01 through 08.5-17b). The 14-agent panel re-review on 2026-05-17 (Plan 08.5-18) returned **zero Critical and zero Important findings**.
 
-**Outcome:** `Critical: 0, Important: 0, Improvement: 4 (documented residue)`.
-**Verification report:** [`.planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md`](.planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md) — full agent-panel results, Q-decision traceability, and Improvement-tier residue with reasoned acceptance.
+**Outcome (final):** `Critical: 0, Important: 0, Improvement: 2 (R1, R2 — documented by-design deferrals)`.
+**Verification report:** [`.planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md`](.planning/phases/08.5-review-remediation-gate/08.5-VERIFICATION.md) — full agent-panel results, Q-decision traceability, R1/R2 residue with reasoned acceptance, and §5.4 R3/R4 closure narrative.
+**CI matrix status:** GREEN on commit `e5ad450` across all 5 platforms (linux/amd64+arm64, darwin/amd64+arm64, windows/amd64) plus markdownlint + bench-compare; verification report addendum on `c7bb1ff` also green.
 **Phase 9 status:** UNBLOCKED.
 
 The 74 Critical findings and 195 Important findings in the tables below are **historical** as of 2026-05-17. Each maps to a closing Q-decision or scope-cluster in the verification report's §4 traceability table.
 
-**Deferred items** (acknowledged in the verification report):
+**Remaining Improvement items** (R1 + R2, by design):
 
-- **Gap 3 — `scan.feature` + `suppression.feature`**: deferred to Phase 9 (CONTEXT.md default — feature files describe Phase 9 scan sub-package surface, which does not exist yet).
-- **Q14a — cross-algorithm tokenisation cache**: deferred to v1.x (GitHub issue placeholder pending — project has no GH issues yet).
-- **R3 — coverage-floor residue**: 6 Floor-3 violations + 2 Floor-2 violations + Floor-1 92.1%/95% — pre-existing inherited gaps (none introduced by Phase 8.5); scheduled for a dedicated v1.x "Phonetic encoder branch-coverage closure" plan.
-- **R4 — cross-platform CI matrix**: 66 unpushed commits; CI matrix on PR push pending.
+- **R1 — Q7d q-gram 25% capacity-hint regression**: +15-19% time, +90-107% bytes on QGramJaccard / Dice / Tversky / Cosine Medium/Long benchmarks. Documented in Plan 16 SUMMARY and verification report §5.1. Scheduled for v1.x performance pass.
+- **R2 — Gap 3 `scan.feature` + `suppression.feature`**: deferred to Phase 9 (CONTEXT.md default — feature files describe Phase 9 scan sub-package surface, which does not exist yet).
+- **Q14a — cross-algorithm tokenisation cache**: deferred to v1.x (GitHub issue placeholder pending — project has no GH issues yet). Listed as roadmap item, not residue.
+
+**Originally-listed Improvement items now CLOSED:**
+
+- ~~R3 — coverage-floor residue (Floor 1 92.1% / Floor 2 / Floor 3)~~: **CLOSED 2026-05-18** in commit `e5ad450`. Floor 1 overall now 96.9% (≥ 95%); Floor 2 per-file all ≥ 90% (double_metaphone.go 91.4%, nysiis.go 99.1%); Floor 3 per-exported-symbol all ≥ 90% (DoubleMetaphoneKeys 87%+, NYSIISCode 99.1%, DefaultScorer + NewSWGParams refactored into testable form via unexported helpers, ScorerAlgorithm type explicitly referenced in tests).
+- ~~R4 — cross-platform CI matrix~~: **CLOSED 2026-05-18** by push of commits `e75510e` (golangci-lint v2 path + `.gitattributes` + markdownlint scope), `d505ea0` (CGO_ENABLED=1 for race-detector tests), and `e5ad450` (flaky property test + Floor 1/2/3 closures). R4 surfaced 4 Important findings + 1 pre-existing flake that the 14-agent panel missed because local sign-offs ran only on darwin/arm64 — fixed and documented in verification report §5.4.
+
+**Lesson recorded:** Future fuzzymatch phase verifications MUST run on the full cross-platform CI matrix before final approval. Local-only sign-offs are insufficient. Saved as user-memory `feedback_ci_before_verification_gate.md`.
 
 Original Phase 8 findings retained below for historical traceability.
 
