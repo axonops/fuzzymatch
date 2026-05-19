@@ -855,9 +855,13 @@ func InitScanSteps(ctx *godog.ScenarioContext) {
 | A8 | The empirical bucket-threshold sweep (D-08) runs on darwin/arm64 locally per the user's standard machine and the benchstat self-hosted runner is unavailable (per `.planning/STATE.md` Blockers/Concerns line 125). The crossover value committed should be the darwin/arm64 result; CI re-runs on the matrix are informational only. | Benchmark suite; Open Question 3 | If the crossover is genuinely architecture-specific (e.g. 30 on amd64, 70 on arm64), a single committed constant will under- or over-bucket on the other platform. The < 2s budget should hold either way; this is a tuning question, not a correctness question. **[ASSUMED]** — see Open Question 3. |
 | A9 | The 8-plan decomposition below fits the file-ownership constraint that no two plans modify the same file. The foundation plan owns scan.go + kind.go + errors.go + spec + llms; validation owns validate.go; cross/within passes own scan.go's main loop body (Plan 09-03 creates Check, Plan 09-04 extends it for buckets, Plan 09-05 extends for suppression); golden + completeness owns scan.go's sort/assert tail. There's file-overlap on scan.go across Plans 09-03/04/05/06 — flag in the plan-checker review. | Plan Decomposition | If file-overlap is unacceptable per project convention, plans 09-03..06 must merge into a single larger plan (acceptable; reduces wave count from 6 to 5). **[ASSUMED]** — Phase 8's plan 08-02 / 08-03 / 08-04 all touched scorer.go (different methods), so partial file-overlap appears to be acceptable when methods are clearly disjoint. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> **Resolution status:** All four questions resolved during plan-checker review (2026-05-19). Resolutions inlined below.
 
 ### 1. Scorer's normalisation options access path — BLOCKS Plan 09-01
+
+**RESOLVED:** Option A — add `Scorer.NormalisationOptions() (NormalisationOptions, bool)` accessor in Plan 09-01 Task 2 (verified present in 09-01-PLAN.md `<acceptance_criteria>` block: "scorer.go contains func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool) immediately after Algorithms()"). Mirrors `Threshold()` / `Algorithms()` accessor pattern verbatim. Spec amendment to `docs/requirements.md` §8 covered in Plan 09-01 spec-amendment task. api-ergonomics-reviewer sign-off recorded in 09-01 final reviewer panel.
 
 **What we know:** Spec §12.5 line 1437 says "Tokenise every name once at the start of `Check`, using the Scorer's normalisation options." Spec §12.3 line 1423 says "`SuppressedPairs` entries are normalised at the start of `Check` using the Scorer's normalisation options." Both statements require `scan.Check` to read the Scorer's `applyNormalisation` flag + `normaliseOpts NormalisationOptions` value. These fields are unexported (`scorer.go:115` + `scorer.go:127`).
 
@@ -877,6 +881,8 @@ func InitScanSteps(ctx *godog.ScenarioContext) {
 
 ### 2. Spec §12.5 line 1437 "Tokenise … using the Scorer's normalisation options" — Tokenise takes TokeniseOptions, not NormalisationOptions
 
+**RESOLVED:** Option (a) — **Normalise first, then Tokenise with `DefaultTokeniseOptions()`**. Plan 09-04 Task 2 (bucket implementation) implements `scan.Check` pipeline as `Normalise(name, s.normaliseOpts) → Tokenise(normalised, DefaultTokeniseOptions())` so bucket keys mirror what the Scorer actually compares against. Documented in `scan/scan.go` godoc and `docs/scan.md` "Tokenisation pipeline" section (Plan 09-08).
+
 **What we know:** Spec §12.5 step 1 says "Tokenise every name once at the start of `Check`, using the Scorer's normalisation options." `fuzzymatch.Tokenise(s string, opts TokeniseOptions) []string` (per tokenise.go:179) takes `TokeniseOptions`, not `NormalisationOptions`. The two option types are separate (NormalisationOptions controls Normalise; TokeniseOptions controls Tokenise).
 
 **What's unclear:** What the spec actually means by "using the Scorer's normalisation options" in the context of Tokenise. Two readings:
@@ -890,6 +896,8 @@ func InitScanSteps(ctx *godog.ScenarioContext) {
 
 ### 3. Empirical bucket-threshold sweep — single-platform value vs per-platform values
 
+**RESOLVED:** Single constant. Per-platform tuning is over-engineering (YAGNI per CONTEXT.md §5). The < 2s/10k budget is the gate, not the absolute crossover. Plan 09-04 Task 3 runs `BenchmarkScanCheck_BucketVsNaive_GroupSize` on darwin/arm64; the constant is updated only if the empirical crossover differs materially from the 50 starting hypothesis. If a CI-matrix platform produces a > 2s violation, raise as a v1.x follow-up.
+
 **What we know:** D-08 commits to `bucketThreshold = 50` as a starting hypothesis subject to empirical falsification on darwin/arm64 (the user's machine; the benchstat self-hosted runner is unavailable per STATE.md line 125). The cross-platform CI matrix runs on linux/{amd64,arm64} + darwin/{amd64,arm64} + windows/amd64.
 
 **What's unclear:** Whether to commit a single constant (and accept it may be sub-optimal on other platforms) or expose a build-tagged per-platform value (`// +build darwin,arm64` files).
@@ -899,6 +907,8 @@ func InitScanSteps(ctx *godog.ScenarioContext) {
 **Risk if wrong:** LOW. The < 2s budget has substantial slack (back-of-envelope: 10k items × ~50 tokens-per-item × tokenisation cost ~500ns/item ≈ 5ms tokenisation; bucket build ≈ 1-2ms; per-pair Scorer.Score at ≤ 30µs × (10k × ~50 candidates / 50 group-size) ≈ ~300ms — well within budget). Choosing 30 vs 70 won't break PERF-05.
 
 ### 4. Plan-file overlap on scan.go across plans 09-03 / 09-04 / 09-05 / 09-06
+
+**RESOLVED:** File overlap on scan.go across Plans 09-03/04/05/06 is **accepted** per Phase 8 precedent (Plans 08-02 / 08-03 / 08-04 all touched scorer.go for clearly-disjoint methods). The serial execution discipline (one plan at a time per user-memory `feedback_phase_execution_serial`) eliminates the race-condition risk that drives the file-ownership rule in parallel workflows. Each plan extends scan.go's Check body in a clearly-disjoint segment (09-03: within + naive cross-group; 09-04: bucket dispatch; 09-05: suppression composition; 09-06: sort + completeness assertion).
 
 **What we know:** The Check function body needs to be assembled incrementally: 09-03 lands the within-group + naive cross-group passes; 09-04 extends with bucket dispatch; 09-05 extends with suppression composition; 09-06 extends with sort + completeness assertion. All four edit scan.go.
 
