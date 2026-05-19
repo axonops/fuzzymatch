@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
-status: executing
+status: ready_to_plan
 stopped_at: Completed Plan 08.5-17b (VALIDATE-06 surfaces 1+4+5+6 + Gap 3 BDD + consumer-docs Important findings)
 last_updated: "2026-05-17T18:10:13.974Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 0
   completed_plans: 0
-  percent: 0
+  percent: 100
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 
 ## Current Position
 
-Phase: 08.5 (review-remediation-gate) — EXECUTING
-Plan: 19 of 20 (08.5-15b just completed; 16 plans done: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15a, 15b)
-Status: Ready to execute
-Last activity: 2026-05-17
+Phase: 9
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-19
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 39
+- Total plans completed: 60
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 | 5 | 5 | - | - |
 | 06 | 6 | - | - |
 | 07 | 5 | - | - |
+| 08.5 | 21 | - | - |
 
 **Recent Trend:**
 
