@@ -88,20 +88,15 @@ func TestREADME_QuickStartMatchesExample(t *testing.T) {
 		produce    func() string
 	}{
 		{
-			// `fmt.Println(fuzzymatch.Normalise("UserCreate-Event", opts))`
-			// where `opts := fuzzymatch.DefaultNormalisationOptions(); opts.StripDiacritics = true`
-			callPrefix: "fuzzymatch.Normalise(",
+			// `fmt.Println(s.Match("user_id", "userId"))`
+			// where `s := fuzzymatch.DefaultScorer()`. Quick Start
+			// demonstrates the simplest fuzzy-match call: pin
+			// DefaultScorer().Match against the canonical snake-vs-camel
+			// identifier pair → true.
+			callPrefix: "s.Match(",
 			produce: func() string {
-				opts := fuzzymatch.DefaultNormalisationOptions()
-				opts.StripDiacritics = true
-				return fuzzymatch.Normalise("UserCreate-Event", opts)
-			},
-		},
-		{
-			// `fmt.Println(fuzzymatch.Tokenise("XMLHttpRequest", fuzzymatch.DefaultTokeniseOptions()))`
-			callPrefix: "fuzzymatch.Tokenise(",
-			produce: func() string {
-				return fmt.Sprint(fuzzymatch.Tokenise("XMLHttpRequest", fuzzymatch.DefaultTokeniseOptions()))
+				s := fuzzymatch.DefaultScorer()
+				return fmt.Sprint(s.Match("user_id", "userId"))
 			},
 		},
 	}

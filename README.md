@@ -106,18 +106,16 @@ import (
 )
 
 func main() {
-    opts := fuzzymatch.DefaultNormalisationOptions()
-    opts.StripDiacritics = true
+    s := fuzzymatch.DefaultScorer()
 
-    fmt.Println(fuzzymatch.Normalise("UserCreate-Event", opts))
-    // Output: user create event
-
-    fmt.Println(fuzzymatch.Tokenise("XMLHttpRequest", fuzzymatch.DefaultTokeniseOptions()))
-    // Output: [xmlhttp request]
+    fmt.Println(s.Match("user_id", "userId"))
+    // Output: true
 }
 ```
 
-For a complete end-to-end example combining `Normalise`, the 23 algorithms, and the `Scorer`, see [`examples/identifier-similarity/`](examples/identifier-similarity/main.go) and [`examples/scorer-composition/`](examples/scorer-composition/main.go).
+`DefaultScorer()` cannot fail. See [`docs/scorer.md`](docs/scorer.md) for the composition and [`docs/tuning.md`](docs/tuning.md) for the threshold-calibration loop.
+
+For lower-level primitives — `Normalise`, `Tokenise`, and the 23 individual algorithm functions — see [Common Patterns](#common-patterns) below and the runnable programmes at [`examples/identifier-similarity/`](examples/identifier-similarity/main.go) and [`examples/scorer-composition/`](examples/scorer-composition/main.go).
 
 ## Common Patterns
 
@@ -150,17 +148,6 @@ func main() {
 ```
 
 The full runnable programme is at [`examples/validate-input-quality/`](examples/validate-input-quality/main.go). See [`docs/algorithms.md#input-validation-with-fuzzymatchvalidate`](docs/algorithms.md#input-validation-with-fuzzymatchvalidate) for the per-`WarnKind` semantics and the [Panic surface](docs/algorithms.md#panic-surface) section for the typed-panic discipline (`Validate` itself never panics).
-
-### Default Scorer
-
-```go
-s := fuzzymatch.DefaultScorer()
-if s.Match("user_id", "userId") {
-    fmt.Println("similar")
-}
-```
-
-`DefaultScorer()` cannot fail. See [`docs/scorer.md`](docs/scorer.md) for the composition and [`docs/tuning.md`](docs/tuning.md) for the threshold-calibration loop.
 
 ---
 
