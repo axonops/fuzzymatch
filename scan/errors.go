@@ -96,7 +96,7 @@ var ErrNilScorer = errors.New("scan: Config.Scorer is required")
 //	    // one or more items failed validation; the wrapped error
 //	    // chain identifies every offending index.
 //	}
-var ErrInvalidItem = errors.New("scan: invalid Item")
+var ErrInvalidItem = errors.New("scan: invalid item")
 
 // ErrInvalidConfig indicates the Config struct passed to Check failed
 // validation. The locked validation rules (per 09-CONTEXT.md §2 D-04
@@ -131,4 +131,4 @@ var ErrInvalidItem = errors.New("scan: invalid Item")
 //	if errors.Is(err, scan.ErrInvalidConfig) {
 //	    // diagnostic
 //	}
-var ErrInvalidConfig = errors.New("scan: invalid Config")
+var ErrInvalidConfig = errors.New("scan: invalid config")

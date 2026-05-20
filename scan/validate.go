@@ -140,8 +140,8 @@ func validateConfigFields(cfg Config) error {
 	b := cfg.CrossGroupThresholdBoost
 	if math.IsNaN(b) || math.IsInf(b, 0) || b < 0.0 || b > 1.0 {
 		return fmt.Errorf(
-			"scan: CrossGroupThresholdBoost=%v is invalid (must be in [0.0, 1.0], finite, non-NaN): %w",
-			b, ErrInvalidConfig,
+			"%w: CrossGroupThresholdBoost=%v is invalid (must be in [0.0, 1.0], finite, non-NaN)",
+			ErrInvalidConfig, b,
 		)
 	}
 	return nil
@@ -193,8 +193,8 @@ func validateItems(items []Item) error {
 		// so the empty value never lands in seen[].
 		if item.Name == "" {
 			errs = append(errs, fmt.Errorf(
-				"scan: invalid item at index %d: empty name: %w",
-				i, ErrInvalidItem,
+				"%w: index %d: empty name",
+				ErrInvalidItem, i,
 			))
 			continue
 		}
@@ -204,8 +204,8 @@ func validateItems(items []Item) error {
 		k := itemKey{Name: item.Name, Group: item.Group}
 		if first, ok := seen[k]; ok {
 			errs = append(errs, fmt.Errorf(
-				"scan: invalid item at index %d: duplicate (Name, Group) of index %d: %w",
-				i, first, ErrInvalidItem,
+				"%w: index %d: duplicate (Name, Group) of index %d",
+				ErrInvalidItem, i, first,
 			))
 			continue
 		}
@@ -246,8 +246,8 @@ func validateSuppressedPairs(pairs [][2]string) error {
 	for i, p := range pairs {
 		if p[0] == "" || p[1] == "" {
 			errs = append(errs, fmt.Errorf(
-				"scan: invalid SuppressedPairs[%d]: empty string in pair: %w",
-				i, ErrInvalidConfig,
+				"%w: SuppressedPairs[%d]: empty string in pair",
+				ErrInvalidConfig, i,
 			))
 		}
 	}

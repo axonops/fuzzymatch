@@ -288,24 +288,25 @@ func DefaultConfig(s *fuzzymatch.Scorer) Config {
 // Returns ErrNilScorer if cfg.Scorer is nil. The full validation
 // pipeline (ErrInvalidItem for empty Name / duplicate (Name, Group);
 // ErrInvalidConfig for out-of-range CrossGroupThresholdBoost / empty
-// SuppressedPairs entries) lands in Plan 09-02. The full similarity
-// body (within-group + cross-group + bucket + suppression + sort)
-// lands across Plans 09-03 through 09-06. Empty items slice returns
-// an empty Warning slice and no error.
+// SuppressedPairs entries) lives in validate.go and is wired into
+// Check in Plan 09-03. The full similarity body (within-group +
+// cross-group + bucket + suppression + sort) lands across Plans 09-03
+// through 09-06. Empty items slice returns an empty Warning slice and
+// no error.
 //
-// Plan 09-01 status: this is a foundation stub. It returns
-// (nil, ErrNilScorer) when cfg.Scorer is nil, and (nil, nil)
-// otherwise. The empty body is intentional scaffolding so subsequent
-// plans have a callable Check function to extend without a
-// half-finished algorithm landing in the meantime.
+// Plan 09-02 status: validation pipeline (validateCheck) implemented
+// in validate.go but not yet wired into Check. The stub here returns
+// (nil, ErrNilScorer) when cfg.Scorer is nil and (nil, nil) otherwise
+// — sufficient for Plan 09-01's smoke tests and Plan 09-02's
+// validation-only tests. Plan 09-03 will replace this stub with the
+// naive within-group + cross-group passes.
 func Check(items []Item, cfg Config) ([]Warning, error) {
 	if cfg.Scorer == nil {
 		return nil, ErrNilScorer
 	}
-	// Plan 09-02 lands the full validation pipeline (D-03 + D-04 +
-	// D-05 + D-06). Plan 09-03 lands the Check body. Until then the
-	// stub returns (nil, nil) on a non-nil Scorer — sufficient for
-	// Plan 09-01's smoke tests and Plan 09-02's validation-only tests.
+	// validateCheck is implemented in validate.go (Plan 09-02). Plan
+	// 09-03 wires it in here as the first step of the Check body and
+	// lands the similarity passes.
 	_ = items
 	return nil, nil
 }
