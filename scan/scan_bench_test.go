@@ -115,10 +115,10 @@ func buildBenchItems(totalItems, groupSize int) []scan.Item {
 	// group items mix snake_case and camelCase as the SCAN-04
 	// workload expects.
 	styles := []func(a, b string) string{
-		func(a, b string) string { return a + "_" + b },  // snake_case
+		func(a, b string) string { return a + "_" + b },              // snake_case
 		func(a, b string) string { return a + b[:1] + b[1:] + "Id" }, // camelCase-ish
-		func(a, b string) string { return a + "." + b },  // dot-case
-		func(a, b string) string { return a + "-" + b },  // kebab-case
+		func(a, b string) string { return a + "." + b },              // dot-case
+		func(a, b string) string { return a + "-" + b },              // kebab-case
 	}
 	rng := rand.New(rand.NewSource(benchSeed))
 
