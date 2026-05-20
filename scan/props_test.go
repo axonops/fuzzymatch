@@ -166,9 +166,13 @@ func (itemSliceGen) Generate(rng *rand.Rand, _ int) reflect.Value {
 // MaxCount: 50 — each invocation runs Check twice on a ~50–250-item
 // input, so the wall-clock budget per property invocation is generous
 // without overshooting the typical `go test` runtime.
-func PropCheck_BucketEquivalentToNaive(t *testing.T) {
-	t.Parallel()
-
+//
+// NOT t.Parallel(): this test mutates the package-private
+// forceNaivePath atomic flag. Even though atomic.Bool prevents data
+// races, a concurrent test that observes the flipped flag would see
+// inconsistent dispatch behaviour. Serial execution keeps the toggle
+// visible only to this test's goroutine.
+func TestPropCheck_BucketEquivalentToNaive(t *testing.T) {
 	// Restore the hook on exit so a panicking property doesn't leak
 	// forceNaivePath = true into a subsequent test.
 	defer scan.SetForceNaivePath(false)
@@ -219,7 +223,7 @@ func PropCheck_BucketEquivalentToNaive(t *testing.T) {
 // canonical sort) warning slices. This exercises the production code
 // path — bucket dispatch active where the group exceeds threshold,
 // naive otherwise.
-func PropCheck_DeterministicAcrossRuns(t *testing.T) {
+func TestPropCheck_DeterministicAcrossRuns(t *testing.T) {
 	t.Parallel()
 
 	prop := func(gen itemSliceGen) bool {
@@ -254,7 +258,7 @@ func PropCheck_DeterministicAcrossRuns(t *testing.T) {
 // (i, i) self-pairs (Pitfall 8). The validateCheck gate rejects
 // duplicate (Name, Group) tuples (D-06), so a self-warning would
 // only be possible via a bug in the bucket candidate enumeration.
-func PropCheck_NoSelfWarnings(t *testing.T) {
+func TestPropCheck_NoSelfWarnings(t *testing.T) {
 	t.Parallel()
 
 	prop := func(gen itemSliceGen) bool {

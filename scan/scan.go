@@ -343,19 +343,40 @@ func DefaultConfig(s *fuzzymatch.Scorer) Config {
 //
 // Plan-stage scope:
 //
-//   - Plan 09-03 (this plan): naive O(N²) within-group + O(N×M) cross-group
+//   - Plan 09-03: naive O(N²) within-group + O(N×M) cross-group
 //     passes; SCAN-04 identical-name suppression default; validateCheck
 //     wired as P0.
-//   - Plan 09-04: bucket dispatch replaces the naive cross-group passes
-//     (PropCheck_BucketEquivalentToNaive guards equivalence).
+//   - Plan 09-04 (this plan): bucket dispatch lands as a parallel
+//     branch alongside the naive passes from 09-03. For each group,
+//     when len(idx) > bucketThreshold (and the test-only
+//     forceNaivePath flag is false) the bucket path runs; otherwise
+//     the naive nested loop from Plan 09-03 runs. The
+//     PropCheck_BucketEquivalentToNaive property test
+//     (scan/props_test.go) proves the two paths produce identical
+//     warning sets for any randomly-generated input — SCAN-02 load-
+//     bearing gate.
 //   - Plan 09-05: full suppression composition — per-Item SilenceLint
 //     and global SuppressedPairs (SCAN-03).
 //   - Plan 09-06: deterministic sort + in-line completeness assertion.
 //
-// Complexity (Plan 09-03 only): O(W² + Σ Nᵢ² + Σᵢⱼ Nᵢ·Nⱼ) where W is
-// the per-group max size and the cross-group sums run over distinct
-// group pairs. The PERF-05 ≤ 2s/10k budget is met only after the Plan
-// 09-04 bucket dispatch lands; this plan does not target it.
+// Dispatch decision (Plan 09-04):
+//
+//   - Within-group: per group, if len(idx) > bucketThreshold &&
+//     !forceNaivePath, use the bucket path. Otherwise use the naive
+//     nested loop.
+//   - Cross-group: per group-pair (gi, gj), if len(idxA) + len(idxB) >
+//     bucketThreshold && !forceNaivePath, use the bucket path
+//     (per-pair bucket built over idxA + idxB combined). Otherwise
+//     use the naive nested loop.
+//
+// Worst-case complexity is unchanged from naive — an adversarial
+// input where every item shares a single token reduces to the same
+// nested loop. Expected complexity on realistic identifier-style
+// workloads (snake_case vs camelCase, etc.) drops sharply because
+// most non-matching pairs share no token and are eliminated without
+// paying Scorer.Score. The PERF-05 ≤ 2s / 10,000-items budget is met
+// by this pruning combined with the Phase 8.5 Q8b Tokenise ASCII fast
+// path.
 //
 // Concurrency: Check is a pure function with no goroutines, channels,
 // or mutexes. Safe for concurrent invocation on disjoint inputs; the
@@ -404,7 +425,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 
 	// Parallel `normalisedNames` array. Index i holds the normalised
 	// (or raw, when applyNormalisation == false) form of items[i].Name.
-	// Used only for the cross-group identical-name suppression check.
+	// Used for the cross-group identical-name suppression check.
 	normalisedNames := make([]string, len(items))
 	for i, item := range items {
 		if applyNormalisation {
@@ -413,6 +434,15 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 			normalisedNames[i] = item.Name
 		}
 	}
+
+	// Plan 09-04: pre-compute tokenised names once per Check
+	// invocation (Pitfall 7: tokenise at most once per Item). The
+	// tokens slice mirrors items by index; bucket builds read from it
+	// directly. Per Open Question 2 (09-RESEARCH.md), tokeniseAll
+	// Normalises (when applyNormalisation == true) then Tokenises with
+	// DefaultTokeniseOptions, so the bucket keys mirror what the
+	// Scorer sees at scoring time.
+	tokenisedNames := tokeniseAll(items, normOpts, applyNormalisation)
 
 	// Group items by their Group value. The slice values preserve
 	// insertion order via append, which mirrors items[] slice-index
@@ -441,43 +471,83 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 	// the godoc.)
 	warnings := make([]Warning, 0)
 
-	// Within-group naive pass. For each group (in sorted-key order),
-	// iterate every i<j pair. Compute Score once per pair and compare
-	// against Scorer.Threshold() directly — mirrors the cross-group
-	// block below. This avoids the triple-Scorer-call pattern
+	// Within-group pass. For each group (in sorted-key order), dispatch
+	// to the bucket path when len(idx) > bucketThreshold (and the
+	// test-only forceNaivePath flag is false), otherwise to the naive
+	// nested loop from Plan 09-03. Both paths produce identical
+	// warning sets per the SCAN-02 property test
+	// PropCheck_BucketEquivalentToNaive (scan/props_test.go). Compute
+	// Score once per pair and compare against Scorer.Threshold()
+	// directly — preserves Match's inclusive >= semantics
+	// (scorer.go:399) and avoids the triple-Scorer-call pattern
 	// (Match-internally-calls-Score + explicit Score + ScoreAll) that
-	// inflated the per-emission cost ~3×; convergent finding from
-	// code-reviewer / algorithm-correctness-reviewer / security-reviewer
-	// on Plan 09-03. Match's inclusive >= semantics (scorer.go:399) are
-	// preserved verbatim by the >= Threshold() comparison.
+	// inflated the per-emission cost ~3× (convergent reviewer finding
+	// on Plan 09-03).
 	withinThreshold := cfg.Scorer.Threshold()
 	for _, group := range sortedGroups {
 		idx := groupIndices[group]
-		for i := 0; i < len(idx); i++ {
-			for j := i + 1; j < len(idx); j++ {
-				a, b := items[idx[i]], items[idx[j]]
-				score := cfg.Scorer.Score(a.Name, b.Name)
-				if score >= withinThreshold {
-					warnings = append(warnings, Warning{
-						Kind:   KindWithinGroup,
-						NameA:  a.Name,
-						NameB:  b.Name,
-						GroupA: a.Group,
-						GroupB: b.Group,
-						TagA:   a.Tag,
-						TagB:   b.Tag,
-						Score:  score,
-						Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
-					})
+		if !forceNaivePath.Load() && len(idx) > bucketThreshold {
+			// Bucket path. Build the bucket once per group, then walk
+			// each source index's candidate set. The j > i filter
+			// (== idx-position-aware dedup) is replaced by direct index
+			// comparison (j > i on the raw item index) because the
+			// bucket dispatch enumerates candidates by raw item index,
+			// not by group-local position.
+			bucket := buildBucket(idx, tokenisedNames)
+			for _, i := range idx {
+				candidates := bucketCandidates(i, bucket, tokenisedNames)
+				for _, j := range candidates {
+					if j <= i {
+						continue // emit each unordered pair exactly once
+					}
+					a, b := items[i], items[j]
+					score := cfg.Scorer.Score(a.Name, b.Name)
+					if score >= withinThreshold {
+						warnings = append(warnings, Warning{
+							Kind:   KindWithinGroup,
+							NameA:  a.Name,
+							NameB:  b.Name,
+							GroupA: a.Group,
+							GroupB: b.Group,
+							TagA:   a.Tag,
+							TagB:   b.Tag,
+							Score:  score,
+							Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+						})
+					}
+				}
+			}
+		} else {
+			// Naive path (Plan 09-03 fallback for small groups + the
+			// test-only forceNaivePath toggle).
+			for i := 0; i < len(idx); i++ {
+				for j := i + 1; j < len(idx); j++ {
+					a, b := items[idx[i]], items[idx[j]]
+					score := cfg.Scorer.Score(a.Name, b.Name)
+					if score >= withinThreshold {
+						warnings = append(warnings, Warning{
+							Kind:   KindWithinGroup,
+							NameA:  a.Name,
+							NameB:  b.Name,
+							GroupA: a.Group,
+							GroupB: b.Group,
+							TagA:   a.Tag,
+							TagB:   b.Tag,
+							Score:  score,
+							Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+						})
+					}
 				}
 			}
 		}
 	}
 
-	// Cross-group naive pass. Active only when CompareAcrossGroups ==
-	// true. Walks sorted group-key pairs (gi < gj) to ensure deterministic
-	// emission ordering; within each group pair, walks idxA × idxB in
-	// slice-index order.
+	// Cross-group pass. Active only when CompareAcrossGroups == true.
+	// Walks sorted group-key pairs (gi < gj) to ensure deterministic
+	// emission ordering; within each group pair, dispatches to bucket
+	// or naive based on the combined group sizes (Plan 09-04). Both
+	// paths apply the SCAN-04 identical-name suppression default
+	// identically.
 	if cfg.CompareAcrossGroups {
 		// Effective threshold = within-group threshold + boost,
 		// CLAMPED to 1.0 (Pitfall 6 — boosts can never push the
@@ -488,30 +558,83 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 			for gj := gi + 1; gj < len(sortedGroups); gj++ {
 				idxA := groupIndices[sortedGroups[gi]]
 				idxB := groupIndices[sortedGroups[gj]]
-				for _, i := range idxA {
+				if !forceNaivePath.Load() && (len(idxA)+len(idxB)) > bucketThreshold {
+					// Bucket path. Build the bucket over the union of
+					// idxA and idxB. For each i in idxA, the candidates
+					// returned by bucketCandidates may include indices
+					// from idxA (same-group) or idxB (cross-group); we
+					// emit only the cross-group hits to preserve the
+					// per-group-pair semantics.
+					union := make([]int, 0, len(idxA)+len(idxB))
+					union = append(union, idxA...)
+					union = append(union, idxB...)
+					bucket := buildBucket(union, tokenisedNames)
+
+					// inB is a set membership test for the cross-group
+					// candidate filter — direct map lookup, never
+					// iterated. Sized to len(idxB) so the alloc is
+					// O(group size).
+					inB := make(map[int]struct{}, len(idxB))
 					for _, j := range idxB {
-						// SCAN-04 identical-name suppression default.
-						// Compared against normalisedNames so consumers
-						// who switch case ("user_id" vs "USER_ID") still
-						// see the pair suppressed when the Scorer's
-						// normalisation collapses them to the same form.
-						if !cfg.CompareIdenticalAcrossGroups && normalisedNames[i] == normalisedNames[j] {
-							continue
+						inB[j] = struct{}{}
+					}
+
+					for _, i := range idxA {
+						candidates := bucketCandidates(i, bucket, tokenisedNames)
+						for _, j := range candidates {
+							if _, ok := inB[j]; !ok {
+								continue // skip same-group hits
+							}
+							// SCAN-04 identical-name suppression default.
+							if !cfg.CompareIdenticalAcrossGroups && normalisedNames[i] == normalisedNames[j] {
+								continue
+							}
+							a, b := items[i], items[j]
+							score := cfg.Scorer.Score(a.Name, b.Name)
+							if score >= effectiveThreshold {
+								warnings = append(warnings, Warning{
+									Kind:   KindAcrossGroups,
+									NameA:  a.Name,
+									NameB:  b.Name,
+									GroupA: a.Group,
+									GroupB: b.Group,
+									TagA:   a.Tag,
+									TagB:   b.Tag,
+									Score:  score,
+									Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+								})
+							}
 						}
-						a, b := items[i], items[j]
-						score := cfg.Scorer.Score(a.Name, b.Name)
-						if score >= effectiveThreshold {
-							warnings = append(warnings, Warning{
-								Kind:   KindAcrossGroups,
-								NameA:  a.Name,
-								NameB:  b.Name,
-								GroupA: a.Group,
-								GroupB: b.Group,
-								TagA:   a.Tag,
-								TagB:   b.Tag,
-								Score:  score,
-								Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
-							})
+					}
+				} else {
+					// Naive path (Plan 09-03 fallback for small group
+					// pairs + the test-only forceNaivePath toggle).
+					for _, i := range idxA {
+						for _, j := range idxB {
+							// SCAN-04 identical-name suppression default.
+							// Compared against normalisedNames so
+							// consumers who switch case ("user_id" vs
+							// "USER_ID") still see the pair suppressed
+							// when the Scorer's normalisation collapses
+							// them to the same form.
+							if !cfg.CompareIdenticalAcrossGroups && normalisedNames[i] == normalisedNames[j] {
+								continue
+							}
+							a, b := items[i], items[j]
+							score := cfg.Scorer.Score(a.Name, b.Name)
+							if score >= effectiveThreshold {
+								warnings = append(warnings, Warning{
+									Kind:   KindAcrossGroups,
+									NameA:  a.Name,
+									NameB:  b.Name,
+									GroupA: a.Group,
+									GroupB: b.Group,
+									TagA:   a.Tag,
+									TagB:   b.Tag,
+									Score:  score,
+									Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+								})
+							}
 						}
 					}
 				}

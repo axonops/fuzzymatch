@@ -44,7 +44,7 @@ package scan
 // via this export_test.go file), so consumer code cannot reach it in
 // production.
 func SetForceNaivePath(v bool) {
-	forceNaivePath = v
+	forceNaivePath.Store(v)
 }
 
 // BucketThreshold returns the empirically-validated bucketThreshold

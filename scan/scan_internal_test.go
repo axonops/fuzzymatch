@@ -232,7 +232,11 @@ func Test_bucketCandidates_ExcludesSelfAndSorts(t *testing.T) {
 // rigorously by PropCheck_BucketEquivalentToNaive but smoke-tested
 // here for fast feedback during development).
 func Test_forceNaivePath_TogglesPathConsistently(t *testing.T) {
-	t.Parallel()
+	// NOT t.Parallel(): this test mutates the package-private
+	// forceNaivePath atomic flag. Even though atomic.Bool prevents
+	// data races, a concurrent test that observes the flipped flag
+	// would see inconsistent dispatch behaviour. Serial execution
+	// keeps the toggle visible only to this test's goroutine.
 
 	// Build a group large enough to exercise the bucket path under
 	// production dispatch.
@@ -253,15 +257,15 @@ func Test_forceNaivePath_TogglesPathConsistently(t *testing.T) {
 	cfg := DefaultConfig(fuzzymatch.DefaultScorer())
 
 	// Run with production dispatch (bucket path active).
-	forceNaivePath = false
+	forceNaivePath.Store(false)
 	prodWarnings, err := Check(items, cfg)
 	if err != nil {
 		t.Fatalf("Check (bucket path): unexpected error: %v", err)
 	}
 
 	// Run with forced naive path.
-	forceNaivePath = true
-	defer func() { forceNaivePath = false }()
+	forceNaivePath.Store(true)
+	defer forceNaivePath.Store(false)
 	naiveWarnings, err := Check(items, cfg)
 	if err != nil {
 		t.Fatalf("Check (forced naive): unexpected error: %v", err)
