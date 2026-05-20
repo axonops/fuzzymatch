@@ -471,6 +471,49 @@ func (s *Scorer) Algorithms() []ScorerAlgorithm {
 	return out
 }
 
+// NormalisationOptions returns the NormalisationOptions stored at
+// construction time along with a boolean indicating whether the
+// Scorer applies normalisation. The pair satisfies the canonical
+// "if applied, these are the opts" contract.
+//
+// applied is true when WithNormalisation(opts) was the last
+// normalisation option applied (or no normalisation option was
+// applied — the NewScorer default is applied normalisation with
+// DefaultNormalisationOptions). applied is false when
+// WithoutNormalisation was the last normalisation option applied.
+//
+// opts is the NormalisationOptions value stored at construction time.
+// When applied is true, opts is the options struct the Scorer uses on
+// every Score / ScoreAll / Match call. When applied is false, opts
+// retains the previous WithNormalisation value (which defaults to
+// DefaultNormalisationOptions if no WithNormalisation was applied) —
+// callers seeing applied == false should ignore opts and pass raw
+// inputs to whatever downstream comparison they perform, mirroring
+// what the Scorer itself does on a WithoutNormalisation path.
+//
+// The returned options are by-value, mirroring the immutability of
+// the Scorer: callers cannot mutate the Scorer's internal options
+// through this surface. Subsequent calls observe the original values
+// regardless of any mutation a caller performs on a previously
+// returned NormalisationOptions struct.
+//
+// Used by the scan sub-package
+// (github.com/axonops/fuzzymatch/scan) to canonicalise SuppressedPairs
+// entries and build token buckets using the same normalisation
+// pipeline the Scorer uses for scoring (per spec §8 and
+// docs/requirements.md §12.3 + §12.5, as amended in Phase 9 plan
+// 09-01; see also 09-RESEARCH.md Open Question 1 and 09-CONTEXT.md
+// §4). The accessor resolves the API question of how scan accesses
+// the Scorer's normalisation state without coupling Config to a
+// duplicate NormalisationOptions field.
+//
+// Safe for concurrent use from any number of goroutines without
+// external synchronisation. The Scorer is immutable after NewScorer
+// returns; this method does no writes to the receiver's state.
+func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool) {
+	return s.normaliseOpts, s.applyNormalisation
+}
+
 // ScoreAll returns per-algorithm raw scores for the configured algorithm set as a map[AlgoID]float64.
 //
 // SPEC OVERRIDE: docs/requirements.md §8.3 specifies map[string]float64; this implementation returns map[AlgoID]float64 because AlgoID is a typed enum that the rest of the library exposes, giving consumers compile-time key safety. Use AlgoID.String() for snake_case display. The spec deviation is documented in CONTEXT.md §1 (Phase 8) and api-ergonomics-reviewer signed off on this override in plan 08-03's PR.

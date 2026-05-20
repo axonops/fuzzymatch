@@ -309,6 +309,184 @@ func TestScorer_Threshold_ReturnsStoredValue(t *testing.T) {
 	}
 }
 
+// TestScorer_NormalisationOptions_Default pins the accessor contract
+// for the default Scorer: DefaultScorer() applies normalisation with
+// DefaultNormalisationOptions, so the accessor returns
+// (DefaultNormalisationOptions(), true). Used by the scan sub-package
+// (09-RESEARCH.md Open Question 1 resolution) to canonicalise
+// SuppressedPairs and build token buckets using the same normalisation
+// pipeline the Scorer uses for scoring.
+func TestScorer_NormalisationOptions_Default(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	opts, applied := s.NormalisationOptions()
+
+	if !applied {
+		t.Errorf("applied: got false; want true (DefaultScorer applies normalisation)")
+	}
+	want := fuzzymatch.DefaultNormalisationOptions()
+	if opts != want {
+		t.Errorf("opts: got %+v; want %+v (DefaultNormalisationOptions)", opts, want)
+	}
+}
+
+// TestScorer_NormalisationOptions_WithoutNormalisation verifies the
+// accessor reports applied == false when the Scorer was constructed
+// with WithoutNormalisation. The returned opts value is the previously
+// stored NormalisationOptions (i.e. DefaultNormalisationOptions in
+// this case because no explicit WithNormalisation was applied) —
+// callers seeing applied == false should ignore opts and pass raw
+// inputs downstream, mirroring what the Scorer itself does on the
+// WithoutNormalisation path. This contract is documented in the
+// accessor's godoc.
+func TestScorer_NormalisationOptions_WithoutNormalisation(t *testing.T) {
+	t.Parallel()
+
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.85),
+		fuzzymatch.WithoutNormalisation(),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	_, applied := s.NormalisationOptions()
+
+	if applied {
+		t.Errorf("applied: got true; want false (WithoutNormalisation)")
+	}
+	// opts is intentionally not asserted: scorer_options.go's
+	// WithoutNormalisation only flips applyNorm=false and leaves the
+	// previously-stored normOpts value as-is (per scorer_options.go
+	// lines 262–266). Callers seeing applied=false should ignore opts.
+}
+
+// TestScorer_NormalisationOptions_WithoutNormalisation_AfterCustom
+// pins the "later option wins" semantics: WithNormalisation then
+// WithoutNormalisation leaves applied=false but the previously stored
+// opts struct survives (per scorer_options.go lines 262–266 "applyNorm
+// becomes false but the previously-stored normOpts value is
+// intentionally not cleared"). The accessor surfaces that exact state.
+func TestScorer_NormalisationOptions_WithoutNormalisation_AfterCustom(t *testing.T) {
+	t.Parallel()
+
+	custom := fuzzymatch.NormalisationOptions{
+		Lowercase:       true,
+		StripSeparators: false,
+		SeparatorChars:  "_",
+		SplitCamelCase:  false,
+		NFC:             true,
+		StripDiacritics: false,
+	}
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.85),
+		fuzzymatch.WithNormalisation(custom),
+		fuzzymatch.WithoutNormalisation(),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	opts, applied := s.NormalisationOptions()
+
+	if applied {
+		t.Errorf("applied: got true; want false (later WithoutNormalisation wins)")
+	}
+	if opts != custom {
+		t.Errorf("opts: got %+v; want previously-stored custom %+v (WithoutNormalisation does not clear normOpts)", opts, custom)
+	}
+}
+
+// TestScorer_NormalisationOptions_WithCustom verifies the accessor
+// returns the exact NormalisationOptions struct the consumer supplied
+// to WithNormalisation, byte-for-byte. Every documented field is
+// covered (Lowercase, StripSeparators, SeparatorChars, SplitCamelCase,
+// NFC, StripDiacritics) to catch any future field addition that the
+// accessor accidentally drops.
+func TestScorer_NormalisationOptions_WithCustom(t *testing.T) {
+	t.Parallel()
+
+	custom := fuzzymatch.NormalisationOptions{
+		Lowercase:       false,
+		StripSeparators: true,
+		SeparatorChars:  "|:/",
+		SplitCamelCase:  false,
+		NFC:             true,
+		StripDiacritics: true,
+	}
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithThreshold(0.85),
+		fuzzymatch.WithNormalisation(custom),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	opts, applied := s.NormalisationOptions()
+
+	if !applied {
+		t.Errorf("applied: got false; want true (WithNormalisation)")
+	}
+	if opts != custom {
+		t.Errorf("opts: got %+v; want %+v (byte-for-byte equality)", opts, custom)
+	}
+}
+
+// TestScorer_NormalisationOptions_ByValue verifies the return is
+// by-value (NOT by reference). A caller mutating the returned struct
+// MUST NOT observe the mutation on a subsequent NormalisationOptions
+// call. This pins the immutability contract documented in the
+// accessor's godoc — mirrors the Threshold() and Algorithms() patterns
+// where Scorer state is never exposed to caller mutation.
+func TestScorer_NormalisationOptions_ByValue(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	first, _ := s.NormalisationOptions()
+
+	// Mutate the returned struct's fields. The mutation is observable
+	// in `first` itself but MUST NOT propagate into the Scorer.
+	first.Lowercase = !first.Lowercase
+	first.StripSeparators = !first.StripSeparators
+	first.SeparatorChars = "X"
+	first.SplitCamelCase = !first.SplitCamelCase
+	first.NFC = !first.NFC
+	first.StripDiacritics = !first.StripDiacritics
+
+	second, _ := s.NormalisationOptions()
+	want := fuzzymatch.DefaultNormalisationOptions()
+	if second != want {
+		t.Errorf("second call: got %+v; want %+v (mutation of first return must not affect Scorer)", second, want)
+	}
+}
+
+// TestScorer_NormalisationOptions_Concurrent pins the concurrent-safety
+// guarantee: NormalisationOptions is a read-only accessor; concurrent
+// invocation from many goroutines must not race and must observe
+// identical results. The race detector (`go test -race`) catches any
+// hidden write to the Scorer's state during this loop.
+func TestScorer_NormalisationOptions_Concurrent(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	want, wantApplied := s.NormalisationOptions()
+
+	var wg sync.WaitGroup
+	const goroutines = 100
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			got, gotApplied := s.NormalisationOptions()
+			if got != want || gotApplied != wantApplied {
+				t.Errorf("concurrent read: got (%+v, %v); want (%+v, %v)", got, gotApplied, want, wantApplied)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
 // TestScorer_Algorithms_FreshSlice verifies that Algorithms() returns a
 // fresh slice on every call. Mutating the returned slice MUST NOT
 // affect the internal Scorer state, and a subsequent Algorithms() call
