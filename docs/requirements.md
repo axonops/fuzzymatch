@@ -1506,7 +1506,7 @@ Targets (with the default Scorer of section 8.5):
 - 1000 items / 50 groups: < 100 ms
 - 10000 items / 500 groups: < 2 s
 - Cross-group pass enabled: at most 2× the within-group-only cost on the same input
-  - **v0.x shortfall:** the per-pair token-bucket rebuild strategy currently measures ~525× within-only at 10k items / 500 groups (~189 s vs ~362 ms; verified by `BenchmarkScanCheck_DefaultScorer_10k_CrossGroup`). The ≤ 2× target requires the global-bucket strategy tracked as a v1.x optimisation in `.planning/phases/09-collection-scan-sub-package/09-CONTEXT.md` Deferred Ideas. SCAN-02 bucket-vs-naive correctness equivalence is preserved at v0.x; the gap is purely performance.
+  - **v0.x shortfall:** the per-group bucket pre-build strategy currently measures ~58× within-only at 10k items / 500 groups (~21 s vs ~362 ms; verified by `BenchmarkScanCheck_DefaultScorer_10k_CrossGroup` post the Phase 9 remediation refactor). Improved from the original ~525× baseline by amortising bucket build across (gi, gj) pairs via per-group buckets; further reduction to the ≤ 2× target would require inner-loop Scorer caching or aggressive cross-group threshold pre-filtering. SCAN-02 bucket-vs-naive correctness equivalence is preserved.
 
 Benchmarks in `scan/scan_bench_test.go` cover within-group only, within-plus-cross-group, and the bucket-vs-naive comparison. CI regression detection via `benchstat` against the last tagged release.
 

@@ -569,34 +569,9 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 						continue // emit each unordered pair exactly once
 					}
 					a, b := items[i], items[j]
-					// Plan 09-05: suppression check fires BEFORE
-					// Scorer.Score on the bucket path. The cheapest
-					// rule (Rule 1 SilenceLint) is evaluated first; we
-					// avoid the per-pair Score allocation entirely on
-					// suppressed candidates.
-					if isSuppressed(a, b, KindWithinGroup, normalisedNames[i], normalisedNames[j], suppressCtx) {
-						continue
-					}
-					// ScoreAndAll runs the per-algorithm work once and
-					// returns both the composite and the breakdown.
-					// Replaces the prior Score(...) + ScoreAll(...) pair
-					// that re-ran every algorithm on emission. Map
-					// allocation cost moves from emit-time to candidate-
-					// time, but algorithm-run cost on emission halves.
-					score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
-					if score >= withinThreshold {
-						warnings = append(warnings, Warning{
-							Kind:   KindWithinGroup,
-							NameA:  a.Name,
-							NameB:  b.Name,
-							GroupA: a.Group,
-							GroupB: b.Group,
-							TagA:   a.Tag,
-							TagB:   b.Tag,
-							Score:  score,
-							Scores: breakdown,
-						})
-					}
+					warnings = tryEmit(warnings, a, b, KindWithinGroup,
+						normalisedNames[i], normalisedNames[j],
+						withinThreshold, suppressCtx, cfg.Scorer)
 				}
 			}
 		} else {
@@ -605,27 +580,9 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 			for i := 0; i < len(idx); i++ {
 				for j := i + 1; j < len(idx); j++ {
 					a, b := items[idx[i]], items[idx[j]]
-					// Plan 09-05: suppression check on the naive path
-					// — identical predicate to the bucket path above so
-					// SCAN-02 bucket-vs-naive equivalence holds under
-					// suppression.
-					if isSuppressed(a, b, KindWithinGroup, normalisedNames[idx[i]], normalisedNames[idx[j]], suppressCtx) {
-						continue
-					}
-					score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
-					if score >= withinThreshold {
-						warnings = append(warnings, Warning{
-							Kind:   KindWithinGroup,
-							NameA:  a.Name,
-							NameB:  b.Name,
-							GroupA: a.Group,
-							GroupB: b.Group,
-							TagA:   a.Tag,
-							TagB:   b.Tag,
-							Score:  score,
-							Scores: breakdown,
-						})
-					}
+					warnings = tryEmit(warnings, a, b, KindWithinGroup,
+						normalisedNames[idx[i]], normalisedNames[idx[j]],
+						withinThreshold, suppressCtx, cfg.Scorer)
 				}
 			}
 		}
@@ -693,31 +650,9 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 						candidates := bucketCandidates(i, bucketB, tokenisedNames)
 						for _, j := range candidates {
 							a, b := items[i], items[j]
-							// Plan 09-05: cross-group identical-name
-							// suppression (SCAN-04) now lives in
-							// isSuppressed Rule 3 — Plan-09-03's
-							// inline check at this site was migrated
-							// for unified semantics. The predicate
-							// also covers Rule 1 (SilenceLint) and
-							// Rule 2 (SuppressedPairs) at the same
-							// emission site.
-							if isSuppressed(a, b, KindAcrossGroups, normalisedNames[i], normalisedNames[j], suppressCtx) {
-								continue
-							}
-							score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
-							if score >= effectiveThreshold {
-								warnings = append(warnings, Warning{
-									Kind:   KindAcrossGroups,
-									NameA:  a.Name,
-									NameB:  b.Name,
-									GroupA: a.Group,
-									GroupB: b.Group,
-									TagA:   a.Tag,
-									TagB:   b.Tag,
-									Score:  score,
-									Scores: breakdown,
-								})
-							}
+							warnings = tryEmit(warnings, a, b, KindAcrossGroups,
+								normalisedNames[i], normalisedNames[j],
+								effectiveThreshold, suppressCtx, cfg.Scorer)
 						}
 					}
 				} else {
@@ -726,31 +661,9 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 					for _, i := range idxA {
 						for _, j := range idxB {
 							a, b := items[i], items[j]
-							// Plan 09-05: cross-group identical-name
-							// suppression (SCAN-04) now lives in
-							// isSuppressed Rule 3 — Plan-09-03's
-							// inline check at this site was migrated
-							// for unified semantics. The predicate
-							// also covers Rule 1 (SilenceLint) and
-							// Rule 2 (SuppressedPairs) at the same
-							// emission site.
-							if isSuppressed(a, b, KindAcrossGroups, normalisedNames[i], normalisedNames[j], suppressCtx) {
-								continue
-							}
-							score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
-							if score >= effectiveThreshold {
-								warnings = append(warnings, Warning{
-									Kind:   KindAcrossGroups,
-									NameA:  a.Name,
-									NameB:  b.Name,
-									GroupA: a.Group,
-									GroupB: b.Group,
-									TagA:   a.Tag,
-									TagB:   b.Tag,
-									Score:  score,
-									Scores: breakdown,
-								})
-							}
+							warnings = tryEmit(warnings, a, b, KindAcrossGroups,
+								normalisedNames[i], normalisedNames[j],
+								effectiveThreshold, suppressCtx, cfg.Scorer)
 						}
 					}
 				}
@@ -835,6 +748,47 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 //	        }
 //	    }
 //	}()
+// tryEmit applies the suppression + threshold gate and appends a
+// Warning to the in-flight slice when the pair passes. Collapses
+// the four emission sites (within naive, within bucket, cross
+// naive, cross bucket) into a single helper — the code-reviewer NIT
+// from Plan 09-06 (Check body length + duplicated bucket-vs-naive
+// emit body). All four sites now share one source-of-truth for the
+// emit semantics: suppression check first, then ScoreAndAll, then
+// threshold gate, then Warning construction.
+//
+// Returns the (possibly-extended) warnings slice so callers can
+// chain `warnings = tryEmit(...)` per emission attempt without
+// pointer indirection.
+func tryEmit(
+	warnings []Warning,
+	a, b Item,
+	kind Kind,
+	normalisedA, normalisedB string,
+	threshold float64,
+	suppressCtx suppressionCtx,
+	scorer *fuzzymatch.Scorer,
+) []Warning {
+	if isSuppressed(a, b, kind, normalisedA, normalisedB, suppressCtx) {
+		return warnings
+	}
+	score, breakdown := scorer.ScoreAndAll(a.Name, b.Name)
+	if score < threshold {
+		return warnings
+	}
+	return append(warnings, Warning{
+		Kind:   kind,
+		NameA:  a.Name,
+		NameB:  b.Name,
+		GroupA: a.Group,
+		GroupB: b.Group,
+		TagA:   a.Tag,
+		TagB:   b.Tag,
+		Score:  score,
+		Scores: breakdown,
+	})
+}
+
 func assertSortKeyComplete(warnings []Warning) {
 	for i := 1; i < len(warnings); i++ {
 		prev := warnings[i-1]
