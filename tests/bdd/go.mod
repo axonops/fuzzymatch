@@ -7,13 +7,13 @@ replace github.com/axonops/fuzzymatch => ../..
 require (
 	github.com/axonops/fuzzymatch v0.0.0-00010101000000-000000000000
 	github.com/cucumber/godog v0.15.0
+	github.com/cucumber/messages/go/v21 v21.0.1
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/goleak v1.3.0
 )
 
 require (
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
-	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect

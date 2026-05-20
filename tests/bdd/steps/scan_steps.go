@@ -46,6 +46,7 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
+	messages "github.com/cucumber/messages/go/v21"
 
 	"github.com/axonops/fuzzymatch"
 	"github.com/axonops/fuzzymatch/scan"
@@ -226,7 +227,7 @@ func (sc *ScanContext) iInvokeScanCheckTwice() error {
 // Step regex: `^scan\.Check returns no error$`
 func (sc *ScanContext) scanCheckReturnsNoError() error {
 	if sc.lastErr != nil {
-		return fmt.Errorf("expected nil error; got %v", sc.lastErr)
+		return fmt.Errorf("expected nil error; got: %w", sc.lastErr)
 	}
 	return nil
 }
@@ -250,7 +251,7 @@ func (sc *ScanContext) scanCheckReturnsAnErrorMatching(sentinel string) error {
 		return fmt.Errorf("unknown sentinel scan.%s", sentinel)
 	}
 	if !errors.Is(sc.lastErr, want) {
-		return fmt.Errorf("error %v does not match scan.%s", sc.lastErr, sentinel)
+		return fmt.Errorf("error does not match scan.%s: %w", sentinel, sc.lastErr)
 	}
 	return nil
 }
@@ -424,6 +425,72 @@ func (sc *ScanContext) theWarningsMatchTheNaiveReferenceOutput() error {
 	return nil
 }
 
+// scanItemColumns captures the column indices for a scan-items table.
+// idxSilence is -1 when the silence_lint column is omitted (treated as
+// "all rows have SilenceLint=false").
+type scanItemColumns struct {
+	idxName, idxGroup, idxSilence int
+}
+
+// resolveScanItemColumns walks the header row and returns the column
+// indices for name (required), group (required), silence_lint
+// (optional). Returns an error when either required column is missing.
+// Pulled out of parseScanItems to keep that function's cyclomatic
+// complexity within golangci-lint's gocyclo threshold (10).
+func resolveScanItemColumns(headerCells []*messages.PickleTableCell) (scanItemColumns, error) {
+	cols := scanItemColumns{idxName: -1, idxGroup: -1, idxSilence: -1}
+	for i, cell := range headerCells {
+		switch strings.TrimSpace(cell.Value) {
+		case "name":
+			cols.idxName = i
+		case "group":
+			cols.idxGroup = i
+		case "silence_lint":
+			cols.idxSilence = i
+		}
+	}
+	if cols.idxName < 0 || cols.idxGroup < 0 {
+		return cols, fmt.Errorf("scan-items table must have columns 'name' and 'group'; got header %v", headerCells)
+	}
+	return cols, nil
+}
+
+// parseScanItemRow converts one godog row into a scan.Item using the
+// resolved column indices. Pulled out of parseScanItems to keep that
+// function's cyclomatic complexity within golangci-lint's gocyclo
+// threshold (10).
+func parseScanItemRow(rowIdx int, cells []*messages.PickleTableCell, cols scanItemColumns) (scan.Item, error) {
+	name := decodeEmptySentinel(cells[cols.idxName].Value)
+	group := decodeEmptySentinel(cells[cols.idxGroup].Value)
+	silence, err := parseSilenceLint(rowIdx, cells, cols.idxSilence)
+	if err != nil {
+		return scan.Item{}, err
+	}
+	return scan.Item{
+		Name:        name,
+		Group:       group,
+		SilenceLint: silence,
+	}, nil
+}
+
+// parseSilenceLint extracts the silence_lint boolean from a row when
+// the column index is present. Empty / absent values default to false
+// so happy-path tables stay compact.
+func parseSilenceLint(rowIdx int, cells []*messages.PickleTableCell, idx int) (bool, error) {
+	if idx < 0 || idx >= len(cells) {
+		return false, nil
+	}
+	raw := strings.TrimSpace(cells[idx].Value)
+	if raw == "" {
+		return false, nil
+	}
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("row %d: parse silence_lint %q: %w", rowIdx, raw, err)
+	}
+	return b, nil
+}
+
 // parseScanItems converts a godog.Table into a []scan.Item. Columns:
 // name (required), group (required), silence_lint (optional; defaults
 // to false). The "(empty)" sentinel in a name or group column yields
@@ -435,41 +502,17 @@ func parseScanItems(table *godog.Table) ([]scan.Item, error) {
 	if table == nil || len(table.Rows) < 2 {
 		return nil, fmt.Errorf("scan-items table needs a header plus at least one data row")
 	}
-	header := table.Rows[0]
-	idxName, idxGroup, idxSilence := -1, -1, -1
-	for i, cell := range header.Cells {
-		switch strings.TrimSpace(cell.Value) {
-		case "name":
-			idxName = i
-		case "group":
-			idxGroup = i
-		case "silence_lint":
-			idxSilence = i
-		}
-	}
-	if idxName < 0 || idxGroup < 0 {
-		return nil, fmt.Errorf("scan-items table must have columns 'name' and 'group'; got header %v", header.Cells)
+	cols, err := resolveScanItemColumns(table.Rows[0].Cells)
+	if err != nil {
+		return nil, err
 	}
 	items := make([]scan.Item, 0, len(table.Rows)-1)
 	for ri, row := range table.Rows[1:] {
-		name := decodeEmptySentinel(row.Cells[idxName].Value)
-		group := decodeEmptySentinel(row.Cells[idxGroup].Value)
-		silence := false
-		if idxSilence >= 0 && idxSilence < len(row.Cells) {
-			raw := strings.TrimSpace(row.Cells[idxSilence].Value)
-			if raw != "" {
-				b, err := strconv.ParseBool(raw)
-				if err != nil {
-					return nil, fmt.Errorf("row %d: parse silence_lint %q: %w", ri, raw, err)
-				}
-				silence = b
-			}
+		item, err := parseScanItemRow(ri, row.Cells, cols)
+		if err != nil {
+			return nil, err
 		}
-		items = append(items, scan.Item{
-			Name:        name,
-			Group:       group,
-			SilenceLint: silence,
-		})
+		items = append(items, item)
 	}
 	return items, nil
 }
