@@ -577,7 +577,13 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 					if isSuppressed(a, b, KindWithinGroup, normalisedNames[i], normalisedNames[j], suppressCtx) {
 						continue
 					}
-					score := cfg.Scorer.Score(a.Name, b.Name)
+					// ScoreAndAll runs the per-algorithm work once and
+					// returns both the composite and the breakdown.
+					// Replaces the prior Score(...) + ScoreAll(...) pair
+					// that re-ran every algorithm on emission. Map
+					// allocation cost moves from emit-time to candidate-
+					// time, but algorithm-run cost on emission halves.
+					score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
 					if score >= withinThreshold {
 						warnings = append(warnings, Warning{
 							Kind:   KindWithinGroup,
@@ -588,7 +594,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 							TagA:   a.Tag,
 							TagB:   b.Tag,
 							Score:  score,
-							Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+							Scores: breakdown,
 						})
 					}
 				}
@@ -606,7 +612,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 					if isSuppressed(a, b, KindWithinGroup, normalisedNames[idx[i]], normalisedNames[idx[j]], suppressCtx) {
 						continue
 					}
-					score := cfg.Scorer.Score(a.Name, b.Name)
+					score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
 					if score >= withinThreshold {
 						warnings = append(warnings, Warning{
 							Kind:   KindWithinGroup,
@@ -617,7 +623,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 							TagA:   a.Tag,
 							TagB:   b.Tag,
 							Score:  score,
-							Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+							Scores: breakdown,
 						})
 					}
 				}
@@ -698,7 +704,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 							if isSuppressed(a, b, KindAcrossGroups, normalisedNames[i], normalisedNames[j], suppressCtx) {
 								continue
 							}
-							score := cfg.Scorer.Score(a.Name, b.Name)
+							score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
 							if score >= effectiveThreshold {
 								warnings = append(warnings, Warning{
 									Kind:   KindAcrossGroups,
@@ -709,7 +715,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 									TagA:   a.Tag,
 									TagB:   b.Tag,
 									Score:  score,
-									Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+									Scores: breakdown,
 								})
 							}
 						}
@@ -731,7 +737,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 							if isSuppressed(a, b, KindAcrossGroups, normalisedNames[i], normalisedNames[j], suppressCtx) {
 								continue
 							}
-							score := cfg.Scorer.Score(a.Name, b.Name)
+							score, breakdown := cfg.Scorer.ScoreAndAll(a.Name, b.Name)
 							if score >= effectiveThreshold {
 								warnings = append(warnings, Warning{
 									Kind:   KindAcrossGroups,
@@ -742,7 +748,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 									TagA:   a.Tag,
 									TagB:   b.Tag,
 									Score:  score,
-									Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+									Scores: breakdown,
 								})
 							}
 						}

@@ -565,6 +565,48 @@ func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64 {
 	return out
 }
 
+// ScoreAndAll returns BOTH the composite score AND the per-algorithm
+// breakdown in a single normalisation + algorithm pass. Used by
+// consumers (notably scan.Check) that need both values to populate
+// an emitted diagnostic record — calling Score and ScoreAll
+// separately duplicates the per-algorithm work for every emission.
+//
+// Semantics: composite is bit-identical to Score(a, b); breakdown is
+// bit-identical to ScoreAll(a, b). Both share the LOCKED
+// pre-normalisation boundary (CONTEXT.md §3) and the DET-06 + Q11b
+// FMA-defending reduction loop that produces cross-platform
+// byte-identical output.
+//
+// Safe for concurrent use without external locks. Pure function;
+// each call freshly allocates the breakdown map.
+//
+// Performance: a single Scorer.ScoreAndAll(a, b) is ~half the cost
+// of Scorer.Score(a, b) + Scorer.ScoreAll(a, b) when both values
+// are needed, because the per-algorithm work runs once instead of
+// twice. For consumers that only need one value, Score / ScoreAll
+// remain the right entry points.
+func (s *Scorer) ScoreAndAll(a, b string) (float64, map[AlgoID]float64) {
+	na, nb := a, b
+	if s.applyNormalisation {
+		na = Normalise(a, s.normaliseOpts)
+		nb = Normalise(b, s.normaliseOpts)
+	}
+
+	out := make(map[AlgoID]float64, len(s.algorithmsAlgoIDSorted))
+	var acc float64
+	for _, entry := range s.algorithmsAlgoIDSorted {
+		score := entry.scoreFn(na, nb)
+		out[entry.id] = score
+		// DET-06 + Q11b FMA-defending reduction (mirrors Score). The
+		// outer float64(...) cast on the product forces a round-to-
+		// nearest-even fence the compiler cannot fuse into FMA;
+		// left-to-right accumulation, AlgoID-sorted iteration via
+		// algorithmsAlgoIDSorted. Bit-identical to Score's loop.
+		acc = float64(entry.weight*score) + acc //nolint:gocritic // DET-06 + Q11b FMA-defence locked pattern (see Score)
+	}
+	return acc, out
+}
+
 // DefaultScorerOptions returns a fresh, mutable slice of ScorerOption
 // matching DefaultScorer's composition: six algorithms at equal raw
 // weight (DamerauLevenshteinOSA, JaroWinkler, TokenJaccard, QGramJaccard,
