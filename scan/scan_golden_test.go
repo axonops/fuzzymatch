@@ -300,13 +300,36 @@ func buildScanGolden(t *testing.T) scanGoldenFile {
 	}
 	entry5 := runScanEntry(t, "DefaultConfig_WithSilenceLint", silencedItems, scan.DefaultConfig(s))
 
+	// Entry 6: 60-item single group — exercises the bucket dispatch
+	// path (60 > bucketThreshold=50). Closes the determinism +
+	// test-analyst gap on Plan 09-06 where the original 5-entry
+	// corpus exercised only the naive path. Items mirror the
+	// canonical user_id/userId family with disambiguating suffixes
+	// so every pair scores at the within-group threshold.
+	bucketItems := make([]scan.Item, 0, 60)
+	for i := 0; i < 30; i++ {
+		bucketItems = append(bucketItems,
+			scan.Item{Name: "user_id_" + bucketGoldenSuffix(i), Group: "login"},
+			scan.Item{Name: "userId_" + bucketGoldenSuffix(i), Group: "login"},
+		)
+	}
+	entry6 := runScanEntry(t, "DefaultConfig_BucketDispatch_60Items", bucketItems, scan.DefaultConfig(s))
+
 	return scanGoldenFile{
 		Metadata: scanGoldenMetadata{
 			Phase:            9,
 			ScannerSignature: "DefaultConfig-2026-05-20",
 		},
-		Entries: []scanGoldenEntry{entry1, entry2, entry3, entry4, entry5},
+		Entries: []scanGoldenEntry{entry1, entry2, entry3, entry4, entry5, entry6},
 	}
+}
+
+// bucketGoldenSuffix returns a 2-digit zero-padded suffix for the
+// bucket-dispatch golden entry's item names. Keeps generated names
+// lexicographically stable across the 60-item corpus.
+func bucketGoldenSuffix(i int) string {
+	const digits = "0123456789"
+	return string([]byte{digits[(i/10)%10], digits[i%10]})
 }
 
 // assertScanGolden writes (with -update) or asserts byte-equality
