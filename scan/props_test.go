@@ -351,6 +351,95 @@ func TestPropCheck_NoSelfWarnings(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------
+// PropCheck_NoNaN — DET-04 surface
+// ----------------------------------------------------------------------
+
+// PropCheck_NoNaN proves that scan.Check never emits a Warning whose
+// composite Score is NaN nor whose per-algorithm Scores entries contain
+// NaN. Closes DET-04 (NaN/Inf/-0 handling): scan does no float
+// arithmetic of its own — every Score / Scores value flows through
+// Scorer.Score / Scorer.ScoreAll, which Phase 8.5 hardened against NaN
+// drift via the FMA-defeating double-cast (scorer.go float-determinism
+// gate). This property test pins the contract on the scan boundary so
+// any future regression in the Scorer or the algorithm catalogue is
+// caught at the scan-output surface.
+func TestPropCheck_NoNaN(t *testing.T) {
+	t.Parallel()
+
+	prop := func(gen itemSliceGen) bool {
+		items := []scan.Item(gen)
+		cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+		cfg.CompareAcrossGroups = true
+
+		warnings, err := scan.Check(items, cfg)
+		if err != nil {
+			t.Logf("Check error: %v", err)
+			return false
+		}
+		for i, w := range warnings {
+			if math.IsNaN(w.Score) {
+				t.Logf("Warning[%d].Score is NaN: %+v", i, w)
+				return false
+			}
+			for id, v := range w.Scores {
+				if math.IsNaN(v) {
+					t.Logf("Warning[%d].Scores[%v] is NaN: %+v", i, id, w)
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(prop, &quick.Config{MaxCount: 100}); err != nil {
+		t.Errorf("PropCheck_NoNaN: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------------
+// PropCheck_NoInf — DET-04 surface
+// ----------------------------------------------------------------------
+
+// PropCheck_NoInf proves that scan.Check never emits a Warning whose
+// composite Score is +Inf or -Inf nor whose per-algorithm Scores
+// entries contain ±Inf. Same DET-04 contract as PropCheck_NoNaN:
+// composite + per-algorithm scores are in [0.0, 1.0] under
+// DefaultScorer; any infinity would indicate a Scorer regression that
+// scan must surface immediately.
+func TestPropCheck_NoInf(t *testing.T) {
+	t.Parallel()
+
+	prop := func(gen itemSliceGen) bool {
+		items := []scan.Item(gen)
+		cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+		cfg.CompareAcrossGroups = true
+
+		warnings, err := scan.Check(items, cfg)
+		if err != nil {
+			t.Logf("Check error: %v", err)
+			return false
+		}
+		for i, w := range warnings {
+			if math.IsInf(w.Score, 0) {
+				t.Logf("Warning[%d].Score is Inf: %+v", i, w)
+				return false
+			}
+			for id, v := range w.Scores {
+				if math.IsInf(v, 0) {
+					t.Logf("Warning[%d].Scores[%v] is Inf: %+v", i, id, w)
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(prop, &quick.Config{MaxCount: 100}); err != nil {
+		t.Errorf("PropCheck_NoInf: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
 
