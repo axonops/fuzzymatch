@@ -84,3 +84,118 @@ func FuzzCheck(f *testing.F) {
 		_, _ = scan.Check(items, cfg)
 	})
 }
+
+// FuzzCheckConfig fuzzes the Config-shape surface: the
+// CrossGroupThresholdBoost float and the CompareAcrossGroups /
+// CompareIdenticalAcrossGroups bools. Closes the test-analyst gap
+// from the Phase 9 final panel: the original FuzzCheck only fuzzes
+// (a, b string) with a fixed Config; this harness exercises the
+// validation pipeline P2 (config-field strict-range) and the
+// boost-arithmetic-clamp boundary under random caller input.
+//
+// Invariant: panic-freedom. ErrInvalidConfig on NaN/±Inf/out-of-range
+// boost is the expected error; other errors propagate.
+func FuzzCheckConfig(f *testing.F) {
+	// Seed corpus — documented boundary values for the boost float
+	// plus the four bool-combination corners.
+	seeds := []struct {
+		boost                                    float64
+		compareAcross, compareIdenticalAcross    bool
+	}{
+		{0.0, false, false}, // zero-value baseline
+		{0.05, true, false}, // DefaultConfig posture
+		{1.0, true, true},   // upper-boundary
+		{0.5, true, false},  // mid-range
+	}
+	for _, s := range seeds {
+		f.Add(s.boost, s.compareAcross, s.compareIdenticalAcross)
+	}
+
+	f.Fuzz(func(t *testing.T, boost float64, compareAcross, compareIdenticalAcross bool) {
+		items := []scan.Item{
+			{Name: "user_id", Group: "g1"},
+			{Name: "userId", Group: "g2"},
+		}
+		cfg := scan.Config{
+			Scorer:                       fuzzymatch.DefaultScorer(),
+			CompareAcrossGroups:          compareAcross,
+			CrossGroupThresholdBoost:     boost,
+			CompareIdenticalAcrossGroups: compareIdenticalAcross,
+		}
+		// Discard result; assert no panic.
+		_, _ = scan.Check(items, cfg)
+	})
+}
+
+// FuzzCheckSuppressedPairs fuzzes the SuppressedPairs [][2]string
+// shape under a fixed corpus. Closes the test-analyst gap on
+// suppression-validation panic-freedom: empty-string entries trigger
+// D-05 ErrInvalidConfig, canonicalised pair lookups exercise the
+// Pitfall 4 normalisation path, and adversarial UTF-8 / null bytes
+// flow through canonicalPair.
+//
+// Invariant: panic-freedom. ErrInvalidConfig on any empty-string
+// pair entry is expected; other errors propagate.
+func FuzzCheckSuppressedPairs(f *testing.F) {
+	// Seed corpus — boundary pair entries (empty, self-pair, mixed
+	// case, Unicode, invalid UTF-8).
+	for _, seed := range []struct{ a, b string }{
+		{"user_id", "userId"},   // canonical match-able pair
+		{"USER_ID", "user_id"},  // case-insensitive via normalisation
+		{"user_id", "user_id"},  // self-pair (D-05 silently kept)
+		{"", "userId"},          // empty side → ErrInvalidConfig
+		{"\xff", "userId"},      // invalid UTF-8 in pair
+		{"a\x00b", "user_id"},   // embedded null
+	} {
+		f.Add(seed.a, seed.b)
+	}
+
+	f.Fuzz(func(t *testing.T, a, b string) {
+		items := []scan.Item{
+			{Name: "user_id", Group: "g1"},
+			{Name: "userId", Group: "g2"},
+		}
+		cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+		cfg.CompareAcrossGroups = true
+		cfg.SuppressedPairs = [][2]string{{a, b}}
+		// Discard result; assert no panic.
+		_, _ = scan.Check(items, cfg)
+	})
+}
+
+// FuzzCheckItems fuzzes the []Item shape (Name + Group + SilenceLint)
+// under a fixed Config. Closes the test-analyst gap on
+// items-validation panic-freedom: empty Name (D-03), duplicate (Name,
+// Group) (D-06), and SilenceLint OR-semantics all exercise the
+// pre-emission predicate paths.
+//
+// Invariant: panic-freedom. ErrInvalidItem on empty/duplicate is
+// expected; other errors propagate.
+func FuzzCheckItems(f *testing.F) {
+	for _, seed := range []struct {
+		nameA, groupA string
+		silenceA      bool
+		nameB, groupB string
+		silenceB      bool
+	}{
+		{"user_id", "g1", false, "userId", "g2", false},  // canonical
+		{"user_id", "g1", true, "userId", "g2", false},   // SilenceLint A
+		{"user_id", "g1", false, "userId", "g1", false},  // same group
+		{"user_id", "g1", false, "user_id", "g1", false}, // D-06 duplicate
+		{"", "g1", false, "userId", "g2", false},         // D-03 empty
+		{"\xff", "g1", false, "\xff", "g2", false},       // invalid UTF-8
+	} {
+		f.Add(seed.nameA, seed.groupA, seed.silenceA, seed.nameB, seed.groupB, seed.silenceB)
+	}
+
+	f.Fuzz(func(t *testing.T, nameA, groupA string, silenceA bool, nameB, groupB string, silenceB bool) {
+		items := []scan.Item{
+			{Name: nameA, Group: groupA, SilenceLint: silenceA},
+			{Name: nameB, Group: groupB, SilenceLint: silenceB},
+		}
+		cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+		cfg.CompareAcrossGroups = true
+		// Discard result; assert no panic.
+		_, _ = scan.Check(items, cfg)
+	})
+}
