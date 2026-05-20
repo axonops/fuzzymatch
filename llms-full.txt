@@ -1195,6 +1195,18 @@ func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool
 // policy mirrors Score (CONTEXT.md §3 LOCKED). Safe for concurrent use.
 func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64
 
+// ScoreAndAll returns BOTH the composite score AND the per-algorithm
+// breakdown in a single normalisation + algorithm pass. Used by
+// consumers (notably scan.Check) that need both values to populate
+// an emitted diagnostic record — calling Score and ScoreAll
+// separately duplicates the per-algorithm work for every emission.
+// Composite is bit-identical to Score(a, b); breakdown is bit-identical
+// to ScoreAll(a, b). Both share the LOCKED pre-normalisation boundary
+// (CONTEXT.md §3) and the DET-06 + Q11b FMA-defending reduction loop
+// that produces cross-platform byte-identical output. Safe for
+// concurrent use; pure function; freshly allocates the breakdown map.
+func (s *Scorer) ScoreAndAll(a, b string) (float64, map[AlgoID]float64)
+
 // DefaultScorerOptions returns a fresh, mutable slice of ScorerOption
 // matching DefaultScorer's composition: six algorithms at equal raw
 // weight (DamerauLevenshteinOSA, JaroWinkler, TokenJaccard,

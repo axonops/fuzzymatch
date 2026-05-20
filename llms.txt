@@ -207,6 +207,7 @@ in Phase 8.5 Q3.
 - func (s *Scorer) Threshold() float64
 - func (s *Scorer) Algorithms() []ScorerAlgorithm
 - func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64
+- func (s *Scorer) ScoreAndAll(a, b string) (float64, map[AlgoID]float64)
 - func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool)
 - type ScorerAlgorithm struct
 - type ScorerOption func(*scorerConfig) error
