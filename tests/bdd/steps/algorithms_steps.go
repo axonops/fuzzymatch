@@ -1605,4 +1605,14 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	// determinism scenarios live under the @determinism Gherkin tag
 	// in features/determinism.feature.
 	InitDeterminismSteps(ctx)
+
+	// Phase 9 — collection-scan + suppression steps (plans 09-01..09-07).
+	// Registered via a dedicated InitScanSteps function in
+	// scan_steps.go so the ScanContext lives in its own type (separate
+	// from AlgorithmContext, ScorerContext, ValidateContext,
+	// NormalisationContext, and DeterminismContext). All scan
+	// scenarios live under the @scan tag in features/scan.feature;
+	// all suppression scenarios live under the @suppression tag in
+	// features/suppression.feature.
+	InitScanSteps(ctx)
 }
