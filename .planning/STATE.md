@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: "**Goal**: Final phase — re-scope `axonops/audit`"
-status: planning
+status: executing
 stopped_at: Phase 9 context gathered
-last_updated: "2026-05-19T17:52:04.599Z"
-last_activity: 2026-05-19
+last_updated: "2026-05-20T05:09:35.327Z"
+last_activity: 2026-05-20 -- Phase 09 execution started
 progress:
   total_phases: 1
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** A developer can compare two strings (or scan a collection) with a known-correct algorithm and trust the resulting similarity score is mathematically sound, deterministic across platforms, and stable across patch releases.
-**Current focus:** Phase 08.5 — review-remediation-gate
+**Current focus:** Phase 09 — collection-scan-sub-package
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-19
+Phase: 09 (collection-scan-sub-package) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 09
+Last activity: 2026-05-20 -- Phase 09 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
