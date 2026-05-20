@@ -239,15 +239,15 @@ func runScanEntry(t *testing.T, configLabel string, items []scan.Item, cfg scan.
 //
 // Five entries cover the major code paths:
 //
-//   1. DefaultConfig — within-group only baseline.
-//   2. DefaultConfig_CrossEnabled — within + cross with the SCAN-04
-//      identical-cross suppression default firing.
-//   3. DefaultConfig_CrossEnabled_AllowIdentical — within + cross with
-//      identical-cross unblocked (more warnings emit).
-//   4. DefaultConfig_WithSuppressedPair — SuppressedPairs silences a
-//      canonical pair.
-//   5. DefaultConfig_WithSilenceLint — a per-item SilenceLint silences
-//      every warning involving that item.
+//  1. DefaultConfig — within-group only baseline.
+//  2. DefaultConfig_CrossEnabled — within + cross with the SCAN-04
+//     identical-cross suppression default firing.
+//  3. DefaultConfig_CrossEnabled_AllowIdentical — within + cross with
+//     identical-cross unblocked (more warnings emit).
+//  4. DefaultConfig_WithSuppressedPair — SuppressedPairs silences a
+//     canonical pair.
+//  5. DefaultConfig_WithSilenceLint — a per-item SilenceLint silences
+//     every warning involving that item.
 //
 // All five entries share the same items[] shape so reviewers can spot
 // the cross-config divergences without re-reading the items in each
@@ -426,4 +426,3 @@ func TestGolden_ScanDefault_CorpusInvariants(t *testing.T) {
 		}
 	}
 }
-

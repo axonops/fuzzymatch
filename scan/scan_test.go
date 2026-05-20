@@ -1379,7 +1379,7 @@ func TestCheck_SortKey_KindFirst(t *testing.T) {
 	}
 
 	var sawWithin, sawAcross bool
-	var lastWithinIdx, firstAcrossIdx = -1, -1
+	lastWithinIdx, firstAcrossIdx := -1, -1
 	for i, w := range warnings {
 		switch w.Kind {
 		case scan.KindWithinGroup:

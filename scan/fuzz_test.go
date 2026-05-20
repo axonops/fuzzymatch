@@ -46,15 +46,15 @@ import (
 func FuzzCheck(f *testing.F) {
 	// Seed corpus — boundary inputs covering the documented edges.
 	for _, pair := range []struct{ a, b string }{
-		{"", "x"},                  // ErrInvalidItem boundary (empty Name)
-		{"a", "a"},                 // self-name pair (distinct groups, distinct (Name, Group))
-		{"user_id", "userId"},      // canonical identifier-style pair
-		{"κόσμε", "kosme"},         // Greek vs ASCII transliteration
-		{"Привет", "privet"},       // Cyrillic vs ASCII
-		{"café", "cafe"},           // Latin supplement (é = U+00E9)
-		{"a\x00b", "a\x00b"},       // embedded null byte
-		{"\xff\xfe", "\xff"},       // invalid UTF-8 (high bytes without continuation)
-		{"\xc0\x80", "abc"},        // invalid UTF-8 (overlong NUL encoding)
+		{"", "x"},             // ErrInvalidItem boundary (empty Name)
+		{"a", "a"},            // self-name pair (distinct groups, distinct (Name, Group))
+		{"user_id", "userId"}, // canonical identifier-style pair
+		{"κόσμε", "kosme"},    // Greek vs ASCII transliteration
+		{"Привет", "privet"},  // Cyrillic vs ASCII
+		{"café", "cafe"},      // Latin supplement (é = U+00E9)
+		{"a\x00b", "a\x00b"},  // embedded null byte
+		{"\xff\xfe", "\xff"},  // invalid UTF-8 (high bytes without continuation)
+		{"\xc0\x80", "abc"},   // invalid UTF-8 (overlong NUL encoding)
 		{"verylongidentifiername123", "veryLongIdentifierName123"},
 	} {
 		f.Add(pair.a, pair.b)
