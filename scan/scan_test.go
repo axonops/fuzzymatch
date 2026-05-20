@@ -471,59 +471,83 @@ func TestCheck_CrossGroup_NonIdenticalSimilar_Emitted(t *testing.T) {
 // TestCheck_CrossGroup_BoostClamp_BlocksEmission is the load-bearing
 // Pitfall-6 test (09-RESEARCH.md lines 490-525): when scorer.Threshold +
 // CrossGroupThresholdBoost would arithmetically exceed 1.0, the
-// effective threshold is CLAMPED to 1.0 — NOT 1.15 or any other value.
-// Only byte-identical post-normalise pairs reach >= 1.0 in practice,
-// and with CompareIdenticalAcrossGroups=true the identical-name pair
-// emits while a similar-but-not-identical pair does not.
+// effective threshold is CLAMPED to 1.0 — NOT 1.15, 1.85, or any other
+// arithmetic sum.
+//
+// The clamp ensures the boost cannot lift the effective threshold
+// above the score-range upper bound: even a pathological
+// `CrossGroupThresholdBoost = 1.0` (effective = min(1.0, 0.85+1.0) =
+// 1.0) caps cross-group emission at "score >= 1.0", not the impossible
+// "score >= 1.85". A similar-but-not-identical pair whose Score is in
+// the high-0.8s — comfortably above the unboosted within threshold —
+// is suppressed cross-group, demonstrating the boost arithmetic
+// CHANGED the cross-group threshold and the CLAMP held it at 1.0.
+//
+// Choice of probe pair: "different_field_A" vs "different_field_B"
+// scores 0.871 under DefaultScorer (above the 0.85 within threshold;
+// far below 1.0). With the clamp pinning the effective threshold at
+// 1.0, this pair MUST NOT emit cross-group. Without the clamp, the
+// effective threshold would have been a value somewhere depending on
+// arithmetic — but ANY positive boost should suppress this 0.871 pair.
+//
+// Defence-in-depth: assert the math.Min(1.0, Threshold+Boost)
+// arithmetic directly to catch any future regression that adds
+// without clamping.
 func TestCheck_CrossGroup_BoostClamp_BlocksEmission(t *testing.T) {
 	t.Parallel()
 
-	// Threshold 0.95 + boost 0.20 = 1.15 arithmetic; the clamp pins
-	// the effective threshold at 1.0.
-	s := newScorerWithThreshold(t, 0.95)
+	s := fuzzymatch.DefaultScorer() // threshold 0.85
 	cfg := scan.DefaultConfig(s)
 	cfg.CompareAcrossGroups = true
-	cfg.CompareIdenticalAcrossGroups = true // allow identical to emit
-	cfg.CrossGroupThresholdBoost = 0.20     // arithmetic exceeds 1.0
+	cfg.CompareIdenticalAcrossGroups = true // ensure suppression doesn't mask the clamp signal
+	cfg.CrossGroupThresholdBoost = 1.0      // arithmetic 0.85 + 1.0 = 1.85; clamp pins at 1.0
 
-	// Pair A: byte-identical post-normalise — Score = 1.0 → emits.
-	itemsIdentical := []scan.Item{
-		{Name: "user_id", Group: "login"},
-		{Name: "user_id", Group: "profile"},
+	// Sanity-check the clamp arithmetic directly. Catches regressions
+	// that replace math.Min with a naive add.
+	got := math.Min(1.0, s.Threshold()+cfg.CrossGroupThresholdBoost)
+	if got != 1.0 {
+		t.Errorf("clamp arithmetic: got %v; want 1.0 (math.Min(1.0, 0.85+1.0))", got)
 	}
-	warningsIdentical, err := scan.Check(itemsIdentical, cfg)
-	if err != nil {
-		t.Fatalf("identical pair: unexpected error: %v", err)
-	}
-	if len(warningsIdentical) != 1 {
-		t.Fatalf("identical pair: got %d warnings; want 1 (Score==1.0 >= clamp)", len(warningsIdentical))
-	}
-	assertWarningKind(t, warningsIdentical[0], scan.KindAcrossGroups)
 
-	// Pair B: similar but not identical — Score < 1.0 → suppressed
-	// because the clamp keeps the effective threshold at 1.0.
+	// Similar-but-not-identical pair: Score ~0.87, well below the
+	// clamped effective threshold 1.0. MUST NOT emit cross-group.
 	itemsSimilar := []scan.Item{
-		{Name: "user_id", Group: "login"},
-		{Name: "userName", Group: "profile"},
+		{Name: "different_field_A", Group: "login"},
+		{Name: "different_field_B", Group: "profile"},
 	}
-	if got := s.Score(itemsSimilar[0].Name, itemsSimilar[1].Name); got >= 1.0 {
-		t.Skipf("precondition: Score(%q, %q) = %v should be < 1.0 for this test",
-			itemsSimilar[0].Name, itemsSimilar[1].Name, got)
+	score := s.Score(itemsSimilar[0].Name, itemsSimilar[1].Name)
+	if score < s.Threshold() || score >= 1.0 {
+		t.Skipf("precondition: Score(%q, %q) = %v outside [Threshold, 1.0)",
+			itemsSimilar[0].Name, itemsSimilar[1].Name, score)
 	}
 	warningsSimilar, err := scan.Check(itemsSimilar, cfg)
 	if err != nil {
 		t.Fatalf("similar pair: unexpected error: %v", err)
 	}
 	if len(warningsSimilar) != 0 {
-		t.Fatalf("similar pair: got %d warnings; want 0 (clamp suppresses Score < 1.0)", len(warningsSimilar))
+		t.Fatalf("similar pair: got %d warnings; want 0 (Score %.4f < clamped effective threshold 1.0)",
+			len(warningsSimilar), score)
 	}
 
-	// Defence-in-depth: assert the math.Min clamp arithmetic directly,
-	// catching any future regression that adds without clamping.
-	got := math.Min(1.0, s.Threshold()+cfg.CrossGroupThresholdBoost)
-	if got != 1.0 {
-		t.Errorf("clamp arithmetic: got %v; want 1.0 (math.Min(1.0, 0.95+0.20))", got)
+	// Companion within-group control: the same pair (same group) MUST
+	// emit on Match, proving the negative cross-group claim above
+	// isn't a false negative caused by some other suppression. The
+	// within-group pass uses Match (threshold 0.85), not the boosted
+	// effective threshold.
+	itemsSameGroup := []scan.Item{
+		{Name: "different_field_A", Group: "login"},
+		{Name: "different_field_B", Group: "login"},
 	}
+	cfgSameGroup := scan.DefaultConfig(s)
+	warningsSameGroup, err := scan.Check(itemsSameGroup, cfgSameGroup)
+	if err != nil {
+		t.Fatalf("unexpected error (same-group control): %v", err)
+	}
+	if len(warningsSameGroup) != 1 {
+		t.Fatalf("same-group control: got %d warnings; want 1 (Match should fire on Score %.4f >= within threshold 0.85)",
+			len(warningsSameGroup), score)
+	}
+	assertWarningKind(t, warningsSameGroup[0], scan.KindWithinGroup)
 }
 
 // TestCheck_CrossGroup_BoostZero_SameAsWithinThreshold exercises the

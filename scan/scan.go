@@ -40,11 +40,13 @@
 //     Warning struct declarations, the three sentinel errors, the
 //     DefaultConfig opinionated helper, and the Check stub that returns
 //     (nil, ErrNilScorer) when cfg.Scorer is nil. Plan 09-02 adds the
-//     full validation pipeline; Plan 09-03 lands the Check body for the
-//     within-group and naive cross-group passes; Plan 09-04 wires in the
-//     token-bucket optimisation (bucketThreshold = 50, private const);
-//     Plan 09-05 adds suppression composition; Plan 09-06 adds the
-//     deterministic sort and in-line completeness assertion.
+//     full validation pipeline. Plan 09-03 (this plan) lands the Check
+//     body with the naive within-group + cross-group passes and the
+//     SCAN-04 identical-name suppression default. Plan 09-04 wires in
+//     the token-bucket optimisation (bucketThreshold = 50, private
+//     const); Plan 09-05 adds full suppression composition (SilenceLint
+//     + SuppressedPairs); Plan 09-06 adds the deterministic sort and
+//     in-line completeness assertion.
 //
 //   - Validation pipeline order (P1..P4) is LOCKED (09-CONTEXT.md §2):
 //     nil-Scorer fail-fast → Config field validation → Items validation
@@ -69,6 +71,9 @@
 package scan
 
 import (
+	"math"
+	"sort"
+
 	"github.com/axonops/fuzzymatch"
 )
 
@@ -274,39 +279,234 @@ func DefaultConfig(s *fuzzymatch.Scorer) Config {
 }
 
 // Check compares every pair of items per the Config and returns
-// warnings for pairs where the Scorer's Match returns true (with the
-// cross-group threshold boost applied where relevant).
+// warnings for pairs where the Scorer reports a similar match.
 //
-// Output is sorted deterministically by
-// (Kind, NameA, NameB, GroupA, GroupB) and is byte-identical across
-// runs for the same input and Scorer configuration.
+// Within-group pass: for every group, every i<j pair is evaluated via
+// cfg.Scorer.Match(itemA.Name, itemB.Name). Match returns true when the
+// composite Score is at or above the Scorer's threshold (the boundary
+// is inclusive — see scorer.go Match godoc).
 //
-// Check is a pure function: it never reads files, environment
-// variables, or any package-global state. Safe for concurrent
-// invocation on disjoint inputs.
+// Cross-group pass: when cfg.CompareAcrossGroups == true, every pair
+// spanning two distinct groups is evaluated via cfg.Scorer.Score
+// against the *effective cross-group threshold*:
 //
-// Returns ErrNilScorer if cfg.Scorer is nil. The full validation
-// pipeline (ErrInvalidItem for empty Name / duplicate (Name, Group);
-// ErrInvalidConfig for out-of-range CrossGroupThresholdBoost / empty
-// SuppressedPairs entries) lives in validate.go and is wired into
-// Check in Plan 09-03. The full similarity body (within-group +
-// cross-group + bucket + suppression + sort) lands across Plans 09-03
-// through 09-06. Empty items slice returns an empty Warning slice and
-// no error.
+//	effectiveThreshold = math.Min(1.0, Scorer.Threshold() + cfg.CrossGroupThresholdBoost)
 //
-// Plan 09-02 status: validation pipeline (validateCheck) implemented
-// in validate.go but not yet wired into Check. The stub here returns
-// (nil, ErrNilScorer) when cfg.Scorer is nil and (nil, nil) otherwise
-// — sufficient for Plan 09-01's smoke tests and Plan 09-02's
-// validation-only tests. Plan 09-03 will replace this stub with the
-// naive within-group + cross-group passes.
-func Check(items []Item, cfg Config) ([]Warning, error) {
-	if cfg.Scorer == nil {
-		return nil, ErrNilScorer
+// The math.Min clamp pins the effective threshold at 1.0 even when the
+// arithmetic sum would exceed it (e.g. Threshold 0.85 + Boost 0.20 would
+// arithmetically yield 1.05 — the clamp makes that 1.0, meaning only
+// byte-identical-post-normalise pairs reach the threshold). Cross-group
+// emission uses Scorer.Score (not Scorer.Match) because Match applies
+// the within-group threshold; only Score exposes the raw composite that
+// can be compared against the boosted threshold.
+//
+// Cross-group identical-name suppression: when
+// cfg.CompareIdenticalAcrossGroups == false (the DefaultConfig default),
+// pairs whose names are byte-identical AFTER the Scorer's normalisation
+// pipeline are suppressed. This implements SCAN-04: operators legitimately
+// reuse the same name (e.g. user_id) across groups, and surfacing every
+// such pair would drown signal in noise. Pairs that are SIMILAR but not
+// byte-identical post-normalise are unaffected by this suppression.
+//
+// Name normalisation policy: Check reads the Scorer's normalisation
+// options via Scorer.NormalisationOptions() ONCE per invocation and
+// pre-computes a parallel `normalisedNames` array used only for the
+// identical-name suppression check above. The RAW item.Name strings are
+// passed to Scorer.Score / Scorer.Match / Scorer.ScoreAll — the Scorer
+// re-normalises internally (scorer.go:356-360). Check never
+// double-normalises (Pitfall 5 — 09-RESEARCH.md lines 488-498).
+//
+// Warning population: Warning.Scores is populated via
+// Scorer.ScoreAll(NameA, NameB) only on emission (lazy population). The
+// per-algorithm breakdown is paid for once per emitted Warning, not once
+// per candidate pair.
+//
+// Validation gate: Check's first step is validateCheck(items, cfg).
+// Failures propagate unmodified (sentinel-identity ErrNilScorer for
+// nil Scorer; errors.Join-wrapped ErrInvalidItem / ErrInvalidConfig for
+// the collect-all phases). See validate.go for the locked P1..P4 order.
+//
+// Determinism: groups are iterated in sorted-key order; items within a
+// group are iterated in slice-index order (groupIndices preserves
+// insertion order via append). The unsorted []Warning returned here is
+// thus deterministic-by-construction with respect to insertion order;
+// the explicit (Kind, NameA, NameB, GroupA, GroupB) sort + completeness
+// assertion lands in Plan 09-06. Map iteration on the groupIndices map
+// is confined to building the sortedGroups slice (no map iteration on
+// output paths).
+//
+// Plan-stage scope:
+//
+//   - Plan 09-03 (this plan): naive O(N²) within-group + O(N×M) cross-group
+//     passes; SCAN-04 identical-name suppression default; validateCheck
+//     wired as P0.
+//   - Plan 09-04: bucket dispatch replaces the naive cross-group passes
+//     (PropCheck_BucketEquivalentToNaive guards equivalence).
+//   - Plan 09-05: full suppression composition — per-Item SilenceLint
+//     and global SuppressedPairs (SCAN-03).
+//   - Plan 09-06: deterministic sort + in-line completeness assertion.
+//
+// Complexity (Plan 09-03 only): O(W² + Σ Nᵢ² + Σᵢⱼ Nᵢ·Nⱼ) where W is
+// the per-group max size and the cross-group sums run over distinct
+// group pairs. The PERF-05 ≤ 2s/10k budget is met only after the Plan
+// 09-04 bucket dispatch lands; this plan does not target it.
+//
+// Concurrency: Check is a pure function with no goroutines, channels,
+// or mutexes. Safe for concurrent invocation on disjoint inputs; the
+// Scorer is immutable post-NewScorer (Phase 8), so concurrent Check
+// invocations sharing a Scorer are also safe. The fresh Scores map in
+// each emitted Warning is freshly allocated by Scorer.ScoreAll —
+// consumers may mutate it freely.
+//
+// Returns:
+//
+//   - (warnings, nil) on success (warnings is nil for the < 2 items
+//     early-exit case and for the no-emissions happy path; consumers
+//     using len(warnings) treat both nil and empty identically)
+//   - (nil, ErrNilScorer) when cfg.Scorer is nil
+//   - (nil, err) where errors.Is(err, ErrInvalidConfig) is true when
+//     Config field validation fails
+//   - (nil, err) where errors.Is(err, ErrInvalidItem) is true when
+//     items[] validation fails (errors.Join-wrapped, one entry per
+//     offending index)
+//   - (nil, err) where errors.Is(err, ErrInvalidConfig) is true when
+//     SuppressedPairs validation fails (errors.Join-wrapped)
+func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // locked pipeline (validation → normalise-once → group-build → within-group naive → cross-group naive with SCAN-04 suppression); each branch is a documented gate that cannot be folded into a sub-helper without splitting the Pitfall 3/5/6 + SCAN-04 contract across files. Plan 09-04 will introduce bucket dispatch as a parallel branch — separating now would require unwinding the split.
+	// P0 — Validation gate. validateCheck runs the locked P1..P4
+	// pipeline (nil-Scorer → Config fields → Items[] → SuppressedPairs).
+	// Failures propagate unmodified. See validate.go.
+	if err := validateCheck(items, cfg); err != nil {
+		return nil, err
 	}
-	// validateCheck is implemented in validate.go (Plan 09-02). Plan
-	// 09-03 wires it in here as the first step of the Check body and
-	// lands the similarity passes.
-	_ = items
-	return nil, nil
+
+	// Early exit on degenerate inputs. validateCheck already accepted
+	// a zero- or one-item slice as structurally valid; no pairs exist
+	// to compare. The nil return is consistent with the no-emissions
+	// happy path below.
+	if len(items) < 2 {
+		return nil, nil
+	}
+
+	// Read normalisation policy from the Scorer (Plan 09-01 accessor).
+	// applyNormalisation == true means the Scorer applies Normalise
+	// internally; we mirror that here only to pre-compute the
+	// parallel `normalisedNames` array for the SCAN-04 identical-name
+	// suppression check. Critically, the RAW item.Name strings flow
+	// through to Scorer.Match / Scorer.Score / Scorer.ScoreAll — the
+	// Scorer re-normalises (Pitfall 5).
+	normOpts, applyNormalisation := cfg.Scorer.NormalisationOptions()
+
+	// Parallel `normalisedNames` array. Index i holds the normalised
+	// (or raw, when applyNormalisation == false) form of items[i].Name.
+	// Used only for the cross-group identical-name suppression check.
+	normalisedNames := make([]string, len(items))
+	for i, item := range items {
+		if applyNormalisation {
+			normalisedNames[i] = fuzzymatch.Normalise(item.Name, normOpts)
+		} else {
+			normalisedNames[i] = item.Name
+		}
+	}
+
+	// Group items by their Group value. The slice values preserve
+	// insertion order via append, which mirrors items[] slice-index
+	// order — important for deterministic warning emission within a
+	// group.
+	groupIndices := make(map[string][]int, len(items))
+	for i, item := range items {
+		groupIndices[item.Group] = append(groupIndices[item.Group], i)
+	}
+
+	// Materialise the sorted group-key slice. This is the ONLY place
+	// the groupIndices map is iterated; downstream code walks the
+	// sortedGroups slice. No map iteration on output paths (per
+	// .claude/skills/determinism-standards).
+	sortedGroups := make([]string, 0, len(groupIndices))
+	for g := range groupIndices {
+		sortedGroups = append(sortedGroups, g)
+	}
+	sort.Strings(sortedGroups)
+
+	// Warnings accumulator. nil-vs-empty-slice semantics are equivalent
+	// for len()-based consumers; we leave this as a default-zero slice
+	// so the no-emissions happy path naturally returns a non-nil but
+	// empty slice. (The early-exit case above returns nil for the
+	// degenerate < 2 items input; both representations are valid per
+	// the godoc.)
+	warnings := make([]Warning, 0)
+
+	// Within-group naive pass. For each group (in sorted-key order),
+	// iterate every i<j pair. Scorer.Match applies the within-group
+	// threshold internally.
+	for _, group := range sortedGroups {
+		idx := groupIndices[group]
+		for i := 0; i < len(idx); i++ {
+			for j := i + 1; j < len(idx); j++ {
+				a, b := items[idx[i]], items[idx[j]]
+				if cfg.Scorer.Match(a.Name, b.Name) {
+					warnings = append(warnings, Warning{
+						Kind:   KindWithinGroup,
+						NameA:  a.Name,
+						NameB:  b.Name,
+						GroupA: a.Group,
+						GroupB: b.Group,
+						TagA:   a.Tag,
+						TagB:   b.Tag,
+						Score:  cfg.Scorer.Score(a.Name, b.Name),
+						Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+					})
+				}
+			}
+		}
+	}
+
+	// Cross-group naive pass. Active only when CompareAcrossGroups ==
+	// true. Walks sorted group-key pairs (gi < gj) to ensure deterministic
+	// emission ordering; within each group pair, walks idxA × idxB in
+	// slice-index order.
+	if cfg.CompareAcrossGroups {
+		// Effective threshold = within-group threshold + boost,
+		// CLAMPED to 1.0 (Pitfall 6 — boosts can never push the
+		// effective threshold above 1.0, the score range upper bound).
+		effectiveThreshold := math.Min(1.0, cfg.Scorer.Threshold()+cfg.CrossGroupThresholdBoost)
+
+		for gi := 0; gi < len(sortedGroups); gi++ {
+			for gj := gi + 1; gj < len(sortedGroups); gj++ {
+				idxA := groupIndices[sortedGroups[gi]]
+				idxB := groupIndices[sortedGroups[gj]]
+				for _, i := range idxA {
+					for _, j := range idxB {
+						// SCAN-04 identical-name suppression default.
+						// Compared against normalisedNames so consumers
+						// who switch case ("user_id" vs "USER_ID") still
+						// see the pair suppressed when the Scorer's
+						// normalisation collapses them to the same form.
+						if !cfg.CompareIdenticalAcrossGroups && normalisedNames[i] == normalisedNames[j] {
+							continue
+						}
+						a, b := items[i], items[j]
+						score := cfg.Scorer.Score(a.Name, b.Name)
+						if score >= effectiveThreshold {
+							warnings = append(warnings, Warning{
+								Kind:   KindAcrossGroups,
+								NameA:  a.Name,
+								NameB:  b.Name,
+								GroupA: a.Group,
+								GroupB: b.Group,
+								TagA:   a.Tag,
+								TagB:   b.Tag,
+								Score:  score,
+								Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Plan 09-03 returns warnings unsorted. The deterministic
+	// (Kind, NameA, NameB, GroupA, GroupB) sort + in-line completeness
+	// assertion land in Plan 09-06.
+	return warnings, nil
 }
