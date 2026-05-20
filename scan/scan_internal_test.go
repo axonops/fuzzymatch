@@ -45,6 +45,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/axonops/fuzzymatch"
@@ -384,11 +385,11 @@ func Test_completenessAssertion_PanicMessageIncludesContext(t *testing.T) {
 		// the maintainer can identify the offending warning. Tag is
 		// intentionally omitted (T-09-06-02).
 		for _, sub := range []string{"duplicate sort key", "WithinGroup", "\"alpha\"", "\"beta\"", "\"g1\"", "\"g2\""} {
-			if !contains(msg, sub) {
+			if !strings.Contains(msg, sub) {
 				t.Errorf("panic message %q missing %q", msg, sub)
 			}
 		}
-		if contains(msg, "secret-tag-value") {
+		if strings.Contains(msg, "secret-tag-value") {
 			t.Errorf("panic message %q leaks Tag value (T-09-06-02)", msg)
 		}
 	}()
@@ -406,23 +407,6 @@ func Test_completenessAssertion_PanicMessageIncludesContext(t *testing.T) {
 		},
 	}
 	assertSortKeyComplete(ws)
-}
-
-// contains is a tiny stdlib-only substring test. Avoids importing
-// strings into this file just for one assertion site.
-func contains(s, sub string) bool {
-	if len(sub) == 0 {
-		return true
-	}
-	if len(s) < len(sub) {
-		return false
-	}
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
 
 // warningCoreEqual compares two Warning values for equality on the

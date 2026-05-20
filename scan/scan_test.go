@@ -1353,6 +1353,55 @@ func TestCheck_SortKey_LexOrder(t *testing.T) {
 	}
 }
 
+// TestCheck_SortKey_TagSwap_RidesWithName asserts that when
+// canonicalisation flips NameA/NameB (because the emitted pair was in
+// non-canonical raw-lex order), the Tag field swaps in lockstep so
+// (NameA, GroupA, TagA) continues to describe the same source Item.
+// Closes code-reviewer M1 finding on Plan 09-06 — the Tag swap line at
+// scan.go's canonicalisation block was not covered by any existing test
+// because every other test fixture set Tag=nil (no observable swap).
+func TestCheck_SortKey_TagSwap_RidesWithName(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+
+	// "userId" < "user_id" raw-byte lex (0x49 'I' < 0x5F '_'). So a
+	// within-group emission for these two items, where the first emitted
+	// pair is (user_id, userId), MUST be canonicalised to NameA=userId,
+	// NameB=user_id — with TagA/TagB swapped to match.
+	items := []scan.Item{
+		// Item 0 is enumerated as i; Item 1 is enumerated as j (j>i).
+		// In the naive within-group loop the emission constructs
+		// Warning{NameA: items[0].Name="user_id", NameB: items[1].Name="userId", ...}.
+		// Canonicalisation then flips it: NameA="userId", NameB="user_id",
+		// TagA: 2 (from items[1]), TagB: 1 (from items[0]).
+		{Name: "user_id", Group: "alpha", Tag: 1},
+		{Name: "userId", Group: "alpha", Tag: 2},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("warnings: got %d; want 1", len(warnings))
+	}
+	w := warnings[0]
+	if w.NameA != "userId" || w.NameB != "user_id" {
+		t.Fatalf("canonicalisation failed: NameA=%q NameB=%q; want NameA=\"userId\" NameB=\"user_id\"", w.NameA, w.NameB)
+	}
+	// Locks the Tag-rides-with-Name contract: after the swap, TagA
+	// belongs to the item whose Name became NameA ("userId" — items[1]),
+	// and TagB belongs to items[0] ("user_id").
+	if w.TagA != 2 {
+		t.Errorf("TagA: got %v; want 2 (from items[1] which provided NameA after canonicalisation)", w.TagA)
+	}
+	if w.TagB != 1 {
+		t.Errorf("TagB: got %v; want 1 (from items[0] which provided NameB after canonicalisation)", w.TagB)
+	}
+}
+
 // TestCheck_SortKey_KindFirst exercises the Kind precedence in the sort
 // key: KindWithinGroup (== 1) MUST sort before KindAcrossGroups (== 2)
 // when the input produces both kinds. Cross-group + within-group are
