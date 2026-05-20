@@ -215,6 +215,7 @@ verify-license-headers:
 # llms-full.txt drift surfaced as a WARN line, advisory).
 verify-llms-sync:
 	$(GO) run ./scripts/cmd/verify-llms-sync
+	$(GO) run ./scripts/cmd/verify-llms-sync -dir ./scan -package scan
 
 # Regenerates testdata/cross-validation/swg/vectors.json by invoking the
 # biopython-based generator script. Developer-only — NOT included in

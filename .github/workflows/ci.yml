@@ -143,3 +143,32 @@ jobs:
         with:
           globs: "**/*.md"
           config: .markdownlint-cli2.yaml
+
+  examples:
+    name: build + test runnable examples
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Setup Go
+        uses: actions/setup-go@4eaff2bbe1e26ca81064f3e7be6f9c8a4f9aa9a5  # v6.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Build + test every examples/*/ module
+        # Each example has its own go.mod with a replace directive
+        # pointing at the root module. Iterate and verify both build
+        # and test pass — catches root-API drift that would silently
+        # break the runnable examples.
+        run: |
+          set -e
+          for dir in examples/*/; do
+            if [ -f "${dir}go.mod" ]; then
+              echo "=== ${dir} ==="
+              (cd "$dir" && go build ./... && go test -race -count=1 ./...)
+            fi
+          done
