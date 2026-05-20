@@ -11,7 +11,8 @@ No cgo.
 Pre-release. The API is not stable until v1.0.0. The library ships
 all 23 algorithm functions, a weighted composite Scorer with
 DefaultScorer + DefaultScorerOptions, the Validate input-quality
-diagnostics surface, and the scan / Extract APIs at v1.0.0.
+diagnostics surface, and the scan collection-scan sub-package
+(Phase 9). The Extract one-to-many search API lands at v1.0.0.
 
 ## Public API (root package: fuzzymatch)
 
@@ -302,15 +303,16 @@ scan.DefaultConfig.
 - Soft-TFIDF (out of scope; no domain corpus dependency wanted).
 - Metaphone 3 (U.S. Patent 7,440,941 — declined for licence hygiene).
 - ML / embeddings (out of scope for a pure-function library).
-- Goroutine-parallel scan (Phase 9 may revisit; not in v1.0).
+- Goroutine-parallel scan (deferred post-v1.0; Phase 9 ships the
+  pure-function single-goroutine baseline).
 - Persistent caching (not a library concern).
 
 ## Documentation
 
 - README.md — project front door
 - docs/algorithms.md — per-algorithm detail (23 sections)
-- docs/scorer.md — Scorer composition (Phase 8)
-- docs/scan.md — collection scan (Phase 9)
+- docs/scorer.md — Scorer composition
+- docs/scan.md — collection scan
 - docs/extending.md — custom algorithms
 - docs/tuning.md — threshold calibration
 - docs/performance.md — benchmark numbers
