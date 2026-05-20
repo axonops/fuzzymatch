@@ -1286,3 +1286,88 @@ func TestScorer_ConcurrentSafety(t *testing.T) {
 		}
 	})
 }
+
+// TestScorer_ScoreAndAll_MatchesScoreAndScoreAll verifies the
+// combined-method invariant: ScoreAndAll(a, b) returns the same
+// composite as Score(a, b) and the same per-algorithm breakdown as
+// ScoreAll(a, b), bit-identical. Closes the coverage floor for
+// scorer.go after the Phase 9 ScoreAndAll addition.
+func TestScorer_ScoreAndAll_MatchesScoreAndScoreAll(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	pairs := []struct{ a, b string }{
+		{"user_id", "userId"},
+		{"customer", "customer"},
+		{"is_deleted", "is_active"},
+		{"", "x"},
+		{"abc", ""},
+	}
+	for _, p := range pairs {
+		gotScore, gotBreakdown := s.ScoreAndAll(p.a, p.b)
+		wantScore := s.Score(p.a, p.b)
+		wantBreakdown := s.ScoreAll(p.a, p.b)
+		if gotScore != wantScore {
+			t.Errorf("ScoreAndAll(%q,%q) composite: got %v want %v", p.a, p.b, gotScore, wantScore)
+		}
+		if len(gotBreakdown) != len(wantBreakdown) {
+			t.Errorf("ScoreAndAll(%q,%q) map length: got %d want %d", p.a, p.b, len(gotBreakdown), len(wantBreakdown))
+		}
+		for id, v := range wantBreakdown {
+			if gotBreakdown[id] != v {
+				t.Errorf("ScoreAndAll(%q,%q) breakdown[%v]: got %v want %v", p.a, p.b, id, gotBreakdown[id], v)
+			}
+		}
+	}
+}
+
+// TestScorer_ScoreAndAll_FreshMapPerCall verifies that each call
+// returns an independently-allocated map (the breakdown contract
+// must mirror ScoreAll's freshly-allocated guarantee).
+func TestScorer_ScoreAndAll_FreshMapPerCall(t *testing.T) {
+	t.Parallel()
+	s := fuzzymatch.DefaultScorer()
+	_, m1 := s.ScoreAndAll("user_id", "userId")
+	_, m2 := s.ScoreAndAll("user_id", "userId")
+	// Same input → same contents.
+	if len(m1) != len(m2) {
+		t.Fatalf("breakdown len: m1=%d m2=%d", len(m1), len(m2))
+	}
+	for id, v := range m1 {
+		if m2[id] != v {
+			t.Errorf("breakdown[%v]: m1=%v m2=%v", id, v, m2[id])
+		}
+	}
+	// Independent allocation: mutating one must not affect the other.
+	for id := range m1 {
+		m1[id] = -1
+		break
+	}
+	for id, v := range m2 {
+		if v == -1 {
+			t.Errorf("m2 mutated by m1 write at AlgoID %v: maps share backing storage", id)
+		}
+	}
+}
+
+// TestScorer_ScoreAndAll_WithoutNormalisation verifies the
+// pre-normalisation boundary toggle is honoured (matching Score and
+// ScoreAll's behaviour under WithoutNormalisation).
+func TestScorer_ScoreAndAll_WithoutNormalisation(t *testing.T) {
+	t.Parallel()
+	s, err := fuzzymatch.NewScorer(
+		fuzzymatch.WithThreshold(0.5),
+		fuzzymatch.WithAlgorithm(fuzzymatch.AlgoLevenshtein, 1.0),
+		fuzzymatch.WithoutNormalisation(),
+	)
+	if err != nil {
+		t.Fatalf("NewScorer: %v", err)
+	}
+	// Case-sensitive comparison because normalisation is disabled.
+	score, breakdown := s.ScoreAndAll("FOO", "foo")
+	if score == 1.0 {
+		t.Errorf("WithoutNormalisation: case-sensitive compare should NOT score 1.0")
+	}
+	if breakdown[fuzzymatch.AlgoLevenshtein] != score {
+		t.Errorf("single-algorithm composite should equal breakdown value: composite=%v breakdown=%v", score, breakdown[fuzzymatch.AlgoLevenshtein])
+	}
+}
