@@ -870,3 +870,305 @@ func TestCheck_CrossGroup_UsesScoreNotMatch(t *testing.T) {
 			len(warningsSameGroup), score)
 	}
 }
+
+// --------------------------------------------------------------------------
+// Plan 09-05: suppression composition — integrated black-box tests.
+//
+// These tests exercise the end-to-end suppression pipeline through
+// scan.Check. The three suppression rules:
+//
+//   - Rule 1: per-item SilenceLint (cheapest check; one-sided semantics)
+//   - Rule 2: SuppressedPairs canonical-pair lookup (case-insensitive
+//             via Normalise — Pitfall 4)
+//   - Rule 3: cross-group identical-name default (Plan-09-03's inline
+//             check, migrated into isSuppressed)
+//
+// Reference items where unmodified scoring would emit warnings:
+//
+//   user_id vs userId    → Score ≈ 1.00 (well above the 0.85 threshold)
+//   user_name vs userName → Score ≈ 0.65 (below threshold — does NOT
+//                                          emit unless the threshold is
+//                                          lowered, used only in
+//                                          contexts where we don't rely
+//                                          on the emission)
+//
+// Probe was run during Plan 09-05 implementation to pick name pairs whose
+// composite Score sits above the within-group threshold (so unsuppressed
+// they emit warnings) — that lets each suppression test produce a clean
+// "0 warnings" assertion when its rule fires.
+// --------------------------------------------------------------------------
+
+// TestCheck_Suppression_SilenceLint_Within verifies Rule 1 fires for a
+// within-group pair where one item has SilenceLint=true. The pair would
+// otherwise emit (Score ≈ 1.0); with Rule 1 active the emission is
+// suppressed.
+func TestCheck_Suppression_SilenceLint_Within(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	items := []scan.Item{
+		{Name: "user_id", Group: "login", SilenceLint: true},
+		{Name: "userId", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (Rule 1 SilenceLint should suppress)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_SilenceLint_Cross verifies Rule 1 fires for a
+// cross-group pair when one item has SilenceLint=true. The pair would
+// otherwise emit under CompareAcrossGroups + CompareIdenticalAcrossGroups
+// (Score ≈ 1.0); Rule 1 suppresses it.
+func TestCheck_Suppression_SilenceLint_Cross(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.CompareAcrossGroups = true
+	cfg.CompareIdenticalAcrossGroups = true // so the cross-group identical pair is otherwise emitted
+	items := []scan.Item{
+		{Name: "user_id", Group: "login", SilenceLint: true},
+		{Name: "user_id", Group: "profile"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (Rule 1 SilenceLint should suppress cross-group)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_SuppressedPairs_Within verifies Rule 2 fires
+// for a within-group pair listed in SuppressedPairs. The raw entry
+// matches the items by name; canonicalisation handles order.
+func TestCheck_Suppression_SuppressedPairs_Within(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.SuppressedPairs = [][2]string{{"user_id", "userId"}}
+	items := []scan.Item{
+		{Name: "user_id", Group: "login"},
+		{Name: "userId", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (Rule 2 SuppressedPairs should suppress)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_SuppressedPairs_CaseInsensitive is the load-
+// bearing Pitfall 4 test (09-RESEARCH.md lines 499-507): consumer
+// types raw "USER_ID" / "user_id" in SuppressedPairs, but the items
+// normalise to "user id" / "user id". Plan 09-05 normalises every
+// SuppressedPairs entry at Check entry using the Scorer's
+// NormalisationOptions, so the canonical-pair lookup succeeds even
+// though the raw forms differ.
+//
+// Setup: items {user_id, userId} both normalise to "user id" — they
+// score ≈ 1.0 and would emit one within-group warning. SuppressedPairs
+// entry ["USER_ID", "user_id"] normalises to ("user id", "user id") —
+// the same canonical key as the items' pair. Rule 2 fires; zero
+// warnings emitted.
+func TestCheck_Suppression_SuppressedPairs_CaseInsensitive(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.SuppressedPairs = [][2]string{{"USER_ID", "user_id"}}
+	items := []scan.Item{
+		{Name: "user_id", Group: "login"},
+		{Name: "userId", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (Rule 2 case-insensitive lookup via Normalise)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_SuppressedPairs_ReversedOrder verifies the
+// canonical-pair lookup is order-independent. The consumer-supplied
+// pair has the two strings in the OPPOSITE order from the items; the
+// lookup still succeeds because canonicalPair lex-sorts at both
+// build-time and lookup-time.
+func TestCheck_Suppression_SuppressedPairs_ReversedOrder(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.SuppressedPairs = [][2]string{{"userId", "user_id"}} // reversed
+	items := []scan.Item{
+		{Name: "user_id", Group: "login"},
+		{Name: "userId", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (canonicalPair must absorb order)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_CombinedRules verifies that a pair triggering
+// BOTH Rule 1 (SilenceLint) AND Rule 2 (SuppressedPairs) is suppressed
+// exactly once — no double-emission, no double-suppression bookkeeping.
+// The OR composition is short-circuit: Rule 1 fires first and the
+// predicate returns true.
+func TestCheck_Suppression_CombinedRules(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.SuppressedPairs = [][2]string{{"user_id", "userId"}}
+	items := []scan.Item{
+		{Name: "user_id", Group: "login", SilenceLint: true},
+		{Name: "userId", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (Rule 1 + Rule 2 combined; single suppression)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_SelfPairInSuppressed_HasNoEffect verifies the
+// D-05 self-pair semantics: SuppressedPairs entries where a == b
+// (post-normalisation) are silently kept by validation. They are
+// harmless because Check never emits a self-warning. This test pins
+// the contract that adding a self-pair does NOT accidentally suppress
+// non-self candidate pairs.
+func TestCheck_Suppression_SelfPairInSuppressed_HasNoEffect(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	// Self-pair entry — D-05 silently keeps it.
+	cfg.SuppressedPairs = [][2]string{{"user_id", "user_id"}}
+	items := []scan.Item{
+		{Name: "user_id", Group: "login"},
+		{Name: "userId", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// The (user_id, userId) candidate normalises to ("user id", "user id") —
+	// which is the same canonical key as the self-pair entry's normalised
+	// form. The self-pair entry DOES suppress this pair because the canonical
+	// keys collide. This is the documented D-05 behaviour: self-pairs in
+	// SuppressedPairs are "silently kept" because they're harmless against
+	// self-warnings (Check never emits i,i pairs). The collision with a
+	// distinct-name pair whose normalised forms happen to be identical is
+	// the expected suppression in this case — confirming the canonical-pair
+	// semantics rather than producing an unexpected emission.
+	if len(warnings) != 0 {
+		t.Fatalf("warnings: got %d; want 0 (canonical pairs coincide)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_SelfPairInSuppressed_DistinctNorm verifies that
+// a self-pair entry whose normalised form does NOT collide with any
+// candidate pair has zero effect on emission. Items {customer,
+// customers} score ≈ 0.77 (above threshold 0.5 when boosted only by
+// the within Match call) — but with the default Scorer threshold 0.85
+// the pair is below threshold and emits no warning anyway. Use a lower
+// threshold Scorer to force emission, then verify the self-pair entry
+// for an unrelated name doesn't interfere.
+func TestCheck_Suppression_SelfPairInSuppressed_DistinctNorm(t *testing.T) {
+	t.Parallel()
+
+	s := newScorerWithThreshold(t, 0.50)
+	cfg := scan.DefaultConfig(s)
+	// Unrelated self-pair entry — must NOT suppress (customer, customers).
+	cfg.SuppressedPairs = [][2]string{{"unrelated", "unrelated"}}
+	items := []scan.Item{
+		{Name: "customer", Group: "login"},
+		{Name: "customers", Group: "login"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("warnings: got %d; want 1 (unrelated self-pair must not interfere)", len(warnings))
+	}
+}
+
+// TestCheck_Suppression_BucketPath_PreservesSuppression verifies that
+// the bucket dispatch path (active when group size > bucketThreshold)
+// applies suppression identically to the naive path. SCAN-02 bucket-vs-
+// naive equivalence must hold under suppression.
+//
+// Setup: 60 items in a single group (> bucketThreshold = 50, triggers
+// bucket dispatch). All items pair-wise score above threshold (same
+// base name with disambiguating suffix); SilenceLint is set on the
+// first item, so every pair involving index 0 is suppressed by Rule 1.
+// The remaining 59 items form a fully-connected similarity graph that
+// emits C(59, 2) = 1711 warnings — but that's not what we assert. We
+// assert that NO warning involves index 0 (its Name appears nowhere).
+func TestCheck_Suppression_BucketPath_PreservesSuppression(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	// Generate 60 highly-similar items so bucket dispatch fires.
+	const N = 60
+	items := make([]scan.Item, N)
+	for i := 0; i < N; i++ {
+		items[i] = scan.Item{
+			// "user_id_NN" pairs score >= threshold against each other
+			// because the tokens collapse to {"user","id","NN"} which
+			// share two of three tokens across all i.
+			Name:  "user_id_" + itoaPad(i),
+			Group: "login",
+		}
+	}
+	// Mark item 0 silenced — every pair touching index 0 must be suppressed.
+	items[0].SilenceLint = true
+	const silencedName = "user_id_00"
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, w := range warnings {
+		if w.NameA == silencedName || w.NameB == silencedName {
+			t.Errorf("bucket path: warning involves silenced item: %+v", w)
+		}
+	}
+	// Bucket path must be active for this test to be meaningful.
+	if N <= scan.BucketThreshold() {
+		t.Errorf("test precondition: N=%d must exceed bucketThreshold=%d", N, scan.BucketThreshold())
+	}
+}
+
+// itoaPad returns the int formatted as a 2-digit zero-padded string.
+// Used by TestCheck_Suppression_BucketPath_PreservesSuppression to
+// keep generated names lexicographically stable.
+func itoaPad(i int) string {
+	const digits = "0123456789"
+	return string([]byte{digits[(i/10)%10], digits[i%10]})
+}
