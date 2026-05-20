@@ -350,3 +350,100 @@ func BenchmarkScanCheck_DefaultScorer_10k_OneGroup(b *testing.B) {
 		b.Fatal("benchSink unexpectedly nil after benchmark loop")
 	}
 }
+
+// BenchmarkScanCheck_DefaultScorer_200 covers the spec §12.6 budget
+// tier "200 items / 10 groups: < 10 ms". At group size 20, the
+// dispatch chooses the naive path. Closes the spec coverage gap
+// identified by algorithm-performance-reviewer on Plan 09-04
+// (BLOCKING finding: missing benchmarks for §12.6 200-item and
+// 1000-item scale).
+func BenchmarkScanCheck_DefaultScorer_200(b *testing.B) {
+	const totalItems = 200
+	const groupSize = 20 // 10 groups, per §12.6
+	items := buildBenchItems(totalItems, groupSize)
+	cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w, err := scan.Check(items, cfg)
+		if err != nil {
+			b.Fatalf("Check: %v", err)
+		}
+		benchSink = w
+	}
+	if benchSink == nil {
+		b.Fatal("benchSink unexpectedly nil after benchmark loop")
+	}
+}
+
+// BenchmarkScanCheck_DefaultScorer_1000 covers the spec §12.6 budget
+// tier "1000 items / 50 groups: < 100 ms". At group size 20, the
+// dispatch chooses the naive path. Closes the spec coverage gap
+// identified by algorithm-performance-reviewer on Plan 09-04.
+func BenchmarkScanCheck_DefaultScorer_1000(b *testing.B) {
+	const totalItems = 1000
+	const groupSize = 20 // 50 groups, per §12.6
+	items := buildBenchItems(totalItems, groupSize)
+	cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w, err := scan.Check(items, cfg)
+		if err != nil {
+			b.Fatalf("Check: %v", err)
+		}
+		benchSink = w
+	}
+	if benchSink == nil {
+		b.Fatal("benchSink unexpectedly nil after benchmark loop")
+	}
+}
+
+// BenchmarkScanCheck_DefaultScorer_10k_CrossGroup measures the
+// cross-group pass at the spec PERF-05 workload (10k items / 500
+// groups, CompareAcrossGroups=true). Closes the IMPORTANT finding
+// from algorithm-performance-reviewer on Plan 09-04 ("§12.6 cross-
+// group 2× claim unverified") — by surfacing it.
+//
+// VERIFIED RESULT (darwin/arm64, Apple M2, 2026-05-20, count=10):
+// ~189 s per Check at this workload — ~525× the within-only cost
+// (361 ms). The spec §12.6 claim "Cross-group pass enabled: at most
+// 2× the within-group-only cost on the same input" is NOT MET at
+// v0.x. The bottleneck is the cross-group bucket build pattern:
+// each (gi, gj) group-pair rebuilds a fresh tokenBucket over its
+// idxA ∪ idxB union, then enumerates candidates per source item.
+// At 500 groups × 499/2 = 124,750 group-pairs, this produces ~50M
+// Scorer.Score calls and 1.3B allocations per Check invocation.
+//
+// v1.x optimisation candidate (recorded in 09-CONTEXT.md Deferred
+// Ideas): build a single global tokenBucket once at Check entry,
+// then filter candidate-set membership by group identity per
+// (gi, gj) pair. Avoids the per-pair bucket rebuild and brings the
+// cross-group cost closer to the within-only cost. Out of scope for
+// Plan 09-04 (the bucket optimisation is correctness-equivalent;
+// the further perf win is a separate workstream).
+//
+// Keep this benchmark in the suite as a v1.x baseline — a future
+// optimisation will show its improvement here via benchstat.
+func BenchmarkScanCheck_DefaultScorer_10k_CrossGroup(b *testing.B) {
+	const totalItems = 10000
+	const groupSize = 20
+	items := buildBenchItems(totalItems, groupSize)
+	cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+	cfg.CompareAcrossGroups = true
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w, err := scan.Check(items, cfg)
+		if err != nil {
+			b.Fatalf("Check: %v", err)
+		}
+		benchSink = w
+	}
+	if benchSink == nil {
+		b.Fatal("benchSink unexpectedly nil after benchmark loop")
+	}
+}

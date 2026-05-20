@@ -1563,5 +1563,35 @@ BenchmarkScanCheck_DefaultScorer_10k_OneGroup-8              	       1	199787666
 BenchmarkScanCheck_DefaultScorer_10k_OneGroup-8              	       1	20001374375 ns/op	17435956288 B/op	131680088 allocs/op
 BenchmarkScanCheck_DefaultScorer_10k_OneGroup-8              	       1	20052818667 ns/op	17435954432 B/op	131680081 allocs/op
 BenchmarkScanCheck_DefaultScorer_10k_OneGroup-8              	       1	20003108833 ns/op	17435956032 B/op	131680088 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     169	   6985379 ns/op	 5740582 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     175	   6791942 ns/op	 5740585 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     176	   6787300 ns/op	 5740579 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     175	   6863744 ns/op	 5740580 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     176	   6835424 ns/op	 5740580 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     176	   6792843 ns/op	 5740589 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     175	   6823987 ns/op	 5740579 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     176	   6768910 ns/op	 5740580 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     177	   6758577 ns/op	 5740577 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_200-8                       	     176	   6762603 ns/op	 5740581 B/op	   49602 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      31	  35513970 ns/op	30310114 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      32	  35417994 ns/op	30310092 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      33	  35362991 ns/op	30310104 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      32	  35395194 ns/op	30310093 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      33	  35490963 ns/op	30310120 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      33	  36993500 ns/op	30310085 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      32	  35352138 ns/op	30310117 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      32	  35329884 ns/op	30310081 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      33	  36149663 ns/op	30310085 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_1000-8                      	      31	  37000469 ns/op	30310090 B/op	  253194 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	189913146167 ns/op	154783210744 B/op	1302139744 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	189128780375 ns/op	154783178576 B/op	1302139562 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	187052881250 ns/op	154783170928 B/op	1302139391 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	187846333250 ns/op	154783158560 B/op	1302139290 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	187328508625 ns/op	154783167296 B/op	1302139385 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	186558064459 ns/op	154783148496 B/op	1302139188 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	186271133666 ns/op	154783156928 B/op	1302139186 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	186742489625 ns/op	154783153472 B/op	1302139179 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	189337235833 ns/op	154783157808 B/op	1302139330 allocs/op
+BenchmarkScanCheck_DefaultScorer_10k_CrossGroup-8            	       1	190020509792 ns/op	154783145664 B/op	1302139197 allocs/op
 PASS
-ok  	github.com/axonops/fuzzymatch/scan	486.996s
+ok  	github.com/axonops/fuzzymatch/scan	2398.098s

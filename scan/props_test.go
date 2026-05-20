@@ -85,8 +85,19 @@ type itemSliceGen []scan.Item
 // favour of the generator's own bounded range to keep per-Check
 // duration manageable (each call runs Check twice, once per path).
 func (itemSliceGen) Generate(rng *rand.Rand, _ int) reflect.Value {
-	// 50–250 items per generated input.
-	n := 50 + rng.Intn(201)
+	// fatGroupTarget tracks the current bucketThreshold via the
+	// test-only accessor so the generator never silently stops
+	// exercising the bucket dispatch path if bucketThreshold is
+	// raised in a future empirical-validation pass (D-08). Closes
+	// the algorithm-correctness-reviewer MEDIUM finding on Plan
+	// 09-04 (durability concern: previously hard-coded at 75
+	// against a 50 hypothesis).
+	fatGroupTarget := scan.BucketThreshold() + 25
+
+	// Ensure n always exceeds fatGroupTarget by at least one item so
+	// remaining groups receive at least one item each (n in
+	// [fatGroupTarget+8, fatGroupTarget+208]).
+	n := fatGroupTarget + 8 + rng.Intn(201)
 
 	// 3–8 groups.
 	groupCount := 3 + rng.Intn(6)
@@ -100,7 +111,6 @@ func (itemSliceGen) Generate(rng *rand.Rand, _ int) reflect.Value {
 	// share the remaining items roughly evenly. The exact split does
 	// not matter for the property — only that at least one group has
 	// size > bucketThreshold.
-	const fatGroupTarget = 75 // > the spec hypothesis of 50
 	groupAssign := make([]int, n)
 	for i := 0; i < n; i++ {
 		if i < fatGroupTarget {
