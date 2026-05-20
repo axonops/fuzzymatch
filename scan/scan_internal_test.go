@@ -41,6 +41,7 @@
 package scan
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -308,6 +309,120 @@ func sortWarningsLocal(ws []Warning) {
 		}
 		return ws[i].GroupB < ws[j].GroupB
 	})
+}
+
+// Test_completenessAssertion_PanicsOnConstructedDuplicate confirms the
+// in-line completeness assertion (Plan 09-06; SCAN-05 defence-in-depth)
+// panics with a value wrapping fuzzymatch.ErrInternalInvariantViolated
+// when two adjacent warnings share the full (Kind, NameA, NameB,
+// GroupA, GroupB) sort key. The duplicate is constructed manually here
+// because D-06's input validation gate makes the panic unreachable via
+// the public Check path.
+func Test_completenessAssertion_PanicsOnConstructedDuplicate(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic on duplicate sort key; got none")
+		}
+		err, ok := r.(error)
+		if !ok {
+			t.Fatalf("recovered panic value: got %T (%v); want error", r, r)
+		}
+		if !errors.Is(err, fuzzymatch.ErrInternalInvariantViolated) {
+			t.Fatalf("recovered err: got %v; want errors.Is(err, ErrInternalInvariantViolated)", err)
+		}
+	}()
+
+	// Construct a []Warning slice with two entries sharing the full
+	// sort key — D-06 prevents this from happening under valid Check
+	// usage, but the assertion is the documented defence-in-depth gate
+	// for any future library bug that could violate the invariant.
+	ws := []Warning{
+		{Kind: KindWithinGroup, NameA: "a", NameB: "b", GroupA: "g", GroupB: "g"},
+		{Kind: KindWithinGroup, NameA: "a", NameB: "b", GroupA: "g", GroupB: "g"},
+	}
+	assertSortKeyComplete(ws)
+}
+
+// Test_completenessAssertion_NoPanicOnDistinctKeys confirms the
+// assertion is a no-op on a slice with strictly increasing sort keys.
+// This smoke-tests the linear scan's correctness in the (overwhelmingly
+// common) zero-duplicate case.
+func Test_completenessAssertion_NoPanicOnDistinctKeys(t *testing.T) {
+	t.Parallel()
+
+	ws := []Warning{
+		{Kind: KindWithinGroup, NameA: "a", NameB: "b", GroupA: "g", GroupB: "g"},
+		{Kind: KindWithinGroup, NameA: "a", NameB: "c", GroupA: "g", GroupB: "g"},
+		{Kind: KindAcrossGroups, NameA: "a", NameB: "b", GroupA: "g", GroupB: "h"},
+	}
+	// Must not panic.
+	assertSortKeyComplete(ws)
+}
+
+// Test_completenessAssertion_PanicMessageIncludesContext checks the
+// panic message embeds the duplicate-sort-key context (Kind, names,
+// groups, index) so a maintainer who recovers the panic in a debug
+// session can locate the offending warning without a stack walk.
+// Tag values are NOT included (T-09-06-02 mitigation).
+func Test_completenessAssertion_PanicMessageIncludesContext(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic; got none")
+		}
+		err, ok := r.(error)
+		if !ok {
+			t.Fatalf("recovered panic: got %T; want error", r)
+		}
+		msg := err.Error()
+		// Each of these substrings must appear in the panic message so
+		// the maintainer can identify the offending warning. Tag is
+		// intentionally omitted (T-09-06-02).
+		for _, sub := range []string{"duplicate sort key", "WithinGroup", "\"alpha\"", "\"beta\"", "\"g1\"", "\"g2\""} {
+			if !contains(msg, sub) {
+				t.Errorf("panic message %q missing %q", msg, sub)
+			}
+		}
+		if contains(msg, "secret-tag-value") {
+			t.Errorf("panic message %q leaks Tag value (T-09-06-02)", msg)
+		}
+	}()
+
+	ws := []Warning{
+		{
+			Kind: KindWithinGroup, NameA: "alpha", NameB: "beta",
+			GroupA: "g1", GroupB: "g2",
+			TagA: "secret-tag-value", TagB: nil,
+		},
+		{
+			Kind: KindWithinGroup, NameA: "alpha", NameB: "beta",
+			GroupA: "g1", GroupB: "g2",
+			TagA: nil, TagB: "secret-tag-value",
+		},
+	}
+	assertSortKeyComplete(ws)
+}
+
+// contains is a tiny stdlib-only substring test. Avoids importing
+// strings into this file just for one assertion site.
+func contains(s, sub string) bool {
+	if len(sub) == 0 {
+		return true
+	}
+	if len(s) < len(sub) {
+		return false
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
 
 // warningCoreEqual compares two Warning values for equality on the

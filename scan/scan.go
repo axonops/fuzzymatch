@@ -75,6 +75,7 @@
 package scan
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -200,11 +201,12 @@ type Config struct {
 
 // Warning is one detected similar-name pair. The deterministic output
 // sort by (Kind, NameA, NameB, GroupA, GroupB) — including the
-// lexicographic canonicalisation of NameA/NameB so NameA is the smaller
-// of the pair after normalisation — is applied by Plan 09-06's sort
-// step. Plan 09-03 returns warnings unsorted in (sorted-group, slice-index)
-// emission order; consumers reading post-09-06 Check output get the
-// fully canonicalised form.
+// lexicographic canonicalisation of NameA/NameB so NameA is the
+// raw-byte-lex smaller of the pair (with TagA/TagB and GroupA/GroupB
+// swapping in lockstep when the names are flipped) — is applied by
+// Plan 09-06's sort step. Consumers reading post-09-06 Check output get
+// the fully canonicalised form: for any emitted Warning, NameA <= NameB
+// under string-lex comparison.
 //
 // SPEC OVERRIDE (Phase 9): Scores is map[fuzzymatch.AlgoID]float64
 // (typed enum keys), NOT map[string]float64 as docs/requirements.md
@@ -226,10 +228,12 @@ type Warning struct {
 	Kind Kind
 
 	// NameA, NameB are the raw item names (NOT normalised). Plan 09-06's
-	// sort step canonicalises the pair so NameA is the lexicographically
-	// smaller of the two (post-normalisation); Plan 09-03's pre-sort
-	// emission carries names in slice-index order. Consumers reading
-	// post-09-06 Check output observe the canonical ordering.
+	// sort step canonicalises the pair so NameA is the raw-byte-lex
+	// smaller of the two strings. For any post-09-06 Warning, NameA <=
+	// NameB under Go's native string comparison. When the canonicaliser
+	// swaps NameA and NameB, TagA/TagB and GroupA/GroupB swap in
+	// lockstep so each (NameA, GroupA, TagA) triple still describes the
+	// same source Item.
 	NameA, NameB string
 
 	// GroupA, GroupB are the raw group values from the corresponding
@@ -364,12 +368,27 @@ func DefaultConfig(s *fuzzymatch.Scorer) Config {
 //
 // Determinism: groups are iterated in sorted-key order; items within a
 // group are iterated in slice-index order (groupIndices preserves
-// insertion order via append). The unsorted []Warning returned here is
-// thus deterministic-by-construction with respect to insertion order;
-// the explicit (Kind, NameA, NameB, GroupA, GroupB) sort + completeness
-// assertion lands in Plan 09-06. Map iteration on the groupIndices map
-// is confined to building the sortedGroups slice (no map iteration on
-// output paths).
+// insertion order via append). Before returning, Check
+// lex-canonicalises every Warning (raw-byte-lex on (NameA, NameB) so
+// NameA <= NameB; TagA/TagB and GroupA/GroupB swap in lockstep) and
+// then applies sort.SliceStable on the 5-tuple sort key
+// (Kind, NameA, NameB, GroupA, GroupB). Map iteration on the
+// groupIndices map is confined to building the sortedGroups slice (no
+// map iteration on output paths).
+//
+// In-line completeness assertion (Plan 09-06; SCAN-05 defence-in-depth):
+// after sorting, Check scans adjacent warnings linearly; any pair
+// sharing the full 5-tuple sort key triggers
+// panic(fmt.Errorf("...: %w", fuzzymatch.ErrInternalInvariantViolated)).
+// The assertion is unreachable under valid input because D-06's
+// validateCheck rejects duplicate (Name, Group) at the door — but it
+// exists as the documented invariant gate per the Phase 8.5 Gap 5
+// typed-panic convention. Consumers discriminate via
+// errors.Is(recovered, fuzzymatch.ErrInternalInvariantViolated); the
+// panic value indicates a library bug, not user error. The panic
+// message includes the duplicate index + Kind + Names + Groups; Tag
+// values are intentionally omitted (T-09-06-02 — Tag is consumer-
+// supplied opaque data that may carry sensitive context).
 //
 // Plan-stage scope:
 //
@@ -715,8 +734,95 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 		}
 	}
 
-	// Plan 09-03 returns warnings unsorted. The deterministic
-	// (Kind, NameA, NameB, GroupA, GroupB) sort + in-line completeness
-	// assertion land in Plan 09-06.
+	// Plan 09-06: lex-canonicalise every Warning so NameA <= NameB on
+	// raw-byte lex compare. Groups + Tags swap in lockstep so the
+	// (Name, Group, Tag) attribution of each item is preserved.
+	for i := range warnings {
+		if warnings[i].NameA > warnings[i].NameB {
+			warnings[i].NameA, warnings[i].NameB = warnings[i].NameB, warnings[i].NameA
+			warnings[i].GroupA, warnings[i].GroupB = warnings[i].GroupB, warnings[i].GroupA
+			warnings[i].TagA, warnings[i].TagB = warnings[i].TagB, warnings[i].TagA
+		}
+	}
+
+	// Plan 09-06: deterministic sort by the 5-tuple
+	// (Kind, NameA, NameB, GroupA, GroupB). sort.SliceStable preserves
+	// relative input order on ties — but D-06 guarantees no two
+	// Warnings can share the full 5-tuple key, so stability is a
+	// belt-and-braces choice. Every field participates in the
+	// comparator so the sort is a strict total order on valid input.
+	sort.SliceStable(warnings, func(i, j int) bool {
+		if warnings[i].Kind != warnings[j].Kind {
+			return warnings[i].Kind < warnings[j].Kind
+		}
+		if warnings[i].NameA != warnings[j].NameA {
+			return warnings[i].NameA < warnings[j].NameA
+		}
+		if warnings[i].NameB != warnings[j].NameB {
+			return warnings[i].NameB < warnings[j].NameB
+		}
+		if warnings[i].GroupA != warnings[j].GroupA {
+			return warnings[i].GroupA < warnings[j].GroupA
+		}
+		return warnings[i].GroupB < warnings[j].GroupB
+	})
+
+	// Plan 09-06: in-line completeness assertion. Linear scan of
+	// adjacent sorted warnings; any pair sharing the full sort key
+	// panics with fuzzymatch.ErrInternalInvariantViolated (Phase 8.5
+	// Gap 5). Unreachable on valid input because D-06 rejects
+	// duplicate (Name, Group) at validation — defence-in-depth gate
+	// per the Phase 9 SCAN-05 requirement.
+	assertSortKeyComplete(warnings)
+
 	return warnings, nil
+}
+
+// assertSortKeyComplete is the in-line defence-in-depth gate for
+// SCAN-05's sort-key uniqueness invariant. Plan 09-06 calls it after
+// sorting the warnings slice; any two adjacent warnings sharing the
+// full (Kind, NameA, NameB, GroupA, GroupB) sort key trigger a panic
+// wrapping fuzzymatch.ErrInternalInvariantViolated (Phase 8.5 Gap 5
+// typed-panic convention).
+//
+// Under correct usage the panic is unreachable: D-06's validateCheck
+// rejects items with duplicate (Name, Group), so two distinct items
+// can never produce two warnings with the same NameA/NameB/GroupA/
+// GroupB tuple. The assertion exists to catch any future library bug
+// (a refactor of the bucket dispatch, a regression in the
+// canonicalisation step, etc.) that could violate the invariant — at
+// which point the panic surfaces immediately rather than silently
+// emitting a non-deterministic slice.
+//
+// Panic message format (locked):
+//
+//	scan: duplicate sort key at index <i> (Kind=<k> NameA=<a> NameB=<b>
+//	GroupA=<gA> GroupB=<gB>) — Items[] validation should have prevented
+//	this: fuzzymatch: internal invariant violated (...)
+//
+// Tag values are intentionally OMITTED (T-09-06-02 mitigation — Tag is
+// consumer-supplied opaque data that may carry sensitive context).
+// Consumers discriminate via errors.Is on the recovered panic value:
+//
+//	defer func() {
+//	    if r := recover(); r != nil {
+//	        if err, ok := r.(error); ok && errors.Is(err, fuzzymatch.ErrInternalInvariantViolated) {
+//	            // library bug — collect stack + file issue
+//	        }
+//	    }
+//	}()
+func assertSortKeyComplete(warnings []Warning) {
+	for i := 1; i < len(warnings); i++ {
+		prev := warnings[i-1]
+		cur := warnings[i]
+		if prev.Kind == cur.Kind &&
+			prev.NameA == cur.NameA && prev.NameB == cur.NameB &&
+			prev.GroupA == cur.GroupA && prev.GroupB == cur.GroupB {
+			panic(fmt.Errorf(
+				"scan: duplicate sort key at index %d (Kind=%s NameA=%q NameB=%q GroupA=%q GroupB=%q) — Items[] validation should have prevented this: %w",
+				i, cur.Kind, cur.NameA, cur.NameB, cur.GroupA, cur.GroupB,
+				fuzzymatch.ErrInternalInvariantViolated,
+			))
+		}
+	}
 }

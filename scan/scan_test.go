@@ -37,6 +37,7 @@ package scan_test
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -266,7 +267,10 @@ func TestCheck_WithinGroup_SingleMatch(t *testing.T) {
 
 	w := warnings[0]
 	assertWarningKind(t, w, scan.KindWithinGroup)
-	assertWarningNames(t, w, "user_id", "userId")
+	// Plan 09-06 lex-canonicalises NameA/NameB so NameA is the
+	// raw-byte-lex smaller of the two: "userId" (0x49 'I') sorts
+	// before "user_id" (0x5F '_').
+	assertWarningNames(t, w, "userId", "user_id")
 	if w.GroupA != "login" || w.GroupB != "login" {
 		t.Errorf("GroupA/GroupB: got (%q, %q); want both \"login\"", w.GroupA, w.GroupB)
 	}
@@ -1283,4 +1287,271 @@ func TestCheck_Suppression_CrossGroupBucketPath_AllRules(t *testing.T) {
 func itoaPad(i int) string {
 	const digits = "0123456789"
 	return string([]byte{digits[(i/10)%10], digits[i%10]})
+}
+
+// --------------------------------------------------------------------------
+// Plan 09-06 sort-key + completeness-assertion tests
+//
+// These tests pin the post-09-06 Check contract:
+//
+//   - warnings are sorted by (Kind, NameA, NameB, GroupA, GroupB) lex order
+//   - NameA / NameB are lex-canonicalised so NameA <= NameB on raw lex
+//     (TagA/TagB and GroupA/GroupB swap together when the pair is swapped)
+//   - the in-line completeness assertion never fires on valid input
+//   - two consecutive Check invocations on the same items produce identical
+//     post-sort warning slices
+// --------------------------------------------------------------------------
+
+// TestCheck_SortKey_LexOrder builds a small corpus that produces 4+
+// within-group warnings, then asserts the returned slice is sorted by
+// the canonical (Kind, NameA, NameB, GroupA, GroupB) key. The
+// canonicalisation flips NameA/NameB so NameA is the lex-smaller raw
+// string; the sort then orders by that canonical form.
+func TestCheck_SortKey_LexOrder(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+
+	// Two distinct identifier pairs per group across two groups; the
+	// default scorer matches each snake_case / camelCase variant above
+	// the 0.85 threshold, yielding 2 within warnings per group = 4
+	// warnings total.
+	items := []scan.Item{
+		{Name: "user_id", Group: "alpha"},
+		{Name: "userId", Group: "alpha"},
+		{Name: "customer_id", Group: "alpha"},
+		{Name: "customerId", Group: "alpha"},
+		{Name: "user_id", Group: "beta"},
+		{Name: "userId", Group: "beta"},
+		{Name: "order_id", Group: "beta"},
+		{Name: "orderId", Group: "beta"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) < 4 {
+		t.Fatalf("warnings: got %d; want >= 4 for sort-key coverage; warnings=%+v", len(warnings), warnings)
+	}
+
+	for i := 1; i < len(warnings); i++ {
+		prev := warnings[i-1]
+		cur := warnings[i]
+		if !sortKeyLess(prev, cur) && !sortKeyEqual(prev, cur) {
+			t.Errorf("warnings[%d] precedes warnings[%d] but sort key says otherwise:\n  prev=%s\n  cur =%s",
+				i-1, i, sortKeyString(prev), sortKeyString(cur))
+		}
+	}
+
+	// Lex canonicalisation gate: NameA must be <= NameB on raw lex.
+	for i, w := range warnings {
+		if w.NameA > w.NameB {
+			t.Errorf("warnings[%d] not lex-canonical: NameA=%q > NameB=%q", i, w.NameA, w.NameB)
+		}
+	}
+}
+
+// TestCheck_SortKey_KindFirst exercises the Kind precedence in the sort
+// key: KindWithinGroup (== 1) MUST sort before KindAcrossGroups (== 2)
+// when the input produces both kinds. Cross-group + within-group are
+// both enabled; CompareIdenticalAcrossGroups = true ensures the
+// cross-group identical-name pair emits.
+func TestCheck_SortKey_KindFirst(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.CompareAcrossGroups = true
+	cfg.CompareIdenticalAcrossGroups = true
+	cfg.CrossGroupThresholdBoost = 0.0 // cross threshold == within threshold
+
+	items := []scan.Item{
+		{Name: "user_id", Group: "alpha"},
+		{Name: "userId", Group: "alpha"},
+		{Name: "user_id", Group: "beta"}, // cross with alpha's user_id
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var sawWithin, sawAcross bool
+	var lastWithinIdx, firstAcrossIdx = -1, -1
+	for i, w := range warnings {
+		switch w.Kind {
+		case scan.KindWithinGroup:
+			sawWithin = true
+			lastWithinIdx = i
+		case scan.KindAcrossGroups:
+			if !sawAcross {
+				firstAcrossIdx = i
+			}
+			sawAcross = true
+		}
+	}
+	if !sawWithin || !sawAcross {
+		t.Fatalf("precondition: expected at least one within AND one across warning; got within=%v across=%v warnings=%+v",
+			sawWithin, sawAcross, warnings)
+	}
+	if lastWithinIdx >= firstAcrossIdx {
+		t.Errorf("KindWithinGroup must sort before KindAcrossGroups: lastWithinIdx=%d firstAcrossIdx=%d", lastWithinIdx, firstAcrossIdx)
+	}
+}
+
+// TestCheck_SortKey_StableUnderInputReordering proves the post-sort
+// output is invariant under input-slice reordering. Two permutations of
+// the same items[] produce identical warning slices after sort.
+func TestCheck_SortKey_StableUnderInputReordering(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.CompareAcrossGroups = true
+	cfg.CompareIdenticalAcrossGroups = true
+
+	itemsA := []scan.Item{
+		{Name: "user_id", Group: "alpha"},
+		{Name: "userId", Group: "alpha"},
+		{Name: "customer_id", Group: "alpha"},
+		{Name: "user_id", Group: "beta"},
+		{Name: "userId", Group: "beta"},
+	}
+	itemsB := []scan.Item{
+		{Name: "userId", Group: "beta"},
+		{Name: "customer_id", Group: "alpha"},
+		{Name: "user_id", Group: "beta"},
+		{Name: "userId", Group: "alpha"},
+		{Name: "user_id", Group: "alpha"},
+	}
+
+	wA, err := scan.Check(itemsA, cfg)
+	if err != nil {
+		t.Fatalf("Check(itemsA): %v", err)
+	}
+	wB, err := scan.Check(itemsB, cfg)
+	if err != nil {
+		t.Fatalf("Check(itemsB): %v", err)
+	}
+
+	if len(wA) != len(wB) {
+		t.Fatalf("warning count differs across permutations: wA=%d wB=%d", len(wA), len(wB))
+	}
+	for i := range wA {
+		if !sortKeyEqual(wA[i], wB[i]) {
+			t.Errorf("warnings[%d] differs across permutations:\n  itemsA: %s\n  itemsB: %s",
+				i, sortKeyString(wA[i]), sortKeyString(wB[i]))
+		}
+	}
+}
+
+// TestCheck_DeterministicAcrossRuns_PostSort confirms two consecutive
+// Check invocations on the same input produce byte-identical sorted
+// outputs. Extends the Plan 09-04 property-test discipline to the
+// production sort path (no local sort applied).
+func TestCheck_DeterministicAcrossRuns_PostSort(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.CompareAcrossGroups = true
+	cfg.CompareIdenticalAcrossGroups = true
+
+	items := []scan.Item{
+		{Name: "user_id", Group: "alpha"},
+		{Name: "userId", Group: "alpha"},
+		{Name: "customer_id", Group: "alpha"},
+		{Name: "user_id", Group: "beta"},
+		{Name: "userId", Group: "beta"},
+		{Name: "order_id", Group: "beta"},
+	}
+
+	w1, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("Check (run 1): %v", err)
+	}
+	w2, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("Check (run 2): %v", err)
+	}
+	if len(w1) != len(w2) {
+		t.Fatalf("non-deterministic warning count: w1=%d w2=%d", len(w1), len(w2))
+	}
+	for i := range w1 {
+		if !sortKeyEqual(w1[i], w2[i]) {
+			t.Errorf("warnings[%d] non-deterministic:\n  run1=%s\n  run2=%s",
+				i, sortKeyString(w1[i]), sortKeyString(w2[i]))
+		}
+	}
+}
+
+// TestCheck_CompletenessAssertion_NeverFiresOnValidInput exercises a
+// non-trivial corpus (10+ warnings expected) and asserts no panic. The
+// assertion is reached internally; valid input must never trigger it.
+func TestCheck_CompletenessAssertion_NeverFiresOnValidInput(t *testing.T) {
+	t.Parallel()
+
+	s := fuzzymatch.DefaultScorer()
+	cfg := scan.DefaultConfig(s)
+	cfg.CompareAcrossGroups = true
+	cfg.CompareIdenticalAcrossGroups = true
+
+	// Three groups of two snake/camel identifier pairs. Each group
+	// produces one within warning (user_id/userId). Across-group with
+	// CompareIdentical=true, each (gi, gj) pair contributes ~4 cross
+	// warnings (user_id↔user_id, user_id↔userId, userId↔user_id,
+	// userId↔userId) for 12 cross warnings across the three group-pairs.
+	// Comfortably > 10 warnings to exercise the linear-scan completeness
+	// gate.
+	items := []scan.Item{
+		{Name: "user_id", Group: "alpha"},
+		{Name: "userId", Group: "alpha"},
+		{Name: "user_id", Group: "beta"},
+		{Name: "userId", Group: "beta"},
+		{Name: "user_id", Group: "gamma"},
+		{Name: "userId", Group: "gamma"},
+	}
+
+	warnings, err := scan.Check(items, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) < 10 {
+		t.Fatalf("warnings: got %d; want >= 10 for completeness-assertion coverage", len(warnings))
+	}
+}
+
+// sortKeyLess returns whether a's sort key strictly precedes b's. Used
+// by the sort-key tests to verify the (Kind, NameA, NameB, GroupA,
+// GroupB) tuple ordering.
+func sortKeyLess(a, b scan.Warning) bool {
+	if a.Kind != b.Kind {
+		return a.Kind < b.Kind
+	}
+	if a.NameA != b.NameA {
+		return a.NameA < b.NameA
+	}
+	if a.NameB != b.NameB {
+		return a.NameB < b.NameB
+	}
+	if a.GroupA != b.GroupA {
+		return a.GroupA < b.GroupA
+	}
+	return a.GroupB < b.GroupB
+}
+
+// sortKeyEqual returns whether a and b share the full 5-tuple sort key.
+// Tag/Score/Scores are not part of the sort key.
+func sortKeyEqual(a, b scan.Warning) bool {
+	return a.Kind == b.Kind &&
+		a.NameA == b.NameA && a.NameB == b.NameB &&
+		a.GroupA == b.GroupA && a.GroupB == b.GroupB
+}
+
+// sortKeyString renders the 5-tuple sort key for diagnostic messages.
+func sortKeyString(w scan.Warning) string {
+	return fmt.Sprintf("(Kind=%s NameA=%q NameB=%q GroupA=%q GroupB=%q)",
+		w.Kind, w.NameA, w.NameB, w.GroupA, w.GroupB)
 }
