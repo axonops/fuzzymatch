@@ -1345,8 +1345,17 @@ const (
 func (k Kind) String() string
 
 // Warning is one detected similar-name pair. NameA is the
-// lexicographically smaller (after normalisation) for deterministic
-// output ordering.
+// lexicographically smaller of the two raw item Names under
+// Go-native string-byte comparison (raw-byte lex). SPEC OVERRIDE
+// (Phase 9): the originally-specified "(after normalisation)"
+// tiebreaker is unnecessary because Phase 9 D-06 validates that
+// (Name, Group) pairs are unique at Check entry, guaranteeing the
+// (Kind, NameA, NameB, GroupA, GroupB) sort key is a strict total
+// order on every valid input. Plan 09-06's implementation uses
+// raw-byte lex on the RAW (non-normalised) Names so consumers see
+// their input Names in the output verbatim. See 09-CONTEXT.md §3
+// D-06 and the api-ergonomics-reviewer sign-off recorded in plan
+// 09-06's PR.
 type Warning struct {
     // SPEC OVERRIDE (Phase 9): Kind field type renamed per 09-CONTEXT.md
     // §1 D-02; see the Kind declaration above.
