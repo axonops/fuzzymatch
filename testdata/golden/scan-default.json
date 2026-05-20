@@ -1,0 +1,319 @@
+{
+  "_metadata": {
+    "phase": 9,
+    "scanner_signature": "DefaultConfig-2026-05-20"
+  },
+  "entries": [
+    {
+      "config": "DefaultConfig",
+      "items": [
+        {
+          "name": "user_id",
+          "group": "login"
+        },
+        {
+          "name": "userId",
+          "group": "login"
+        },
+        {
+          "name": "user_name",
+          "group": "login"
+        },
+        {
+          "name": "user_id",
+          "group": "profile"
+        },
+        {
+          "name": "userId",
+          "group": "profile"
+        }
+      ],
+      "warnings": [
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "login",
+          "groupB": "login",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "profile",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        }
+      ]
+    },
+    {
+      "config": "DefaultConfig_CrossEnabled",
+      "items": [
+        {
+          "name": "user_id",
+          "group": "login"
+        },
+        {
+          "name": "userId",
+          "group": "login"
+        },
+        {
+          "name": "user_name",
+          "group": "login"
+        },
+        {
+          "name": "user_id",
+          "group": "profile"
+        },
+        {
+          "name": "userId",
+          "group": "profile"
+        }
+      ],
+      "warnings": [
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "login",
+          "groupB": "login",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "profile",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        }
+      ]
+    },
+    {
+      "config": "DefaultConfig_CrossEnabled_AllowIdentical",
+      "items": [
+        {
+          "name": "user_id",
+          "group": "login"
+        },
+        {
+          "name": "userId",
+          "group": "login"
+        },
+        {
+          "name": "user_name",
+          "group": "login"
+        },
+        {
+          "name": "user_id",
+          "group": "profile"
+        },
+        {
+          "name": "userId",
+          "group": "profile"
+        }
+      ],
+      "warnings": [
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "login",
+          "groupB": "login",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "profile",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "AcrossGroups",
+          "nameA": "userId",
+          "nameB": "userId",
+          "groupA": "login",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "AcrossGroups",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "login",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "AcrossGroups",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "profile",
+          "groupB": "login",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        },
+        {
+          "kind": "AcrossGroups",
+          "nameA": "user_id",
+          "nameB": "user_id",
+          "groupA": "login",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        }
+      ]
+    },
+    {
+      "config": "DefaultConfig_WithSuppressedPair",
+      "items": [
+        {
+          "name": "user_id",
+          "group": "login"
+        },
+        {
+          "name": "userId",
+          "group": "login"
+        },
+        {
+          "name": "user_name",
+          "group": "login"
+        },
+        {
+          "name": "user_id",
+          "group": "profile"
+        },
+        {
+          "name": "userId",
+          "group": "profile"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "config": "DefaultConfig_WithSilenceLint",
+      "items": [
+        {
+          "name": "user_id",
+          "group": "login",
+          "silence_lint": true
+        },
+        {
+          "name": "userId",
+          "group": "login"
+        },
+        {
+          "name": "user_name",
+          "group": "login"
+        },
+        {
+          "name": "user_id",
+          "group": "profile"
+        },
+        {
+          "name": "userId",
+          "group": "profile"
+        }
+      ],
+      "warnings": [
+        {
+          "kind": "WithinGroup",
+          "nameA": "userId",
+          "nameB": "user_id",
+          "groupA": "profile",
+          "groupB": "profile",
+          "score": 0.9999999999999999,
+          "scores": {
+            "DamerauLevenshteinOSA": 1,
+            "DoubleMetaphone": 1,
+            "JaroWinkler": 1,
+            "QGramJaccard": 1,
+            "SorensenDice": 1,
+            "TokenJaccard": 1
+          }
+        }
+      ]
+    }
+  ]
+}
