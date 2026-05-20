@@ -1165,6 +1165,118 @@ func TestCheck_Suppression_BucketPath_PreservesSuppression(t *testing.T) {
 	}
 }
 
+// TestCheck_Suppression_CrossGroupBucketPath_AllRules verifies that
+// all three suppression rules apply identically on the cross-group
+// bucket dispatch path. Closes the code-reviewer M1 finding and the
+// algorithm-correctness INV-9 coverage gaps on Plan 09-05 for the
+// (Rule 1 × cross-group × bucket), (Rule 2 × cross-group × bucket),
+// and (Rule 3 × cross-group × bucket) integration cells.
+//
+// Setup: two groups of 60 items each (combined > bucketThreshold so
+// cross-group bucket dispatch fires). The Names mirror each other
+// across groups so cross-group pairs score above threshold:
+//
+//	group_A: user_id_00..user_id_59
+//	group_B: user_id_00..user_id_59
+//
+// Rule 1: SilenceLint on group_A index 0 — no cross-group pair
+//
+//	touching it emits.
+//
+// Rule 2: SuppressedPairs entry ("user_id_05","user_id_05") — the
+//
+//	cross-group identical-name pair at index 5 is suppressed via
+//	canonical-pair lookup even when CompareIdenticalAcrossGroups
+//	is true (Rule 2 overrides Rule 3's opt-out).
+//
+// Rule 3: identical-name default — when
+//
+//	CompareIdenticalAcrossGroups is false (the default), every
+//	cross-group identical-name pair is suppressed.
+func TestCheck_Suppression_CrossGroupBucketPath_AllRules(t *testing.T) {
+	t.Parallel()
+
+	const N = 60
+	build := func(group string) []scan.Item {
+		out := make([]scan.Item, N)
+		for i := 0; i < N; i++ {
+			out[i] = scan.Item{Name: "user_id_" + itoaPad(i), Group: group}
+		}
+		return out
+	}
+	items := append(build("group_A"), build("group_B")...)
+	// Rule 1: silence group_A index 0
+	items[0].SilenceLint = true
+	silencedName := items[0].Name
+	const silencedGroup = "group_A"
+
+	s := fuzzymatch.DefaultScorer()
+
+	// First case: defaults (CompareIdenticalAcrossGroups=false) — Rule 3
+	// suppresses every identical-name cross-group pair; Rule 1 also
+	// fires for group_A[0].
+	t.Run("Rule3_DefaultIdenticalSuppression_Plus_Rule1", func(t *testing.T) {
+		cfg := scan.DefaultConfig(s)
+		cfg.CompareAcrossGroups = true
+		// CompareIdenticalAcrossGroups defaults to false → Rule 3 active
+
+		if 2*N <= scan.BucketThreshold() {
+			t.Fatalf("test precondition: 2N=%d must exceed bucketThreshold=%d", 2*N, scan.BucketThreshold())
+		}
+
+		warnings, err := scan.Check(items, cfg)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, w := range warnings {
+			// Rule 1: group_A[0] is silenced — no pair involving it.
+			if (w.NameA == silencedName && w.GroupA == silencedGroup) ||
+				(w.NameB == silencedName && w.GroupB == silencedGroup) {
+				t.Errorf("Rule 1 violated on cross-group bucket: warning involves silenced item: %+v", w)
+			}
+			// Rule 3: cross-group identical names must be suppressed.
+			if w.Kind == scan.KindAcrossGroups && w.NameA == w.NameB {
+				t.Errorf("Rule 3 violated on cross-group bucket: identical-name cross-group warning: %+v", w)
+			}
+		}
+	})
+
+	// Second case: CompareIdenticalAcrossGroups=true disables Rule 3 —
+	// identical-name cross-group pairs DO emit — except those listed in
+	// SuppressedPairs, which Rule 2 still suppresses.
+	t.Run("Rule2_SuppressedPairOverridesRule3Opt-out", func(t *testing.T) {
+		cfg := scan.DefaultConfig(s)
+		cfg.CompareAcrossGroups = true
+		cfg.CompareIdenticalAcrossGroups = true
+		cfg.SuppressedPairs = [][2]string{{"user_id_05", "user_id_05"}}
+
+		warnings, err := scan.Check(items, cfg)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Find the identical-name cross-group pair at index 5 — must NOT
+		// be present (Rule 2 suppresses).
+		for _, w := range warnings {
+			if w.Kind == scan.KindAcrossGroups &&
+				w.NameA == "user_id_05" && w.NameB == "user_id_05" {
+				t.Errorf("Rule 2 violated on cross-group bucket: SuppressedPairs entry should suppress identical-name pair at index 5: %+v", w)
+			}
+		}
+		// Verify SOME identical-name cross-group pairs DID emit (so we know
+		// the test setup isn't trivially passing).
+		var sawIdenticalEmission bool
+		for _, w := range warnings {
+			if w.Kind == scan.KindAcrossGroups && w.NameA == w.NameB && w.NameA != "user_id_05" {
+				sawIdenticalEmission = true
+				break
+			}
+		}
+		if !sawIdenticalEmission {
+			t.Errorf("test setup: expected at least one identical-name cross-group pair to emit with CompareIdenticalAcrossGroups=true; SuppressedPairs may be over-suppressing")
+		}
+	})
+}
+
 // itoaPad returns the int formatted as a 2-digit zero-padded string.
 // Used by TestCheck_Suppression_BucketPath_PreservesSuppression to
 // keep generated names lexicographically stable.

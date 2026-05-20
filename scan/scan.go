@@ -178,7 +178,19 @@ type Config struct {
 	// collected via errors.Join.
 	//
 	// Self-pairs (a == b after normalisation) are silently kept — they
-	// are harmless because Check never emits a self-warning.
+	// are harmless because Check never emits a self-warning under D-06
+	// (duplicate (Name, Group) is rejected at validation) and the i<j
+	// pair iteration discipline.
+	//
+	// Caveat: the suppression map is keyed by the canonical
+	// (lexicographically-sorted, normalised) pair. A self-pair entry
+	// {"foo","foo"} whose normalised form coincides with the canonical
+	// key of a DISTINCT-name candidate pair (e.g. {"foo","FOO"} when
+	// the Scorer's normalisation lowercases) will also suppress that
+	// distinct pair. This is the inevitable consequence of canonical-
+	// pair semantics — flagged here so consumers building suppression
+	// lists programmatically know to expect it. If precise control is
+	// needed, omit self-pair entries from SuppressedPairs.
 	//
 	// Build cost is O(N) in len(SuppressedPairs); per-candidate lookup
 	// is O(1) via an internal canonical-pair map built once at Check

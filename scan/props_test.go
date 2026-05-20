@@ -148,13 +148,52 @@ func (itemSliceGen) Generate(rng *rand.Rand, _ int) reflect.Value {
 		perGroupCounter[g] = counter + 1
 		name := fmt.Sprintf("%s_%d_%d", base, g, counter)
 		items[i] = scan.Item{
-			Name:        name,
-			Group:       groupNames[g],
-			SilenceLint: false,
+			Name:  name,
+			Group: groupNames[g],
+			// Randomly populate SilenceLint on a ~10% subset so the
+			// bucket-vs-naive equivalence property exercises Rule 1
+			// (per-item SilenceLint) suppression. Closes the
+			// algorithm-correctness-reviewer HIGH finding INV-6 on
+			// Plan 09-05 — SCAN-02 equivalence under SUPPRESSED
+			// emission was previously untested.
+			SilenceLint: rng.Intn(10) == 0,
 			Tag:         nil,
 		}
 	}
 	return reflect.ValueOf(itemSliceGen(items))
+}
+
+// generateSuppressedPairs builds a random [][2]string suitable for
+// cfg.SuppressedPairs from the items already generated. About 30% of
+// entries are drawn from real item names (so suppression fires on
+// real candidate pairs); 70% are arbitrary non-overlapping names
+// (exercising the map's negative-lookup path). Returned slice has
+// 0–10 entries.
+//
+// Closes the algorithm-correctness-reviewer HIGH finding INV-6 on
+// Plan 09-05 — SCAN-02 equivalence under SuppressedPairs
+// suppression was previously untested.
+func generateSuppressedPairs(items []scan.Item, rng *rand.Rand) [][2]string {
+	n := rng.Intn(11) // 0–10 entries
+	if n == 0 || len(items) < 2 {
+		return nil
+	}
+	pairs := make([][2]string, 0, n)
+	for i := 0; i < n; i++ {
+		if rng.Intn(10) < 3 {
+			// 30% chance: draw two real item names.
+			a := items[rng.Intn(len(items))].Name
+			b := items[rng.Intn(len(items))].Name
+			pairs = append(pairs, [2]string{a, b})
+		} else {
+			// 70% chance: arbitrary names unlikely to match.
+			pairs = append(pairs, [2]string{
+				fmt.Sprintf("noop_a_%d", i),
+				fmt.Sprintf("noop_b_%d", i),
+			})
+		}
+	}
+	return pairs
 }
 
 // ----------------------------------------------------------------------
@@ -187,10 +226,24 @@ func TestPropCheck_BucketEquivalentToNaive(t *testing.T) {
 	// forceNaivePath = true into a subsequent test.
 	defer scan.SetForceNaivePath(false)
 
+	// Deterministic per-property RNG seed for SuppressedPairs +
+	// CompareIdenticalAcrossGroups generation. quick.Check passes its
+	// own seed via the generator's rng, but the cfg-shape randomisation
+	// is independent of input generation, so we use a separate seed
+	// here. Stable across runs for reproducibility.
+	cfgRng := rand.New(rand.NewSource(0xCF13C0FF13))
+
 	prop := func(gen itemSliceGen) bool {
 		items := []scan.Item(gen)
 		cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
 		cfg.CompareAcrossGroups = true // exercise both passes
+		// Randomise CompareIdenticalAcrossGroups so Rule 3
+		// (cross-group identical-name) is exercised both enabled and
+		// disabled. Closes algorithm-correctness INV-6 partial.
+		cfg.CompareIdenticalAcrossGroups = cfgRng.Intn(2) == 0
+		// Randomise SuppressedPairs so Rule 2 (canonical-pair
+		// suppression) is exercised on both naive and bucket paths.
+		cfg.SuppressedPairs = generateSuppressedPairs(items, cfgRng)
 
 		// Production (bucket) path.
 		scan.SetForceNaivePath(false)
@@ -212,8 +265,10 @@ func TestPropCheck_BucketEquivalentToNaive(t *testing.T) {
 		scan.SetForceNaivePath(false)
 
 		if !warningSetsEqual(prodWarnings, naiveWarnings) {
-			t.Logf("bucket vs naive divergence on %d items / %d groups: bucket=%d, naive=%d",
-				len(items), distinctGroupCount(items), len(prodWarnings), len(naiveWarnings))
+			t.Logf("bucket vs naive divergence on %d items / %d groups (CompareIdenticalAcrossGroups=%v, SuppressedPairs=%d): bucket=%d, naive=%d",
+				len(items), distinctGroupCount(items),
+				cfg.CompareIdenticalAcrossGroups, len(cfg.SuppressedPairs),
+				len(prodWarnings), len(naiveWarnings))
 			return false
 		}
 		return true

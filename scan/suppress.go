@@ -40,11 +40,12 @@
 //     anyway, because D-06 rejects duplicate (Name, Group) at the
 //     validation gate, and within-group items always share Group.
 //
-// Plan-09-03's inline cross-group identical-name check (scan.go:589 and
-// :620) has been MIGRATED into isSuppressed Rule 3 by Plan 09-05 — both
-// the naive and bucket cross-group emission paths now route through the
-// same predicate. The migration is a behaviour-preserving refactor: the
-// SCAN-04 default still fires, just from one centralised location.
+// Plan-09-03's inline cross-group identical-name check at the
+// cross-group emission sites has been MIGRATED into isSuppressed
+// Rule 3 by Plan 09-05 — both the naive and bucket cross-group
+// emission paths now route through the same predicate. The migration
+// is a behaviour-preserving refactor: the SCAN-04 default still
+// fires, just from one centralised location.
 //
 // Pitfall 4 (09-RESEARCH.md): SuppressedPairs entries are normalised
 // ONCE at Check entry. Consumers may pass raw forms ("USER_ID",
@@ -245,9 +246,9 @@ func isSuppressed(a, b Item, kind Kind, normalisedNameA, normalisedNameB string,
 	}
 
 	// Rule 3 — cross-group identical-name default (SCAN-04). Migrated
-	// from Plan-09-03's inline check at scan.go:589 / scan.go:620 into
-	// this predicate for unified semantics. Within-group pairs are
-	// NEVER suppressed by Rule 3 — within-group identical-name
+	// from Plan-09-03's inline check at the cross-group emission sites
+	// into this predicate for unified semantics. Within-group pairs
+	// are NEVER suppressed by Rule 3 — within-group identical-name
 	// candidates are unreachable anyway (D-06 rejects duplicate (Name,
 	// Group), and within-group items always share Group).
 	if kind == KindAcrossGroups && normalisedNameA == normalisedNameB && !sc.compareIdenticalAcrossGroups {
