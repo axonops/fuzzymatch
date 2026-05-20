@@ -3,8 +3,8 @@
 The `scan` sub-package at `github.com/axonops/fuzzymatch/scan` is the
 turnkey collection-scan layer over the `Scorer`. It answers the
 question "which pairs in this collection are similar?" with a
-deterministic, suppression-aware, group-aware API. Available since
-v1.0.
+deterministic, suppression-aware, group-aware API. Lands in v1.0
+(pre-release at the time of writing).
 
 A `scan.Config` is a plain data struct passed by value; `scan.Check`
 is a pure function with no goroutines, channels, or mutexes — safe
@@ -47,23 +47,98 @@ func main() {
 = false` defaults — see [Threshold boost](#threshold-boost) and
 [Suppression composition](#suppression-composition) below.
 
-For tighter precision the recommended composition is **Validate-then-Check**:
+For tighter precision the recommended composition is
+**Validate-then-Check**. `Validate` is a pair-validation surface
+(Phase 8.5 Q4) — call it AFTER `Check` returns, on each emitted
+`(NameA, NameB)` pair, to surface per-pair input-quality diagnostics
+in O(|warnings|) rather than O(N) work upstream:
+
+```go
+warnings, err := scan.Check(items, scan.DefaultConfig(s))
+if err != nil {
+    // handle ErrInvalidItem / ErrInvalidConfig / ErrNilScorer
+}
+for _, w := range warnings {
+    if vs := fuzzymatch.Validate(w.NameA, w.NameB); len(vs) > 0 {
+        // surface per-pair input-quality signals (mixed scripts,
+        // non-ASCII edge cases, etc.) alongside the similarity warning
+        _ = vs
+    }
+}
+```
+
+Alternatively, if your consumer needs per-item shape checks before
+scanning (e.g. very-large-input filters, non-ASCII detection on
+single names), validate each `Item.Name` against itself:
 
 ```go
 for i, it := range items {
-    if ws := fuzzymatch.Validate(it.Name, ""); len(ws) > 0 {
-        // log + decide whether to continue (Phase 8.5 Q4 — Validate
-        // is the input-quality diagnostic surface; the scan layer
-        // accepts every non-empty Name and trusts the upstream caller
-        // to gate on Validate output).
+    if it.Name == "" {
+        continue // scan.Check will reject via D-03; skip the diag
+    }
+    if ws := fuzzymatch.Validate(it.Name, it.Name); len(ws) > 0 {
+        // per-item shape diagnostics
         _ = i
+        _ = ws
     }
 }
 warnings, err := scan.Check(items, scan.DefaultConfig(s))
 ```
 
+Note: passing `""` as the second argument to `Validate` always
+triggers `WarnEmptyInput` and is not a useful pre-flight idiom.
+Always pass two real strings.
+
 See [`docs/best-practices.md`](best-practices.md) for the broader
 Validate-then-Score idiom that applies to every layer.
+
+## Choosing a Config
+
+A short decision guide for the three Config shapes:
+
+- **Within-group only (most common).** Use `scan.DefaultConfig(s)`
+  unchanged. Compares items within each `Group`; cross-group is off.
+  Suitable for the typical "find similar names within each schema /
+  collection / namespace" use case.
+- **Within + cross-group, reuse-tolerant.** Use
+  `scan.DefaultConfig(s)` and set `cfg.CompareAcrossGroups = true`.
+  Adds the cross-group pass with the opinionated `0.05` boost.
+  `CompareIdenticalAcrossGroups` stays `false` so legitimate
+  reuse-across-groups (operators reusing `user_id` across schemas)
+  doesn't drown signal.
+- **Surface every identical cross-group name.** Use
+  `scan.DefaultConfig(s)` and set both `cfg.CompareAcrossGroups =
+  true` and `cfg.CompareIdenticalAcrossGroups = true`. Now every
+  byte-identical-post-normalise pair across groups appears in the
+  output. Use sparingly; the volume scales with input size.
+
+Custom `CrossGroupThresholdBoost` values are valid in `[0.0, 1.0]`;
+see [Threshold boost](#threshold-boost) for tuning notes.
+
+## Security and logging considerations
+
+`Item.Name`, `Item.Group`, and (when emitted) `Warning.NameA`,
+`Warning.NameB`, `Warning.GroupA`, `Warning.GroupB` are verbatim
+echoes of the caller-supplied byte content. Consumers that pipe
+emitted warnings into logs propagate whatever bytes were in
+`Item.Name`/`Item.Group` — including any sensitive content the
+caller chose to put there. The library itself never logs these
+values; downstream loggers do.
+
+If your `Item` corpus contains sensitive content (PII, schema field
+names you don't want in unsanitised log streams, etc.):
+
+- Carry sensitive context exclusively in `Item.Tag` (which the
+  library never stringifies into error messages, panic messages, or
+  diagnostic output — see the
+  [security note in `scan.Item.Tag` godoc](https://pkg.go.dev/github.com/axonops/fuzzymatch/scan)).
+- Sanitise `Warning.NameA`/`NameB`/`GroupA`/`GroupB` at the logger
+  boundary if those identifiers are themselves sensitive.
+
+Validation error messages from `scan.Check` only contain integer
+indices (offending item positions in the input slice), never
+`Item.Name` or `Item.Tag` bytes. The in-line completeness assertion
+panic message similarly omits Tag content.
 
 ## Public API
 
@@ -375,12 +450,26 @@ case err != nil:
 }
 ```
 
+Each sentinel's godoc on
+[pkg.go.dev](https://pkg.go.dev/github.com/axonops/fuzzymatch/scan)
+follows the project's four-section template (What / Common causes /
+Resolution / Example) — consult that for full per-sentinel guidance
+beyond the one-line summaries above.
+
+The library-bug panic surface
+(`fuzzymatch.ErrInternalInvariantViolated`, raised by the in-line
+sort-key completeness assertion) is documented in
+[Determinism](#determinism); consumers can `errors.Is(recovered,
+fuzzymatch.ErrInternalInvariantViolated)` to discriminate it from
+genuine errors. By construction (D-06 validation), this panic is
+unreachable on valid input.
+
 ## Decision references
 
-The implementation honours a set of locked decisions recorded in
-[`09-CONTEXT.md`](../.planning/phases/09-collection-scan-sub-package/09-CONTEXT.md)
-that materially shape the public surface. The most consumer-visible
-ones (also surfaced as SPEC OVERRIDE notes inline above):
+The implementation honours a set of locked design decisions
+documented internally (planning artefacts) that materially shape
+the public surface. The most consumer-visible ones (also surfaced
+as SPEC OVERRIDE notes inline above):
 
 - **D-01.** `Warning.Scores` is `map[fuzzymatch.AlgoID]float64`
   (typed enum keys), NOT `map[string]float64` as

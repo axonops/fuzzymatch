@@ -3,8 +3,8 @@
 The `Scorer` is the second layer of fuzzymatch's three-layer
 architecture. It composes any subset of the 23 catalogue algorithms
 into a single weighted similarity score in `[0.0, 1.0]`, with a
-configurable threshold for the boolean `Match` shortcut. Available
-since v1.0.
+configurable threshold for the boolean `Match` shortcut. Lands in
+v1.0 (pre-release at the time of writing).
 
 A `Scorer` is **immutable after construction** and **safe for
 concurrent use** without external locks. Callers wanting a different

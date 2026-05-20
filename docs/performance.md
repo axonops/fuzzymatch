@@ -58,3 +58,30 @@ TBD. `make bench-compare` runs `benchstat $(BENCH_FILE) $(BENCH_NEW_FILE)`
 and reports any > 10% regression. The regression gate is local-developer
 discipline until a self-hosted CI runner is available (D-09; see
 [`CONTRIBUTING.md`](../CONTRIBUTING.md) §Benchmark discipline).
+
+## Consumer-side input-size bounding (DoS posture)
+
+The library does **not** enforce a `MaxItems` parameter on
+`scan.Check`. Per `docs/requirements.md` §12.6 the budgets cover
+200 / 1000 / 10 000-item workloads, but the library accepts any
+slice length the caller passes.
+
+For services that process **untrusted** input (e.g. user-supplied
+schemas, web-form names, external-API responses), the caller is
+responsible for bounding the input slice length before calling
+`scan.Check`. Without this:
+
+- Within-group at 10⁶ items in a single group is O(10¹²) pairs and
+  will exhaust memory long before completing.
+- Cross-group at 10⁴ items / 500 groups currently runs ~189 s at
+  v0.x (see the cross-group caveat in `docs/requirements.md` §12.6
+  and `docs/scan.md` performance section). 10⁵ items would be ~5
+  hours.
+- Adversarial all-match input grows the `[]Warning` slice
+  quadratically; on 10⁴ all-matching items the slice contains ~5×10⁷
+  Warning structs, each carrying a fresh `Scores` map.
+
+Recommended bounds for the typical service workload: cap
+`len(items)` at 10⁴ for the default within-only configuration, and
+at 10³ if `CompareAcrossGroups = true`. Streaming variants
+(`iter.Seq[Warning]`) are tracked as a v2 follow-up.

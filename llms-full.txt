@@ -1583,8 +1583,8 @@ func Check(items []Item, cfg Config) ([]Warning, error)
 
 ```go
 var ErrNilScorer     = errors.New("scan: Config.Scorer is required")
-var ErrInvalidItem   = errors.New("scan: invalid Item")
-var ErrInvalidConfig = errors.New("scan: invalid Config")
+var ErrInvalidItem   = errors.New("scan: invalid item")
+var ErrInvalidConfig = errors.New("scan: invalid config")
 ```
 
 ## Sample programs

@@ -117,6 +117,37 @@ func main() {
 
 For lower-level primitives — `Normalise`, `Tokenise`, and the 23 individual algorithm functions — see [Common Patterns](#common-patterns) below and the runnable programmes at [`examples/identifier-similarity/`](examples/identifier-similarity/main.go) and [`examples/scorer-composition/`](examples/scorer-composition/main.go).
 
+### Scanning a collection for similar names
+
+The `scan` sub-package finds pairs of similar names in a collection (Layer 3 — turnkey collection-scan over the Scorer):
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "github.com/axonops/fuzzymatch"
+    "github.com/axonops/fuzzymatch/scan"
+)
+
+func main() {
+    s := fuzzymatch.DefaultScorer()
+    items := []scan.Item{
+        {Name: "user_id", Group: "login"},
+        {Name: "userId", Group: "login"},
+        {Name: "customer_id", Group: "billing"},
+    }
+    warnings, _ := scan.Check(items, scan.DefaultConfig(s))
+    for _, w := range warnings {
+        fmt.Printf("%s: %s/%s (%.2f)\n", w.Kind, w.NameA, w.NameB, w.Score)
+    }
+    // Output: WithinGroup: userId/user_id (1.00)
+}
+```
+
+See [`docs/scan.md`](docs/scan.md) for full coverage of suppression, cross-group passes, and threshold-boost arithmetic, plus the runnable [`examples/scan-demo/`](examples/scan-demo/main.go).
+
 ## Common Patterns
 
 ### Validate-then-Score: audit input quality before scoring
