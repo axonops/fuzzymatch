@@ -1159,6 +1159,21 @@ func (s *Scorer) Threshold() float64
 // affecting subsequent calls. Safe for concurrent use.
 func (s *Scorer) Algorithms() []ScorerAlgorithm
 
+// NormalisationOptions returns the NormalisationOptions stored at
+// construction time, along with a bool indicating whether the Scorer
+// applies normalisation (false when WithoutNormalisation was the last
+// normalisation option applied). The returned options are by-value —
+// callers cannot mutate the Scorer's internal options through this
+// surface; subsequent calls observe the original values regardless of
+// any caller-side mutation. Used by the scan sub-package
+// (github.com/axonops/fuzzymatch/scan) to canonicalise SuppressedPairs
+// entries and build token buckets using the same normalisation
+// pipeline the Scorer uses for scoring (per spec §8 + §12.3 + §12.5,
+// as amended in Phase 9 plan 09-01 to resolve 09-RESEARCH.md Open
+// Question 1). Safe for concurrent use; the Scorer is immutable
+// after NewScorer.
+func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool)
+
 // ScoreAll returns per-algorithm raw scores for the configured
 // algorithm set as a map[AlgoID]float64.
 //
@@ -1447,6 +1462,110 @@ score := fuzzymatch.DefaultScorer().Score(a, b)
 ```
 
 A runnable end-to-end programme lives at [`examples/validate-input-quality/`](examples/validate-input-quality/main.go).
+
+### Collection scan sub-package (scan/scan.go — Phase 9 plan 09-01)
+
+Plan 09-01 lands the Phase 9 scan sub-package foundation: public
+types (Item, Config, Warning, Kind), three sentinel errors,
+DefaultConfig opinionated helper, and a Check stub. The full Check
+body lands incrementally across plans 09-02 (validation pipeline),
+09-03 (within + cross-group), 09-04 (token-bucket optimisation),
+09-05 (suppression), 09-06 (sort + completeness + golden). Import
+as `github.com/axonops/fuzzymatch/scan`. The root package has no
+dependency on scan; the sub-package depends on the root.
+
+**SPEC OVERRIDE notes** (per 09-CONTEXT.md §1 D-01 + D-02; both
+overrides signed off by api-ergonomics-reviewer in plan 09-01's PR):
+
+- `scan.Warning.Scores` is `map[fuzzymatch.AlgoID]float64` (typed
+  enum keys), NOT `map[string]float64` as the original spec §12.1
+  line 1337 specified. Extends the Phase 8 ScoreAll override at §8.3
+  and §8.6 for the same compile-time-safety rationale.
+- The within/cross discriminator type is `scan.Kind`. The
+  package-scoped form is unambiguous at the call site and avoids
+  accidental symmetry with the root package's WarnKind.
+
+```go
+package scan
+
+import "github.com/axonops/fuzzymatch"
+
+// Item is one named thing the scanner compares. Required fields:
+// Name (non-empty). Optional fields: Group (scopes the comparison;
+// empty string is a valid single global group), SilenceLint (one-side
+// suppression flag), Tag (opaque consumer data — never stringified
+// into error messages).
+type Item struct {
+    Name        string
+    Group       string
+    SilenceLint bool
+    Tag         any
+}
+
+// Kind classifies a scan.Warning's pair scope. SPEC OVERRIDE
+// (Phase 9): renamed per 09-CONTEXT.md §1 D-02. Zero value is
+// unspecified; documented constants start at iota + 1.
+type Kind int
+
+const (
+    KindWithinGroup Kind = iota + 1
+    KindAcrossGroups
+)
+
+// String returns the CamelCase label: "WithinGroup", "AcrossGroups",
+// or the allocating "Kind(N)" fallback for out-of-range values.
+func (k Kind) String() string
+
+// Warning is one detected similar-name pair. NameA is the
+// lexicographically smaller (after normalisation) so ordering is
+// stable across runs. SPEC OVERRIDE (Phase 9): Scores type
+// map[fuzzymatch.AlgoID]float64 per 09-CONTEXT.md §1 D-01.
+type Warning struct {
+    Kind           Kind
+    NameA, NameB   string
+    GroupA, GroupB string
+    TagA, TagB     any
+    Score          float64
+    Scores         map[fuzzymatch.AlgoID]float64
+}
+
+// Config controls Check behaviour. Zero value is invalid (Scorer is
+// nil → ErrNilScorer). The opinionated default 0.05 boost lives in
+// DefaultConfig (SPEC OVERRIDE (Phase 9): migrated per 09-CONTEXT.md
+// §2 D-04).
+type Config struct {
+    Scorer                       *fuzzymatch.Scorer
+    CompareAcrossGroups          bool
+    CrossGroupThresholdBoost     float64
+    CompareIdenticalAcrossGroups bool
+    SuppressedPairs              [][2]string
+}
+
+// DefaultConfig returns an opinionated Config bound to the supplied
+// Scorer: CrossGroupThresholdBoost = 0.05, all bool fields false,
+// SuppressedPairs nil. SPEC OVERRIDE (Phase 9): the 0.05 default
+// location migrated here per 09-CONTEXT.md §2 D-04, mirroring Phase
+// 8's DefaultScorer / DefaultScorerOptions pattern.
+func DefaultConfig(s *fuzzymatch.Scorer) Config
+
+// Check compares every pair per the Config and returns warnings for
+// matches. Sorted by (Kind, NameA, NameB, GroupA, GroupB).
+// Plan 09-01 stub: returns (nil, ErrNilScorer) when cfg.Scorer is
+// nil; (nil, nil) otherwise. The full validation pipeline lands in
+// Plan 09-02; the similarity body across Plans 09-03 through 09-06.
+// Multi-error semantics (D-03 + D-05 + D-06): ErrInvalidItem and
+// ErrInvalidConfig may be returned as errors.Join of multiple
+// wrapped values; errors.Is walks Unwrap() []error (Go 1.20+).
+func Check(items []Item, cfg Config) ([]Warning, error)
+```
+
+**Sentinel errors** (four-section godoc per Phase 8.5 Q4 template):
+
+```go
+var ErrNilScorer     = errors.New("scan: Config.Scorer is required")
+var ErrInvalidItem   = errors.New("scan: invalid Item")
+var ErrInvalidConfig = errors.New("scan: invalid Config")
+```
 
 ## Sample programs
 

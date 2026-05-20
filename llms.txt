@@ -206,6 +206,7 @@ in Phase 8.5 Q3.
 - func (s *Scorer) Threshold() float64
 - func (s *Scorer) Algorithms() []ScorerAlgorithm
 - func (s *Scorer) ScoreAll(a, b string) map[AlgoID]float64
+- func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool)
 - type ScorerAlgorithm struct
 - type ScorerOption func(*scorerConfig) error
 - func WithAlgorithm(algo AlgoID, weight float64) ScorerOption
@@ -254,6 +255,45 @@ Warnings that affect every algorithm in the catalogue.
 - const WarnAllNonASCIIDropped WarnKind
 - const WarnPathologicallyLargeInput WarnKind
 - const AlgoIDAny AlgoID
+
+## Public API (sub-package: scan)
+
+Layer 3 turnkey collection-scan over the root *fuzzymatch.Scorer.
+Import as `github.com/axonops/fuzzymatch/scan`. The sub-package is
+optional — the root package has no dependency on scan. Pure function;
+no goroutines; safe for concurrent invocation on disjoint inputs. See
+docs/scan.md and docs/requirements.md §12 for the full surface.
+
+SPEC OVERRIDE notes per 09-CONTEXT.md §1: scan.Kind (originally
+WarningKind in §12.1) and Warning.Scores type
+map[fuzzymatch.AlgoID]float64 (originally map[string]float64).
+api-ergonomics-reviewer signed off on both overrides in plan 09-01's
+PR. Default 0.05 CrossGroupThresholdBoost lives in
+scan.DefaultConfig.
+
+### Types
+
+- type Item struct
+- type Config struct
+- type Warning struct
+- type Kind int
+
+### Functions
+
+- func Check(items []Item, cfg Config) ([]Warning, error)
+- func DefaultConfig(s *fuzzymatch.Scorer) Config
+- func (Kind) String() string
+
+### Constants
+
+- const KindWithinGroup Kind
+- const KindAcrossGroups Kind
+
+### Sentinel errors
+
+- var ErrNilScorer error
+- var ErrInvalidItem error
+- var ErrInvalidConfig error
 
 ## Out of v1.0 scope
 

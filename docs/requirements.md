@@ -1038,6 +1038,20 @@ func (s *Scorer) Threshold() float64
 // a fresh allocation per call.
 func (s *Scorer) Algorithms() []ScorerAlgorithm
 
+// NormalisationOptions returns the NormalisationOptions stored at
+// construction time, along with a boolean indicating whether the
+// Scorer applies normalisation (false when the Scorer was constructed
+// with WithoutNormalisation). The returned options are by-value —
+// mutating the returned struct does not affect the Scorer. Used by
+// the scan sub-package (github.com/axonops/fuzzymatch/scan) to
+// canonicalise SuppressedPairs entries and build token buckets using
+// the same normalisation pipeline the Scorer uses for scoring, per
+// §12.3 and §12.5. Safe for concurrent use; the Scorer is immutable
+// after NewScorer. Added in Phase 9 plan 09-01 to resolve
+// 09-RESEARCH.md Open Question 1 (how scan accesses the Scorer's
+// normalisation state without coupling Config to a duplicate field).
+func (s *Scorer) NormalisationOptions() (opts NormalisationOptions, applied bool)
+
 // ScorerAlgorithm describes one algorithm configured on a Scorer.
 type ScorerAlgorithm struct {
     ID     AlgoID
@@ -1303,13 +1317,22 @@ type Item struct {
     Tag any
 }
 
-// WarningKind classifies a similarity warning.
-type WarningKind int
+// SPEC OVERRIDE (Phase 9): type renamed to Kind per 09-CONTEXT.md §1
+// D-02 (the previous draft used a verbose two-word name that doubled
+// the noise of WarnKind in the root package). The package-scoped form
+// (scan.KindWithinGroup, scan.KindAcrossGroups) is unambiguous at the
+// call site and avoids accidental symmetry with the root package's
+// WarnKind type (which classifies Validate diagnostics, a different
+// domain). api-ergonomics-reviewer signed off on this override in
+// plan 09-01's PR.
+
+// Kind classifies a similarity warning.
+type Kind int
 
 const (
     // KindWithinGroup signals a similar-name pair where both items
     // have the same Group.
-    KindWithinGroup WarningKind = iota + 1
+    KindWithinGroup Kind = iota + 1
 
     // KindAcrossGroups signals a similar-name pair where the items
     // have different Group values.
@@ -1319,13 +1342,15 @@ const (
 // String returns the CamelCase form ("WithinGroup", "AcrossGroups"),
 // matching the AlgoID.String() and WarnKind.String() naming convention
 // locked in §6 Algorithm identifiers and Phase 8.5 Q6b.
-func (k WarningKind) String() string
+func (k Kind) String() string
 
 // Warning is one detected similar-name pair. NameA is the
 // lexicographically smaller (after normalisation) for deterministic
 // output ordering.
 type Warning struct {
-    Kind           WarningKind
+    // SPEC OVERRIDE (Phase 9): Kind field type renamed per 09-CONTEXT.md
+    // §1 D-02; see the Kind declaration above.
+    Kind           Kind
     NameA, NameB   string
     GroupA, GroupB string
     TagA, TagB     any
@@ -1333,8 +1358,14 @@ type Warning struct {
     // Score is the composite score returned by the configured Scorer.
     Score float64
 
-    // Scores carries the per-algorithm breakdown from Scorer.ScoreAll.
-    Scores map[string]float64
+    // SPEC OVERRIDE (Phase 9): Scores is map[AlgoID]float64 (typed
+    // enum keys) per 09-CONTEXT.md §1 D-01. Extends the Phase 8
+    // ScoreAll override at §8.3 + §8.6 for the same typed-enum-keys
+    // rationale: the rest of the library exposes AlgoID and gives
+    // consumers compile-time key safety. Use AlgoID.String() for
+    // CamelCase display. api-ergonomics-reviewer signed off on this
+    // override in plan 09-01's PR.
+    Scores map[AlgoID]float64
 }
 
 // Config controls Check behaviour. Construct directly; the zero
@@ -1356,7 +1387,15 @@ type Config struct {
     // when evaluating cross-group pairs. The cross-group pass is
     // inherently noisier than the within-group pass; a small
     // positive value (0.02–0.05) reduces false positives without
-    // disabling the pass. Default: 0.05. Range [0.0, 1.0].
+    // disabling the pass. Range [0.0, 1.0].
+    //
+    // Zero-value is 0.0 (no boost). The opinionated default 0.05 is
+    // supplied by `scan.DefaultConfig(s *fuzzymatch.Scorer) Config`.
+    // SPEC OVERRIDE (Phase 9): default-0.05 location migrated from
+    // this field godoc to `DefaultConfig` per 09-CONTEXT.md §2 D-04,
+    // mirroring Phase 8's DefaultScorer / DefaultScorerOptions pattern
+    // (the zero-value of the struct is a valid minimal Config; the
+    // opinionated helper bakes in the experience-tuned values).
     CrossGroupThresholdBoost float64
 
     // CompareIdenticalAcrossGroups, when false (default), suppresses
@@ -1386,11 +1425,18 @@ type Config struct {
 // concurrent use with itself and with any Scorer method.
 //
 // Returns ErrNilScorer if cfg.Scorer is nil. Returns ErrInvalidItem
-// wrapped with the offending item's index if any item has an empty
-// Name. Returns ErrInvalidConfig wrapped with the specific problem
-// if cfg is otherwise malformed (e.g. CrossGroupThresholdBoost
-// outside [0.0, 1.0]). Empty items slice returns an empty Warning
-// slice and no error.
+// wrapped with every offending index, joined via errors.Join — the
+// caller's `errors.Is(err, scan.ErrInvalidItem)` discriminates because
+// errors.Is walks Unwrap() []error (Go 1.20+). Validation rules:
+// Item.Name == "" (D-03) and duplicate (Name, Group) (D-06) — see
+// 09-CONTEXT.md §2 D-03 and §3 D-06 for the SPEC OVERRIDE rationale
+// (the spec originally specified single-offending-index fail-fast
+// wording; collect-all via errors.Join lets the caller fix the whole
+// batch in one round-trip). Returns ErrInvalidConfig wrapped with the
+// specific problem if cfg is otherwise malformed (D-04: NaN / ±Inf /
+// out-of-range CrossGroupThresholdBoost; D-05: empty SuppressedPairs
+// entries, also joined via errors.Join). Empty items slice returns an
+// empty Warning slice and no error.
 func Check(items []Item, cfg Config) ([]Warning, error)
 ```
 
@@ -2007,7 +2053,7 @@ Scorer + NewScorer + DefaultScorer + all option functions + per-algorithm dispat
 
 ### Phase 6 — Scan sub-package (`v0.6.0`)
 
-`github.com/axonops/fuzzymatch/scan` package: `Item`, `Config`, `Warning`, `WarningKind`, `Check`, sentinel errors. Token-bucket optimisation with property test verifying equivalence to naive O(N²). Within-group and cross-group passes. Both suppression mechanisms (`SilenceLint`, `SuppressedPairs`) with composition test. Cross-group identical-name suppression. Deterministic output ordering verified by property test. BDD scenarios for scan and suppression. `scan/example_test.go` runnable godoc examples. Performance budgets per section 12.6 met and committed to `bench.txt`.
+`github.com/axonops/fuzzymatch/scan` package: `Item`, `Config`, `Warning`, `Kind` (SPEC OVERRIDE (Phase 9): renamed per §12.1 and 09-CONTEXT.md §1 D-02), `Check`, sentinel errors. Token-bucket optimisation with property test verifying equivalence to naive O(N²). Within-group and cross-group passes. Both suppression mechanisms (`SilenceLint`, `SuppressedPairs`) with composition test. Cross-group identical-name suppression. Deterministic output ordering verified by property test. BDD scenarios for scan and suppression. `scan/example_test.go` runnable godoc examples. Performance budgets per section 12.6 met and committed to `bench.txt`.
 
 ### Phase 7 — Integration shakedown via consumer (`v0.6.x` patches)
 
@@ -2058,7 +2104,7 @@ API frozen. Final CHANGELOG. Final benchmark numbers in `bench.txt`. Tag `v1.0.0
 ### Scan sub-package
 
 - [ ] Package path `github.com/axonops/fuzzymatch/scan` under the same module
-- [ ] `Item`, `Config`, `Warning`, `WarningKind` types per section 12.1
+- [ ] `Item`, `Config`, `Warning`, `Kind` types per section 12.1 (SPEC OVERRIDE (Phase 9): `Kind` renamed per §12.1 and 09-CONTEXT.md §1 D-02)
 - [ ] `Check(items, cfg) ([]Warning, error)` function
 - [ ] `ErrNilScorer`, `ErrInvalidItem`, `ErrInvalidConfig` sentinel errors
 - [ ] Within-group pass produces expected warnings
