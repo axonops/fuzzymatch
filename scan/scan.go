@@ -748,6 +748,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 //	        }
 //	    }
 //	}()
+//
 // tryEmit applies the suppression + threshold gate and appends a
 // Warning to the in-flight slice when the pair passes. Collapses
 // the four emission sites (within naive, within bucket, cross

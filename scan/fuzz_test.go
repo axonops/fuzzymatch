@@ -99,8 +99,8 @@ func FuzzCheckConfig(f *testing.F) {
 	// Seed corpus — documented boundary values for the boost float
 	// plus the four bool-combination corners.
 	seeds := []struct {
-		boost                                    float64
-		compareAcross, compareIdenticalAcross    bool
+		boost                                 float64
+		compareAcross, compareIdenticalAcross bool
 	}{
 		{0.0, false, false}, // zero-value baseline
 		{0.05, true, false}, // DefaultConfig posture
@@ -140,12 +140,12 @@ func FuzzCheckSuppressedPairs(f *testing.F) {
 	// Seed corpus — boundary pair entries (empty, self-pair, mixed
 	// case, Unicode, invalid UTF-8).
 	for _, seed := range []struct{ a, b string }{
-		{"user_id", "userId"},   // canonical match-able pair
-		{"USER_ID", "user_id"},  // case-insensitive via normalisation
-		{"user_id", "user_id"},  // self-pair (D-05 silently kept)
-		{"", "userId"},          // empty side → ErrInvalidConfig
-		{"\xff", "userId"},      // invalid UTF-8 in pair
-		{"a\x00b", "user_id"},   // embedded null
+		{"user_id", "userId"},  // canonical match-able pair
+		{"USER_ID", "user_id"}, // case-insensitive via normalisation
+		{"user_id", "user_id"}, // self-pair (D-05 silently kept)
+		{"", "userId"},         // empty side → ErrInvalidConfig
+		{"\xff", "userId"},     // invalid UTF-8 in pair
+		{"a\x00b", "user_id"},  // embedded null
 	} {
 		f.Add(seed.a, seed.b)
 	}
