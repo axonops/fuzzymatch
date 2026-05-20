@@ -40,24 +40,28 @@
 //     Warning struct declarations, the three sentinel errors, the
 //     DefaultConfig opinionated helper, and the Check stub that returns
 //     (nil, ErrNilScorer) when cfg.Scorer is nil. Plan 09-02 adds the
-//     full validation pipeline. Plan 09-03 (this plan) lands the Check
-//     body with the naive within-group + cross-group passes and the
-//     SCAN-04 identical-name suppression default. Plan 09-04 wires in
-//     the token-bucket optimisation (bucketThreshold = 50, private
-//     const); Plan 09-05 adds full suppression composition (SilenceLint
-//     + SuppressedPairs); Plan 09-06 adds the deterministic sort and
-//     in-line completeness assertion.
+//     full validation pipeline. Plan 09-03 lands the Check body with
+//     the naive within-group + cross-group passes and the SCAN-04
+//     identical-name suppression default (inline at the cross-group
+//     emission site). Plan 09-04 wires in the token-bucket optimisation
+//     (bucketThreshold = 50, private const). Plan 09-05 lands the full
+//     suppression composition (SilenceLint + SuppressedPairs + Rule 3)
+//     in scan/suppress.go and routes both naive and bucket emission
+//     paths through the isSuppressed predicate; the Plan-09-03 inline
+//     identical-name check is migrated into Rule 3 for unified
+//     semantics. Plan 09-06 adds the deterministic sort and in-line
+//     completeness assertion.
 //
 //   - Validation pipeline order (P1..P4) is LOCKED (09-CONTEXT.md §2):
 //     nil-Scorer fail-fast → Config field validation → Items validation
 //     (D-03 + D-06 collect-all via errors.Join) → SuppressedPairs
 //     validation (D-05 collect-all).
 //
-//   - The Scorer's normalisation options are accessed via the new
+//   - The Scorer's normalisation options are accessed via the
 //     Scorer.NormalisationOptions() public method introduced in Plan
-//     09-01 (resolves 09-RESEARCH.md Open Question 1). Plans 09-04 +
-//     09-05 will consume this accessor when building token buckets and
-//     canonicalising SuppressedPairs.
+//     09-01 (resolves 09-RESEARCH.md Open Question 1). Plan 09-04
+//     consumes the accessor when building token buckets; Plan 09-05
+//     consumes it when canonicalising SuppressedPairs (Pitfall 4).
 //
 //   - In-line completeness assertion (added in Plan 09-06) panics with
 //     fuzzymatch.ErrInternalInvariantViolated (Phase 8.5 Gap 5) when
@@ -306,13 +310,27 @@ func DefaultConfig(s *fuzzymatch.Scorer) Config {
 // the within-group threshold; only Score exposes the raw composite that
 // can be compared against the boosted threshold.
 //
-// Cross-group identical-name suppression: when
-// cfg.CompareIdenticalAcrossGroups == false (the DefaultConfig default),
-// pairs whose names are byte-identical AFTER the Scorer's normalisation
-// pipeline are suppressed. This implements SCAN-04: operators legitimately
-// reuse the same name (e.g. user_id) across groups, and surfacing every
-// such pair would drown signal in noise. Pairs that are SIMILAR but not
-// byte-identical post-normalise are unaffected by this suppression.
+// Suppression composition (Plan 09-05): three rules compose via OR
+// via the isSuppressed predicate; the cheapest rule fires first.
+//
+//   - Rule 1 — per-item SilenceLint: when either Item.SilenceLint is
+//     true, the pair is suppressed. One-sided semantics.
+//   - Rule 2 — SuppressedPairs canonical-pair lookup: the consumer-
+//     supplied [][2]string is normalised once at Check entry (via the
+//     Scorer's NormalisationOptions) and stored as a canonical-pair
+//     set; lookups are order-independent (Pitfall 4 mitigation —
+//     consumers may pass raw forms regardless of case or separators).
+//   - Rule 3 — cross-group identical-name default (SCAN-04): when
+//     cfg.CompareIdenticalAcrossGroups == false (the DefaultConfig
+//     default), pairs in the cross-group pass whose normalised names
+//     coincide are suppressed. Operators legitimately reuse the same
+//     name across groups; surfacing every such pair would drown signal.
+//
+// The Plan-09-03 inline cross-group identical-name check has been
+// MIGRATED into Rule 3 — both naive and bucket cross-group emission
+// paths now route through isSuppressed. The migration is behaviour-
+// preserving; pairs that are SIMILAR but not byte-identical post-
+// normalise are unaffected.
 //
 // Name normalisation policy: Check reads the Scorer's normalisation
 // options via Scorer.NormalisationOptions() ONCE per invocation and
@@ -346,17 +364,22 @@ func DefaultConfig(s *fuzzymatch.Scorer) Config {
 //   - Plan 09-03: naive O(N²) within-group + O(N×M) cross-group
 //     passes; SCAN-04 identical-name suppression default; validateCheck
 //     wired as P0.
-//   - Plan 09-04 (this plan): bucket dispatch lands as a parallel
-//     branch alongside the naive passes from 09-03. For each group,
-//     when len(idx) > bucketThreshold (and the test-only
-//     forceNaivePath flag is false) the bucket path runs; otherwise
-//     the naive nested loop from Plan 09-03 runs. The
-//     PropCheck_BucketEquivalentToNaive property test
+//   - Plan 09-04: bucket dispatch lands as a parallel branch alongside
+//     the naive passes from 09-03. For each group, when len(idx) >
+//     bucketThreshold (and the test-only forceNaivePath flag is false)
+//     the bucket path runs; otherwise the naive nested loop from Plan
+//     09-03 runs. The PropCheck_BucketEquivalentToNaive property test
 //     (scan/props_test.go) proves the two paths produce identical
 //     warning sets for any randomly-generated input — SCAN-02 load-
 //     bearing gate.
-//   - Plan 09-05: full suppression composition — per-Item SilenceLint
-//     and global SuppressedPairs (SCAN-03).
+//   - Plan 09-05 (this plan): full suppression composition (SCAN-03)
+//     via the isSuppressed predicate. Three rules — per-item SilenceLint,
+//     SuppressedPairs canonical-pair lookup, and the SCAN-04 cross-
+//     group identical-name default (migrated from Plan-09-03's inline
+//     check into Rule 3) — compose via short-circuit OR. The predicate
+//     is called pre-emission on both the naive and bucket emission
+//     paths so SCAN-02 bucket-vs-naive equivalence holds under
+//     suppression.
 //   - Plan 09-06: deterministic sort + in-line completeness assertion.
 //
 // Dispatch decision (Plan 09-04):
@@ -444,6 +467,20 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 	// Scorer sees at scoring time.
 	tokenisedNames := tokeniseAll(items, normOpts, applyNormalisation)
 
+	// Plan 09-05: build the suppression context once at Check entry.
+	// buildSuppressionCtx canonicalises every SuppressedPairs entry
+	// using the Scorer's normalisation options (Pitfall 4 — without
+	// this step, raw consumer-supplied pairs would never match the
+	// Normalised candidate pairs in the inner loop). The returned ctx
+	// is read-only for the rest of this Check invocation and passes
+	// directly into isSuppressed at every emission site.
+	suppressCtx := buildSuppressionCtx(
+		cfg.SuppressedPairs,
+		normOpts,
+		applyNormalisation,
+		cfg.CompareIdenticalAcrossGroups,
+	)
+
 	// Group items by their Group value. The slice values preserve
 	// insertion order via append, which mirrors items[] slice-index
 	// order — important for deterministic warning emission within a
@@ -501,6 +538,14 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 						continue // emit each unordered pair exactly once
 					}
 					a, b := items[i], items[j]
+					// Plan 09-05: suppression check fires BEFORE
+					// Scorer.Score on the bucket path. The cheapest
+					// rule (Rule 1 SilenceLint) is evaluated first; we
+					// avoid the per-pair Score allocation entirely on
+					// suppressed candidates.
+					if isSuppressed(a, b, KindWithinGroup, normalisedNames[i], normalisedNames[j], suppressCtx) {
+						continue
+					}
 					score := cfg.Scorer.Score(a.Name, b.Name)
 					if score >= withinThreshold {
 						warnings = append(warnings, Warning{
@@ -523,6 +568,13 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 			for i := 0; i < len(idx); i++ {
 				for j := i + 1; j < len(idx); j++ {
 					a, b := items[idx[i]], items[idx[j]]
+					// Plan 09-05: suppression check on the naive path
+					// — identical predicate to the bucket path above so
+					// SCAN-02 bucket-vs-naive equivalence holds under
+					// suppression.
+					if isSuppressed(a, b, KindWithinGroup, normalisedNames[idx[i]], normalisedNames[idx[j]], suppressCtx) {
+						continue
+					}
 					score := cfg.Scorer.Score(a.Name, b.Name)
 					if score >= withinThreshold {
 						warnings = append(warnings, Warning{
@@ -585,11 +637,18 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 							if _, ok := inB[j]; !ok {
 								continue // skip same-group hits
 							}
-							// SCAN-04 identical-name suppression default.
-							if !cfg.CompareIdenticalAcrossGroups && normalisedNames[i] == normalisedNames[j] {
+							a, b := items[i], items[j]
+							// Plan 09-05: cross-group identical-name
+							// suppression (SCAN-04) now lives in
+							// isSuppressed Rule 3 — Plan-09-03's
+							// inline check at this site was migrated
+							// for unified semantics. The predicate
+							// also covers Rule 1 (SilenceLint) and
+							// Rule 2 (SuppressedPairs) at the same
+							// emission site.
+							if isSuppressed(a, b, KindAcrossGroups, normalisedNames[i], normalisedNames[j], suppressCtx) {
 								continue
 							}
-							a, b := items[i], items[j]
 							score := cfg.Scorer.Score(a.Name, b.Name)
 							if score >= effectiveThreshold {
 								warnings = append(warnings, Warning{
@@ -611,16 +670,18 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 					// pairs + the test-only forceNaivePath toggle).
 					for _, i := range idxA {
 						for _, j := range idxB {
-							// SCAN-04 identical-name suppression default.
-							// Compared against normalisedNames so
-							// consumers who switch case ("user_id" vs
-							// "USER_ID") still see the pair suppressed
-							// when the Scorer's normalisation collapses
-							// them to the same form.
-							if !cfg.CompareIdenticalAcrossGroups && normalisedNames[i] == normalisedNames[j] {
+							a, b := items[i], items[j]
+							// Plan 09-05: cross-group identical-name
+							// suppression (SCAN-04) now lives in
+							// isSuppressed Rule 3 — Plan-09-03's
+							// inline check at this site was migrated
+							// for unified semantics. The predicate
+							// also covers Rule 1 (SilenceLint) and
+							// Rule 2 (SuppressedPairs) at the same
+							// emission site.
+							if isSuppressed(a, b, KindAcrossGroups, normalisedNames[i], normalisedNames[j], suppressCtx) {
 								continue
 							}
-							a, b := items[i], items[j]
 							score := cfg.Scorer.Score(a.Name, b.Name)
 							if score >= effectiveThreshold {
 								warnings = append(warnings, Warning{
