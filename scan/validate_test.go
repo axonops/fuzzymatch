@@ -294,8 +294,8 @@ func TestValidate_DuplicatePlusEmptyName_CollectsBoth(t *testing.T) {
 
 	items := []Item{
 		{Name: "alpha", Group: "g"},
-		{Name: "", Group: "g"},        // D-03 empty Name at index 1
-		{Name: "alpha", Group: "g"},   // D-06 duplicate of index 0
+		{Name: "", Group: "g"},      // D-03 empty Name at index 1
+		{Name: "alpha", Group: "g"}, // D-06 duplicate of index 0
 	}
 	cfg := newGoodConfig(newGoodScorer())
 
@@ -392,11 +392,11 @@ func TestValidate_MultipleEmptySuppressedPairs_CollectsAll(t *testing.T) {
 	cfg := newGoodConfig(newGoodScorer())
 	cfg.SuppressedPairs = [][2]string{
 		{"a", "b"},
-		{"", "x"},   // index 1
+		{"", "x"}, // index 1
 		{"c", "d"},
-		{"x", ""},   // index 3
+		{"x", ""}, // index 3
 		{"e", "f"},
-		{"", ""},    // index 5
+		{"", ""}, // index 5
 	}
 
 	err := validateCheck(nil, cfg)
