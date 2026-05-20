@@ -182,9 +182,13 @@ type Config struct {
 	SuppressedPairs [][2]string
 }
 
-// Warning is one detected similar-name pair. NameA is the
-// lexicographically smaller of the pair (after normalisation) so output
-// ordering is deterministic.
+// Warning is one detected similar-name pair. The deterministic output
+// sort by (Kind, NameA, NameB, GroupA, GroupB) — including the
+// lexicographic canonicalisation of NameA/NameB so NameA is the smaller
+// of the pair after normalisation — is applied by Plan 09-06's sort
+// step. Plan 09-03 returns warnings unsorted in (sorted-group, slice-index)
+// emission order; consumers reading post-09-06 Check output get the
+// fully canonicalised form.
 //
 // SPEC OVERRIDE (Phase 9): Scores is map[fuzzymatch.AlgoID]float64
 // (typed enum keys), NOT map[string]float64 as docs/requirements.md
@@ -205,9 +209,11 @@ type Warning struct {
 	// per 09-CONTEXT.md §1 D-02; spec §12.1 was amended in lockstep.
 	Kind Kind
 
-	// NameA, NameB are the raw item names (NOT normalised). NameA is
-	// the lexicographically smaller after normalisation so ordering is
-	// stable; NameB is the lexicographically larger.
+	// NameA, NameB are the raw item names (NOT normalised). Plan 09-06's
+	// sort step canonicalises the pair so NameA is the lexicographically
+	// smaller of the two (post-normalisation); Plan 09-03's pre-sort
+	// emission carries names in slice-index order. Consumers reading
+	// post-09-06 Check output observe the canonical ordering.
 	NameA, NameB string
 
 	// GroupA, GroupB are the raw group values from the corresponding
@@ -436,14 +442,22 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 	warnings := make([]Warning, 0)
 
 	// Within-group naive pass. For each group (in sorted-key order),
-	// iterate every i<j pair. Scorer.Match applies the within-group
-	// threshold internally.
+	// iterate every i<j pair. Compute Score once per pair and compare
+	// against Scorer.Threshold() directly — mirrors the cross-group
+	// block below. This avoids the triple-Scorer-call pattern
+	// (Match-internally-calls-Score + explicit Score + ScoreAll) that
+	// inflated the per-emission cost ~3×; convergent finding from
+	// code-reviewer / algorithm-correctness-reviewer / security-reviewer
+	// on Plan 09-03. Match's inclusive >= semantics (scorer.go:399) are
+	// preserved verbatim by the >= Threshold() comparison.
+	withinThreshold := cfg.Scorer.Threshold()
 	for _, group := range sortedGroups {
 		idx := groupIndices[group]
 		for i := 0; i < len(idx); i++ {
 			for j := i + 1; j < len(idx); j++ {
 				a, b := items[idx[i]], items[idx[j]]
-				if cfg.Scorer.Match(a.Name, b.Name) {
+				score := cfg.Scorer.Score(a.Name, b.Name)
+				if score >= withinThreshold {
 					warnings = append(warnings, Warning{
 						Kind:   KindWithinGroup,
 						NameA:  a.Name,
@@ -452,7 +466,7 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 						GroupB: b.Group,
 						TagA:   a.Tag,
 						TagB:   b.Tag,
-						Score:  cfg.Scorer.Score(a.Name, b.Name),
+						Score:  score,
 						Scores: cfg.Scorer.ScoreAll(a.Name, b.Name),
 					})
 				}
