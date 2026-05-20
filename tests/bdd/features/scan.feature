@@ -201,6 +201,30 @@ Feature: Collection scan (Phase 9)
     When I invoke scan.Check
     Then scan.Check returns an error matching scan.ErrInvalidConfig
 
+  @scan @validation @boost @D-04
+  Scenario Outline: Out-of-range CrossGroupThresholdBoost returns ErrInvalidConfig
+    # 09-CONTEXT.md D-04 boundaries — closed-interval [0.0, 1.0]
+    # strict-range validation. Below 0 and above 1 both reject with
+    # ErrInvalidConfig. Closes the bdd-scenario-reviewer NIT on Plan
+    # 09-07 (orphaned step `the scan config has CrossGroupThresholdBoost
+    # set to <float>` is now consumed here).
+    Given I construct the default Scorer for scan
+    And the scan items
+      | name    | group | silence_lint |
+      | user_id | login | false        |
+      | userId  | login | false        |
+    And the scan config is the default scan config
+    And the scan config has CrossGroupThresholdBoost set to <boost>
+    When I invoke scan.Check
+    Then scan.Check returns an error matching scan.ErrInvalidConfig
+
+    Examples:
+      | boost | note         |
+      | -0.01 | just below 0 |
+      | -0.5  | well below 0 |
+      | 1.01  | just above 1 |
+      | 5.0   | well above 1 |
+
   @scan @validation @nil-scorer
   Scenario: Nil Scorer returns ErrNilScorer
     # 09-CONTEXT.md validation pipeline P1 — the cheapest, fail-fast

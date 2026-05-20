@@ -440,6 +440,52 @@ func TestPropCheck_NoInf(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------
+// PropCheck_ScoreInRange — DET-04 boundary
+// ----------------------------------------------------------------------
+
+// TestPropCheck_ScoreInRange asserts that every emitted Warning.Score
+// and every per-algorithm value in Warning.Scores lies in the closed
+// interval [0.0, 1.0]. Closes the test-analyst gap from the Phase 9
+// final panel: PropCheck_NoNaN + PropCheck_NoInf cover the
+// non-finite cases but not finite-out-of-range (e.g. negative scores
+// or values > 1.0). Combined with NoNaN/NoInf this gives full DET-04
+// score-domain coverage at the scan boundary; scan itself does no
+// score arithmetic, so a violation would surface a Scorer regression
+// that scan must propagate via the property gate.
+func TestPropCheck_ScoreInRange(t *testing.T) {
+	t.Parallel()
+
+	prop := func(gen itemSliceGen) bool {
+		items := []scan.Item(gen)
+		cfg := scan.DefaultConfig(fuzzymatch.DefaultScorer())
+		cfg.CompareAcrossGroups = true
+
+		warnings, err := scan.Check(items, cfg)
+		if err != nil {
+			t.Logf("Check error: %v", err)
+			return false
+		}
+		for i, w := range warnings {
+			if w.Score < 0.0 || w.Score > 1.0 {
+				t.Logf("Warning[%d].Score out of [0,1]: %v in %+v", i, w.Score, w)
+				return false
+			}
+			for id, v := range w.Scores {
+				if v < 0.0 || v > 1.0 {
+					t.Logf("Warning[%d].Scores[%v] out of [0,1]: %v in %+v", i, id, v, w)
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	if err := quick.Check(prop, &quick.Config{MaxCount: 100}); err != nil {
+		t.Errorf("PropCheck_ScoreInRange: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
 
