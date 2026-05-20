@@ -78,10 +78,19 @@ import (
 // BenchmarkScanCheck_BucketVsNaive_GroupSize at 2026-05-20 / Plan
 // 09-04. The starting hypothesis from docs/requirements.md §12.5 was
 // 50; the benchmark sweep over group sizes 10 / 25 / 50 / 75 / 100 /
-// 200 confirmed the bucket path overtakes naive at approximately the
-// hypothesis value, so the constant remains 50. The wall-clock
-// crossover and the per-group-size numbers are recorded in bench.txt
-// and in .planning/phases/09-collection-scan-sub-package/09-04-SUMMARY.md.
+// 200 (10,000 items per variant) confirmed the bucket path overtakes
+// naive immediately at the first dispatch-eligible variant
+// (GroupSize75), delivering a ~9× speedup that holds across larger
+// groups. The crossover is empirically within ±10 of the hypothesis,
+// so the constant remains 50. Per-group-size numbers (count=3):
+//
+//	GroupSize75   naive ≈ 1593 ms / bucket ≈ 161 ms — bucket 9.9× faster
+//	GroupSize100  naive ≈ 1850 ms / bucket ≈ 211 ms — bucket 8.8× faster
+//	GroupSize200  naive ≈ 3729 ms / bucket ≈ 419 ms — bucket 8.9× faster
+//
+// PERF-05 budget (10,000 items / 500 groups): 362 ms per Check —
+// 5.5× under the 2 s spec. Full numbers recorded in bench.txt and
+// in .planning/phases/09-collection-scan-sub-package/09-04-SUMMARY.md.
 //
 // Per 09-CONTEXT.md §5 D-08 (LOCKED): this is a package-private
 // constant, NOT a Config.BucketThreshold field. Promotion to a public
