@@ -191,7 +191,18 @@ func (sc *ScanContext) iSetSuppressedPairs(table *godog.Table) error {
 	if idxA < 0 || idxB < 0 {
 		return fmt.Errorf("suppressed-pairs table must have columns 'a' and 'b'; got header %v", header.Cells)
 	}
-	for _, row := range table.Rows[1:] {
+	for ri, row := range table.Rows[1:] {
+		// Defensive guard against malformed (ragged) tables. godog
+		// normally rejects these at parse time, but the explicit check
+		// mirrors parseScanItemRow's discipline and surfaces the failure
+		// clearly. Closes code-reviewer MEDIUM M1 finding on Plan 09-07.
+		need := idxA
+		if idxB > need {
+			need = idxB
+		}
+		if need >= len(row.Cells) {
+			return fmt.Errorf("suppressed-pairs row %d has %d cells; need at least %d", ri+1, len(row.Cells), need+1)
+		}
 		a := decodeEmptySentinel(row.Cells[idxA].Value)
 		b := decodeEmptySentinel(row.Cells[idxB].Value)
 		sc.cfg.SuppressedPairs = append(sc.cfg.SuppressedPairs, [2]string{a, b})
@@ -382,18 +393,25 @@ func (sc *ScanContext) theTwoWarningsSlicesAreByteIdentical() error {
 
 // theEffectiveCrossGroupThresholdEquals computes the documented boost
 // arithmetic (min(1.0, Scorer.Threshold() + boost)) and asserts the
-// expected value matches a recomputation. Documents the boost
-// arithmetic invariant at BDD level — the runtime threshold gate
-// itself is exercised by scan_test.go unit tests.
-// Step regex: `^the effective cross-group threshold equals min\(1\.0, Threshold \+ Boost\)$`
-func (sc *ScanContext) theEffectiveCrossGroupThresholdEquals() error {
+// expected value matches the hardcoded canonical value from the
+// Gherkin step. Documents the boost arithmetic invariant at BDD
+// level — the runtime threshold gate itself is exercised by
+// scan_test.go unit tests.
+//
+// Fixes the bdd-scenario-reviewer BLOCKING + code-reviewer HIGH
+// finding on Plan 09-07: previously the step computed `got` and
+// `want` from the identical expression, making the assertion a
+// tautology that could never fail.
+//
+// Step regex: `^the effective cross-group threshold equals ([0-9]+\.?[0-9]*)$`
+func (sc *ScanContext) theEffectiveCrossGroupThresholdEquals(want float64) error {
 	if sc.scorer == nil {
 		return fmt.Errorf("scorer not constructed")
 	}
 	got := math.Min(1.0, sc.scorer.Threshold()+sc.cfg.CrossGroupThresholdBoost)
-	want := math.Min(1.0, sc.scorer.Threshold()+sc.cfg.CrossGroupThresholdBoost)
-	if got != want {
-		return fmt.Errorf("effective threshold mismatch: got %v want %v", got, want)
+	if math.Abs(got-want) > 1e-9 {
+		return fmt.Errorf("effective cross-group threshold: got %v want %v (Threshold=%v Boost=%v)",
+			got, want, sc.scorer.Threshold(), sc.cfg.CrossGroupThresholdBoost)
 	}
 	return nil
 }
@@ -499,8 +517,18 @@ func parseSilenceLint(rowIdx int, cells []*messages.PickleTableCell, idx int) (b
 // Backs the "the scan items" Given step in scan.feature and
 // suppression.feature.
 func parseScanItems(table *godog.Table) ([]scan.Item, error) {
-	if table == nil || len(table.Rows) < 2 {
-		return nil, fmt.Errorf("scan-items table needs a header plus at least one data row")
+	if table == nil || len(table.Rows) == 0 {
+		return nil, fmt.Errorf("scan-items table needs a header row")
+	}
+	// Header-only table (e.g. empty-items-slice scenario) returns an
+	// empty []scan.Item without error. scan.Check accepts zero-item
+	// input per documented contract — exercising that path requires
+	// the BDD to express "no items" explicitly.
+	if len(table.Rows) == 1 {
+		if _, err := resolveScanItemColumns(table.Rows[0].Cells); err != nil {
+			return nil, err
+		}
+		return nil, nil
 	}
 	cols, err := resolveScanItemColumns(table.Rows[0].Cells)
 	if err != nil {
@@ -740,7 +768,7 @@ func InitScanSteps(ctx *godog.ScenarioContext) {
 		sc.theTwoWarningsSlicesAreByteIdentical,
 	)
 	ctx.Step(
-		`^the effective cross-group threshold equals min\(1\.0, Threshold \+ Boost\)$`,
+		`^the effective cross-group threshold equals ([0-9]+\.?[0-9]*)$`,
 		sc.theEffectiveCrossGroupThresholdEquals,
 	)
 	ctx.Step(

@@ -64,13 +64,33 @@ Feature: Collection scan (Phase 9)
     Then scan.Check returns no error
     And the scan warnings list has 0 entries
 
+  @scan @cross @disabled
+  Scenario: Cross-group scan is disabled by default
+    # 09-CONTEXT.md cross-group class — DefaultConfig sets
+    # CompareAcrossGroups=false. Similar names in DIFFERENT groups
+    # never produce AcrossGroups warnings even when within-group
+    # similarity would have triggered a hit. Pin the default-off gate
+    # explicitly (separate from Rule 3 identical-name suppression).
+    # Closes bdd-scenario-reviewer IMPORTANT-2 on Plan 09-07.
+    Given I construct the default Scorer for scan
+    And the scan items
+      | name    | group   | silence_lint |
+      | user_id | login   | false        |
+      | userId  | profile | false        |
+    And the scan config is the default scan config
+    When I invoke scan.Check
+    Then scan.Check returns no error
+    And the scan warnings list has 0 entries
+
   @scan @cross @boost
   Scenario: Cross-group scan applies threshold boost from DefaultConfig
     # 09-CONTEXT.md cross-group class — DefaultConfig bakes
     # CrossGroupThresholdBoost = 0.05 (D-04). With DefaultScorer
     # Threshold = 0.85, the effective cross-group threshold is
-    # min(1.0, 0.85 + 0.05) = 0.90. The step asserts the documented
-    # boost arithmetic; runtime gating is exercised by scan_test.go.
+    # min(1.0, 0.85 + 0.05) = 0.90. The step asserts the boost
+    # arithmetic against a hardcoded expected value; runtime gating is
+    # exercised by scan_test.go. Previously the step computed got/want
+    # from the same expression (tautology); fixed in 09-07 remediation.
     Given I construct the default Scorer for scan
     And the scan items
       | name    | group   | silence_lint |
@@ -80,7 +100,21 @@ Feature: Collection scan (Phase 9)
     And I set CompareAcrossGroups to true
     When I invoke scan.Check
     Then scan.Check returns no error
-    And the effective cross-group threshold equals min(1.0, Threshold + Boost)
+    And the effective cross-group threshold equals 0.90
+
+  @scan @validation @empty
+  Scenario: Empty items slice returns no warnings and no error
+    # 09-CONTEXT.md edge-case — scan.Check explicitly accepts the
+    # zero-item slice and returns (nil, nil). Pin the consumer
+    # contract: empty input means empty output, no validation error.
+    # Closes bdd-scenario-reviewer IMPORTANT-3 on Plan 09-07.
+    Given I construct the default Scorer for scan
+    And the scan items
+      | name | group | silence_lint |
+    And the scan config is the default scan config
+    When I invoke scan.Check
+    Then scan.Check returns no error
+    And the scan warnings list has 0 entries
 
   @scan @cross @identical @default-suppressed
   Scenario: Cross-group identical-name pairs are suppressed by default

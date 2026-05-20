@@ -234,3 +234,44 @@ Feature: Suppression composition (Phase 9 — closes Phase 8.5 R2 Gap 3)
     When I invoke scan.Check
     Then scan.Check returns no error
     And the scan warnings list has 0 entries
+
+  @suppression @suppressedpairs @validation @D-05
+  Scenario: Empty string in SuppressedPairs returns ErrInvalidConfig
+    # D-05 has two clauses — self-pairs silently kept (covered above)
+    # AND empty-string entries reject as ErrInvalidConfig. This
+    # scenario closes the validation clause at BDD level. Plan 09-02
+    # validateSuppressedPairs collects all offending indices via
+    # errors.Join.
+    # Closes bdd-scenario-reviewer IMPORTANT-4 on Plan 09-07.
+    Given I construct the default Scorer for scan
+    And the scan items
+      | name    | group | silence_lint |
+      | user_id | login | false        |
+      | userId  | login | false        |
+    And the scan config is the default scan config
+    And I set suppressed pairs
+      | a       | b      |
+      | (empty) | userId |
+    When I invoke scan.Check
+    Then scan.Check returns an error matching scan.ErrInvalidConfig
+
+  @suppression @invariant
+  Scenario: Suppression does not affect dissimilar pairs
+    # Suppression is not a "widening" mechanism — it cannot cause a
+    # dissimilar pair (one that would not have been flagged anyway) to
+    # silently disappear from a consumer's expected output. A pair
+    # below the similarity threshold never emits a warning regardless
+    # of SuppressedPairs entries.
+    # Closes bdd-scenario-reviewer IMPORTANT-5 on Plan 09-07.
+    Given I construct the default Scorer for scan
+    And the scan items
+      | name       | group | silence_lint |
+      | is_deleted | login | false        |
+      | is_active  | login | false        |
+    And the scan config is the default scan config
+    And I set suppressed pairs
+      | a          | b         |
+      | is_deleted | is_active |
+    When I invoke scan.Check
+    Then scan.Check returns no error
+    And the scan warnings list has 0 entries
