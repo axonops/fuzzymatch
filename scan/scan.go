@@ -637,37 +637,55 @@ func Check(items []Item, cfg Config) ([]Warning, error) { //nolint:gocyclo // lo
 		// effective threshold above 1.0, the score range upper bound).
 		effectiveThreshold := math.Min(1.0, cfg.Scorer.Threshold()+cfg.CrossGroupThresholdBoost)
 
+		// Cross-group bucket optimisation (phase-end remediation):
+		// build ONE per-group tokenBucket per group at Check entry
+		// (perGroupBuckets[gi] is the bucket over groupIndices[gi]).
+		// For each (gi, gj) pair we then enumerate candidates from
+		// bucket-gj for each source i in idxA — the candidate set is
+		// naturally pre-filtered to gj members by construction, so
+		// no separate group-membership filter is needed. The bucket
+		// build cost is amortised once per group across all (gi, gj)
+		// pairs that reference it. This replaces the prior per-pair
+		// union+inB rebuild that accumulated ~1.3B allocs and ~189s
+		// wall-clock on the 10k items / 500 groups workload (spec
+		// §12.6) — the per-pair cost is now dominated by the
+		// inner-loop Scorer.Score calls, not bucket maintenance.
+		//
+		// SCAN-02 correctness: bucket equivalence is preserved by
+		// construction. For any source i in idxA seeking candidates
+		// in idxB, the per-group bucket-gj contains exactly idxB's
+		// items keyed by their tokens. A pair (i, j) with j ∈ idxB
+		// is reachable from bucketCandidates(i, bucket-gj) iff i and
+		// j share at least one token — identical to the per-pair
+		// bucket built over (idxA ∪ idxB) and filtered to idxB.
+		//
+		// Build gate: skip the per-group buckets for very small
+		// inputs (≤ bucketThreshold total items) where naive
+		// cross-group is faster than the bucket-build overhead.
+		// forceNaivePath (test-only) also forces naive everywhere
+		// to keep PropCheck_BucketEquivalentToNaive deterministic.
+		var perGroupBuckets []map[string][]int
+		useGlobalBucket := !forceNaivePath.Load() && len(items) > bucketThreshold
+		if useGlobalBucket {
+			perGroupBuckets = make([]map[string][]int, len(sortedGroups))
+			for gi, g := range sortedGroups {
+				perGroupBuckets[gi] = buildBucket(groupIndices[g], tokenisedNames)
+			}
+		}
+
 		for gi := 0; gi < len(sortedGroups); gi++ {
 			for gj := gi + 1; gj < len(sortedGroups); gj++ {
 				idxA := groupIndices[sortedGroups[gi]]
 				idxB := groupIndices[sortedGroups[gj]]
-				if !forceNaivePath.Load() && (len(idxA)+len(idxB)) > bucketThreshold {
-					// Bucket path. Build the bucket over the union of
-					// idxA and idxB. For each i in idxA, the candidates
-					// returned by bucketCandidates may include indices
-					// from idxA (same-group) or idxB (cross-group); we
-					// emit only the cross-group hits to preserve the
-					// per-group-pair semantics.
-					union := make([]int, 0, len(idxA)+len(idxB))
-					union = append(union, idxA...)
-					union = append(union, idxB...)
-					bucket := buildBucket(union, tokenisedNames)
-
-					// inB is a set membership test for the cross-group
-					// candidate filter — direct map lookup, never
-					// iterated. Sized to len(idxB) so the alloc is
-					// O(group size).
-					inB := make(map[int]struct{}, len(idxB))
-					for _, j := range idxB {
-						inB[j] = struct{}{}
-					}
-
+				if useGlobalBucket {
+					// Per-group-bucket path. For each i in idxA,
+					// enumerate candidates from bucket-gj. The
+					// candidate set is naturally restricted to gj
+					// members; no group-filter is needed.
+					bucketB := perGroupBuckets[gj]
 					for _, i := range idxA {
-						candidates := bucketCandidates(i, bucket, tokenisedNames)
+						candidates := bucketCandidates(i, bucketB, tokenisedNames)
 						for _, j := range candidates {
-							if _, ok := inB[j]; !ok {
-								continue // skip same-group hits
-							}
 							a, b := items[i], items[j]
 							// Plan 09-05: cross-group identical-name
 							// suppression (SCAN-04) now lives in
