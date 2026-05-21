@@ -19,7 +19,7 @@
 - [ ] **Phase 7: Phonetic Algorithms** - Soundex, Double Metaphone, NYSIIS, MRA
 - [x] **Phase 8: Composite Scorer** - Functional-options weighted Scorer, ScoreAll, Match, normalisation control (completed 2026-05-17)
 - [ ] **Phase 8.5: Review Remediation Gate** - Resolve all 465 findings (74 Critical + 195 Important + 196 Improvement) from the Phase 8 comprehensive review; apply 14 locked discuss-phase decisions across spec, code, tests, docs, and CI
-- [ ] **Phase 9: Collection Scan Sub-package** - Within-group + cross-group passes, token-bucket optimisation, suppression composition
+- [x] **Phase 9: Collection Scan Sub-package** - Within-group + cross-group passes, token-bucket optimisation, suppression composition (completed 2026-05-21)
 - [ ] **Phase 10: Extract API** - One-to-many `Extract` / `ExtractOne` search, RapidFuzz `process.extract`-equivalent
 - [ ] **Phase 11: Integration Shakedown & v1.0.0** - `axonops/audit` consumption, API freeze, v1.0.0 signed release
 
@@ -247,6 +247,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Phonetic Algorithms | 0/5 | Not started | - |
 | 8. Composite Scorer | 4/4 | Complete   | 2026-05-17 |
 | 8.5. Review Remediation Gate | 7/20 | In Progress | - |
-| 9. Collection Scan Sub-package | 0/TBD | Not started | - |
+| 9. Collection Scan Sub-package | 8/8 | Complete    | 2026-05-21 |
 | 10. Extract API | 0/TBD | Not started | - |
 | 11. Integration Shakedown & v1.0.0 | 0/TBD | Not started | - |
